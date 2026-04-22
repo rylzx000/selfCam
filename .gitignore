@@ -5,6 +5,7 @@ versions/
 前端模型/
 .qoder/
 .sisyphus/
+e2e/reports/
 project.private.config.json
 日志.txt
 Thumbs.db
