@@ -1,0 +1,12 @@
+<!--照片操作菜单组件-->
+<view class="menu-mask" wx:if="{{visible}}" bindtap="onClose">
+  <view class="menu-container" catchtap="stopPropagation">
+    <view class="menu-item menu-item-delete" bindtap="onDelete">
+      <text>删除照片</text>
+    </view>
+    <view class="menu-divider"></view>
+    <view class="menu-item menu-item-retake" bindtap="onRetake">
+      <text>重拍照片</text>
+    </view>
+  </view>
+</view>

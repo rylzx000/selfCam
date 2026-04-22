@@ -1,0 +1,40 @@
+<!--完成页-->
+<view class="container">
+  <!-- 完成图标 -->
+  <view class="success-icon">
+    <text>✓</text>
+  </view>
+  
+  <!-- 完成提示 -->
+  <view class="title">
+    <text>拍摄完成</text>
+  </view>
+  
+  <!-- 统计信息 -->
+  <view class="stats-card">
+    <view class="stat-item">
+      <text class="stat-value">{{vehicleCount}}</text>
+      <text class="stat-label">车辆数</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{totalPhotos}}</text>
+      <text class="stat-label">照片数</text>
+    </view>
+  </view>
+  
+  <!-- 提示文字 -->
+  <view class="message">
+    <text>所有照片已保存完成</text>
+  </view>
+  
+  <!-- 底部按钮 -->
+  <view class="bottom-area">
+    <view class="btn btn-primary" bindtap="onExit">
+      <text>完成退出</text>
+    </view>
+    <view class="btn btn-secondary" bindtap="onBackToEdit">
+      <text>返回修改</text>
+    </view>
+  </view>
+</view>

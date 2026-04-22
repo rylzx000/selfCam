@@ -1,0 +1,65 @@
+/* 图片预览组件样式 */
+
+.preview-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+}
+
+.preview-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.preview-image {
+  width: 500rpx;
+  height: 320rpx;
+}
+
+/* 右侧按钮 */
+.side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-left: 24rpx;
+}
+
+.action-btn {
+  padding: 10rpx 18rpx;
+  border-radius: 4rpx;
+  transition: all 0.2s ease;
+}
+
+.action-btn text {
+  font-size: 16rpx;
+}
+
+.action-delete {
+  background-color: rgba(211, 47, 47, 0.7);
+}
+
+.action-delete text {
+  color: #FFFFFF;
+}
+
+.action-retake {
+  background-color: rgba(76, 175, 80, 0.7);
+}
+
+.action-retake text {
+  color: #FFFFFF;
+}
+
+.action-btn:active {
+  opacity: 0.7;
+  transform: scale(0.95);
+}

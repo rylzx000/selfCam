@@ -1,0 +1,22 @@
+<!--确认弹框组件-->
+<view class="modal-mask" wx:if="{{visible}}" bindtap="onCancel">
+  <view class="modal-container" catchtap="stopPropagation">
+    <!-- 图片预览区 -->
+    <view class="modal-image-wrapper" wx:if="{{image}}">
+      <image class="modal-image" src="{{image}}" mode="aspectFill"></image>
+    </view>
+    <!-- 文字内容区 -->
+    <view class="modal-content">
+      <text class="modal-text">{{content}}</text>
+    </view>
+    <!-- 按钮区 -->
+    <view class="modal-buttons">
+      <view class="modal-btn modal-btn-cancel" bindtap="onCancel">
+        <text>{{cancelText}}</text>
+      </view>
+      <view class="modal-btn modal-btn-confirm" bindtap="onConfirm">
+        <text>{{confirmText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

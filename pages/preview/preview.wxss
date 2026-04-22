@@ -1,0 +1,491 @@
+/* 预览页样式 */
+
+.page {
+  width: 100%;
+  height: 100%;
+  background-color: #F5F5F5;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 照片网格视图 */
+.grid-view {
+  flex: 1;
+  height: 0;
+  padding: 12rpx;
+  box-sizing: border-box;
+}
+
+.vehicle-section {
+  margin-bottom: 16rpx;
+}
+
+.vehicle-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+  padding: 0 4rpx;
+}
+
+.vehicle-title {
+  font-size: 16rpx;
+  font-weight: 500;
+  color: #4CAF50;
+}
+
+.delete-btn {
+  font-size: 12rpx;
+  color: #D32F2F;
+  padding: 4rpx 10rpx;
+  border: 1rpx solid #FFCDD2;
+  border-radius: 4rpx;
+  background-color: #FFEBEE;
+  margin-left: 12rpx;
+}
+
+.delete-btn:active {
+  background-color: #D32F2F;
+  color: #FFFFFF;
+  border-color: #D32F2F;
+}
+
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+/* 照片项 */
+.photo-item {
+  width: 100rpx;
+  background-color: #FFFFFF;
+  border-radius: 8rpx;
+  overflow: hidden;
+  border: 1rpx solid #EEEEEE;
+  position: relative;
+}
+
+.capture-badge {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  font-size: 10rpx;
+  line-height: 1;
+  color: #FFFFFF;
+  background: rgba(76, 175, 80, 0.92);
+  padding: 4rpx 6rpx;
+  border-radius: 10rpx;
+}
+
+.photo-item image {
+  width: 100rpx;
+  height: 75rpx;
+  display: block;
+  background-color: #E0E0E0;
+}
+
+.photo-label {
+  display: block;
+  font-size: 11rpx;
+  color: #757575;
+  text-align: center;
+  padding: 4rpx 0;
+  background-color: #FFFFFF;
+}
+
+.photo-item.empty,
+.photo-item.add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+}
+
+.photo-item.empty {
+  border-color: #BDBDBD;
+  background-color: #FAFAFA;
+}
+
+.photo-item.add {
+  border-color: #4CAF50;
+  background-color: #FAFAFA;
+}
+
+.photo-item.empty .photo-label,
+.photo-item.add .photo-label {
+  background-color: transparent;
+}
+
+.photo-item .plus {
+  font-size: 32rpx;
+  color: #BDBDBD;
+  line-height: 60rpx;
+}
+
+.photo-item.add .plus {
+  color: #4CAF50;
+}
+
+/* 底部栏 */
+.footer {
+  height: 60rpx;
+  min-height: 60rpx;
+  background-color: #FFFFFF;
+  border-top: 1rpx solid #EEEEEE;
+  display: flex;
+  align-items: center;
+  padding: 0 16rpx;
+  gap: 16rpx;
+}
+
+/* 进度指示器 */
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.progress-dots {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4rpx;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: #E0E0E0;
+  border: 2rpx solid #BDBDBD;
+  flex-shrink: 0;
+}
+
+.dot.active {
+  background-color: #FFFFFF;
+  border-color: #4CAF50;
+}
+
+.dot.completed {
+  background-color: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.dot-line {
+  width: 16rpx;
+  height: 2rpx;
+  background-color: #E0E0E0;
+  margin: 0 2rpx;
+}
+
+.dot-line.completed {
+  background-color: #4CAF50;
+}
+
+.progress-labels {
+  display: flex;
+  align-items: center;
+}
+
+.progress-labels .label {
+  font-size: 10rpx;
+  color: #9E9E9E;
+  width: 28rpx;
+  text-align: center;
+}
+
+.progress-labels .label.completed {
+  color: #4CAF50;
+  font-weight: 500;
+}
+
+.progress-labels .label:nth-child(1) {
+  margin-left: 0;
+}
+
+.progress-labels .label:nth-child(2) {
+  margin-left: 14rpx;
+}
+
+.progress-labels .label:nth-child(3) {
+  margin-left: 14rpx;
+}
+
+/* 照片统计 */
+.stats {
+  font-size: 13rpx;
+  color: #757575;
+  flex: 1;
+  text-align: center;
+}
+
+/* 操作按钮 */
+.footer-btns {
+  display: flex;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.btn-outline {
+  font-size: 13rpx;
+  color: #757575;
+  padding: 8rpx 16rpx;
+  border: 1rpx solid #EEEEEE;
+  border-radius: 6rpx;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:active {
+  background-color: #F5F5F5;
+}
+
+.btn-primary {
+  font-size: 13rpx;
+  color: #FFFFFF;
+  padding: 8rpx 16rpx;
+  border-radius: 6rpx;
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:active {
+  opacity: 0.9;
+}
+
+/* 全屏预览 */
+.fullscreen-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000000;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-swiper {
+  flex: 1;
+  width: 100%;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* 预览顶栏 */
+.preview-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44rpx;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16rpx;
+  transition: opacity 0.3s;
+}
+
+.preview-header.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.close-btn {
+  font-size: 14rpx;
+  color: #FFFFFF;
+  padding: 6rpx 12rpx;
+}
+
+.preview-count {
+  font-size: 14rpx;
+  color: #FFFFFF;
+}
+
+.placeholder {
+  width: 50rpx;
+}
+
+/* 照片类型标签 */
+.preview-label {
+  position: absolute;
+  top: 44rpx;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 14rpx;
+  color: rgba(255,255,255,0.8);
+  transition: opacity 0.3s;
+}
+
+.preview-label.hidden {
+  opacity: 0;
+}
+
+.preview-mode-tag {
+  position: absolute;
+  top: 66rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12rpx;
+  color: #FFFFFF;
+  padding: 6rpx 12rpx;
+  background-color: rgba(76, 175, 80, 0.82);
+  border-radius: 14rpx;
+}
+
+/* 预览底栏 */
+.preview-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50rpx;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40rpx;
+  transition: opacity 0.3s;
+}
+
+.preview-footer.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview-btn {
+  font-size: 14rpx;
+  color: #FFFFFF;
+  padding: 8rpx 24rpx;
+  border: 1rpx solid rgba(255,255,255,0.5);
+  border-radius: 6rpx;
+}
+
+.preview-btn.danger {
+  border-color: #FFCDD2;
+  color: #FFCDD2;
+}
+
+.preview-btn:active {
+  opacity: 0.8;
+}
+
+/* 单证资料区块 */
+.document-section {
+  margin-top: 16rpx;
+  padding: 12rpx;
+  background-color: #FFFFFF;
+  border-radius: 8rpx;
+  transition: all 0.3s ease;
+}
+
+/* 单证区块高亮状态 */
+.document-section.highlight {
+  background-color: #E8F5E9;
+  box-shadow: 0 0 0 2rpx #4CAF50;
+}
+
+.document-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.document-title {
+  font-size: 16rpx;
+  font-weight: 500;
+  color: #4CAF50;
+}
+
+.document-hint {
+  font-size: 12rpx;
+  color: #9E9E9E;
+  margin-left: 6rpx;
+}
+
+.document-count {
+  display: block;
+  font-size: 11rpx;
+  color: #9E9E9E;
+  margin-top: 8rpx;
+  text-align: right;
+}
+
+/* 删除角标 */
+.delete-badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  width: 18rpx;
+  height: 18rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.delete-badge text {
+  font-size: 12rpx;
+  color: #FFFFFF;
+  line-height: 1;
+}
+
+.delete-badge:active {
+  background-color: #D32F2F;
+  transform: scale(0.9);
+}
+
+/* 选择方式弹框 */
+.action-sheet {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.action-content {
+  width: 200rpx;
+  background-color: #FFFFFF;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.action-item {
+  height: 45rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1rpx solid #EEEEEE;
+  transition: background-color 0.2s ease;
+}
+
+.action-item text {
+  font-size: 16rpx;
+  color: #212121;
+}
+
+.action-cancel {
+  border-bottom: none;
+}
+
+.action-cancel text {
+  color: #757575;
+}
+
+.action-item:active {
+  background-color: #FAFAFA;
+}

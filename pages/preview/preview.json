@@ -1,0 +1,8 @@
+{
+  "pageOrientation": "landscape",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "image-preview": "/components/image-preview/image-preview",
+    "confirm-modal": "/components/confirm-modal/confirm-modal"
+  }
+}

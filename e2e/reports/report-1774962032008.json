@@ -1,0 +1,133 @@
+{
+  "summary": {
+    "total": 20,
+    "passed": 20,
+    "failed": 0,
+    "startTime": "2026-03-31T12:59:40.880Z",
+    "endTime": "2026-03-31T13:00:30.975Z",
+    "duration": 50095
+  },
+  "passed": [
+    {
+      "name": "TC-001: 启动小程序进入首页",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:14.101Z"
+    },
+    {
+      "name": "TC-002: 点击开始拍摄进入拍照页",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.264Z"
+    },
+    {
+      "name": "TC-003: 拍照页初始状态正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.271Z"
+    },
+    {
+      "name": "TC-004: 车辆类型显示正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.277Z"
+    },
+    {
+      "name": "TC-005: 引导提示正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.286Z"
+    },
+    {
+      "name": "TC-006: 相机组件存在",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.302Z"
+    },
+    {
+      "name": "TC-007: 确认弹窗显示成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:16.859Z"
+    },
+    {
+      "name": "TC-008: 步骤切换成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:17.419Z"
+    },
+    {
+      "name": "TC-009: VIN 拍摄提示正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:17.428Z"
+    },
+    {
+      "name": "TC-010: 切换到车损拍摄成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:17.990Z"
+    },
+    {
+      "name": "TC-0111: 车损照片 1 添加成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:18.333Z"
+    },
+    {
+      "name": "TC-0112: 车损照片 2 添加成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:18.664Z"
+    },
+    {
+      "name": "TC-0113: 车损照片 3 添加成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:18.990Z"
+    },
+    {
+      "name": "TC-0114: 车损照片 4 添加成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:19.318Z"
+    },
+    {
+      "name": "TC-0115: 车损照片 5 添加成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:19.646Z"
+    },
+    {
+      "name": "TC-016: 车损上限检查通过",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:19.652Z"
+    },
+    {
+      "name": "TC-017: 跳转到预览页成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:25.539Z"
+    },
+    {
+      "name": "TC-018: 预览页数据正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:25.547Z"
+    },
+    {
+      "name": "TC-019: 跳转到完成页成功",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:30.969Z"
+    },
+    {
+      "name": "TC-020: 完成页统计信息正确",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T13:00:30.975Z"
+    }
+  ],
+  "failed": []
+}

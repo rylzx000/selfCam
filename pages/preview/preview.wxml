@@ -1,0 +1,178 @@
+<!--预览页-->
+<view class="page">
+  <!-- 主界面：照片网格 -->
+  <scroll-view scroll-y class="grid-view" scroll-into-view="{{scrollToView}}" scroll-with-animation="{{true}}">
+    <!-- 车辆照片 -->
+    <view class="vehicle-section" wx:for="{{vehicles}}" wx:key="id">
+      <view class="vehicle-header">
+        <text class="vehicle-title">{{item.type}}</text>
+        <view wx:if="{{index > 0}}" class="delete-btn" bindtap="onDeleteVehicle" data-vehicle-index="{{index}}">删除此车</view>
+      </view>
+      
+      <view class="photo-grid">
+        <!-- 车牌 -->
+        <view wx:if="{{item.licensePlate.status === 'completed'}}" 
+              class="photo-item"
+              bindtap="onPreview" 
+              data-vehicle="{{index}}" 
+              data-type="licensePlate">
+          <image src="{{item.licensePlate.compressedPath}}" mode="aspectFill"></image>
+          <view wx:if="{{item.licensePlate.captureMode === 'auto'}}" class="capture-badge">自动</view>
+          <text class="photo-label">车牌</text>
+        </view>
+        <view wx:else class="photo-item empty" bindtap="onSupplement" data-vehicle="{{index}}" data-type="licensePlate">
+          <text class="plus">+</text>
+          <text class="photo-label">车牌</text>
+        </view>
+        
+        <!-- VIN码 -->
+        <view wx:if="{{item.vinCode.status === 'completed'}}" 
+              class="photo-item"
+              bindtap="onPreview" 
+              data-vehicle="{{index}}" 
+              data-type="vinCode">
+          <image src="{{item.vinCode.compressedPath}}" mode="aspectFill"></image>
+          <view wx:if="{{item.vinCode.captureMode === 'auto'}}" class="capture-badge">自动</view>
+          <text class="photo-label">VIN码</text>
+        </view>
+        <view wx:else class="photo-item empty" bindtap="onSupplement" data-vehicle="{{index}}" data-type="vinCode">
+          <text class="plus">+</text>
+          <text class="photo-label">VIN码</text>
+        </view>
+        
+        <!-- 车损 -->
+        <block wx:for="{{item.damages}}" wx:for-item="damage" wx:for-index="dIndex" wx:key="index">
+          <view class="photo-item"
+                bindtap="onPreview" 
+                data-vehicle="{{index}}" 
+                data-type="damage" 
+                data-damage="{{dIndex}}">
+            <image src="{{damage.compressedPath}}" mode="aspectFill"></image>
+            <view wx:if="{{damage.captureMode === 'auto'}}" class="capture-badge">自动</view>
+            <text class="photo-label">车损{{dIndex + 1}}</text>
+          </view>
+        </block>
+        
+        <!-- 添加车损 -->
+        <view wx:if="{{item.licensePlate.status === 'completed' && item.vinCode.status === 'completed' && (!item.damages || item.damages.length < 5)}}" 
+              class="photo-item add" 
+              bindtap="onAddDamage" 
+              data-vehicle="{{index}}">
+          <text class="plus">+</text>
+          <text class="photo-label">{{item.damages && item.damages.length > 0 ? '添加车损' : '拍摄车损'}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 单证资料区块 -->
+    <view id="document-section" class="document-section {{highlightDocument ? 'highlight' : ''}}">
+      <view class="document-header">
+        <text class="document-title">单证资料</text>
+        <text class="document-hint">（可选）</text>
+      </view>
+      
+      <view class="photo-grid">
+        <!-- 已上传的单证 -->
+        <block wx:for="{{documents}}" wx:for-item="doc" wx:for-index="docIndex" wx:key="index">
+          <view class="photo-item" bindtap="onPreviewDocument" data-index="{{docIndex}}">
+            <image src="{{doc.compressedPath}}" mode="aspectFill"></image>
+            <view class="delete-badge" catchtap="onDeleteDocument" data-index="{{docIndex}}">
+              <text>×</text>
+            </view>
+          </view>
+        </block>
+        
+        <!-- 添加单证 -->
+        <view wx:if="{{documents.length < 10}}" class="photo-item add" bindtap="onAddDocument">
+          <text class="plus">+</text>
+          <text class="photo-label">添加</text>
+        </view>
+      </view>
+      
+      <text class="document-count">已上传 {{documents.length}}/10 张</text>
+    </view>
+  </scroll-view>
+  
+  <!-- 底部栏 -->
+  <view class="footer">
+    <!-- 进度指示器 -->
+    <view class="progress-section">
+      <view class="progress-dots">
+        <view class="dot {{progress.step1 >= 2 ? 'completed' : progress.step1 >= 1 ? 'active' : ''}}"></view>
+        <view class="dot-line {{progress.step1 >= 2 ? 'completed' : ''}}"></view>
+        <view class="dot {{progress.step2 >= 2 ? 'completed' : progress.step2 >= 1 ? 'active' : ''}}"></view>
+        <view class="dot-line {{progress.step2 >= 2 ? 'completed' : ''}}"></view>
+        <view class="dot {{progress.step3 ? 'completed' : ''}}"></view>
+      </view>
+      <view class="progress-labels">
+        <text class="label {{progress.step1 >= 2 ? 'completed' : ''}}">标的车</text>
+        <text class="label {{progress.step2 >= 2 ? 'completed' : ''}}">三者车</text>
+        <text class="label {{progress.step3 ? 'completed' : ''}}">单证</text>
+      </view>
+    </view>
+    
+    <!-- 照片统计 -->
+    <text class="stats">已拍 {{totalPhotoCount}} 张</text>
+    
+    <!-- 操作按钮 -->
+    <view class="footer-btns">
+      <view wx:if="{{canAddThirdVehicle}}" class="btn-outline" bindtap="onAddThirdVehicle">添加三者车</view>
+      <view class="btn-primary" bindtap="onSubmit">完成并提交</view>
+    </view>
+  </view>
+  
+  <!-- 全屏预览（点击照片后显示） -->
+  <view wx:if="{{showPreview}}" class="fullscreen-preview">
+    <swiper class="preview-swiper" 
+            current="{{previewIndex}}" 
+            bindchange="onSwiperChange"
+            circular="{{false}}">
+      <swiper-item wx:for="{{allPhotos}}" wx:key="id">
+        <image class="preview-image" src="{{item.url}}" mode="aspectFit" bindtap="onToggleActions"></image>
+      </swiper-item>
+    </swiper>
+    
+    <!-- 顶部栏 -->
+    <view class="preview-header {{actionsVisible ? '' : 'hidden'}}">
+      <view class="close-btn" bindtap="onClosePreview">关闭</view>
+      <text class="preview-count">{{previewIndex + 1}} / {{allPhotos.length}}</text>
+      <view class="placeholder"></view>
+    </view>
+    
+    <!-- 照片类型标签 -->
+    <view class="preview-label {{actionsVisible ? '' : 'hidden'}}">{{currentPhoto.label}}</view>
+    <view wx:if="{{actionsVisible && currentPhoto && currentPhoto.captureMode}}" class="preview-mode-tag">
+      {{currentPhoto.captureMode === 'auto' ? 'AI自动拍摄' : '手动拍摄'}}
+    </view>
+    
+    <!-- 底部操作栏 -->
+    <view class="preview-footer {{actionsVisible ? '' : 'hidden'}}">
+      <view class="preview-btn" bindtap="onRetake">重拍</view>
+      <view class="preview-btn danger" bindtap="onDelete">删除</view>
+    </view>
+  </view>
+  
+  <!-- 选择方式弹框 -->
+  <view wx:if="{{showActionSheet}}" class="action-sheet" bindtap="onCloseActionSheet">
+    <view class="action-content" catchtap="stopPropagation">
+      <view class="action-item" bindtap="onTakePhoto">
+        <text>拍照</text>
+      </view>
+      <view class="action-item" bindtap="onChooseAlbum">
+        <text>从相册选择</text>
+      </view>
+      <view class="action-item action-cancel" bindtap="onCloseActionSheet">
+        <text>取消</text>
+      </view>
+    </view>
+  </view>
+  
+  <confirm-modal
+    visible="{{showModal}}"
+    content="{{modalContent}}"
+    confirm-text="{{modalConfirmText}}"
+    cancel-text="{{modalCancelText}}"
+    bind:confirm="onModalConfirm"
+    bind:cancel="onModalCancel"
+  />
+</view>

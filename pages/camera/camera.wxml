@@ -1,0 +1,161 @@
+<view class="container">
+  <view class="info-area">
+    <view class="vehicle-info">
+      <text class="vehicle-label">当前车辆</text>
+      <text class="vehicle-name">{{vehicleType}}</text>
+    </view>
+
+    <view wx:if="{{currentStep !== 'damage'}}" class="step-info">
+      <text class="step-label">拍摄步骤</text>
+      <text class="step-name">{{currentStep === 'licensePlate' ? '1、车牌号' : '2、VIN码'}}</text>
+    </view>
+
+    <view wx:if="{{currentStep === 'damage'}}" class="damage-info">
+      <view class="damage-count">
+        <text class="count-label">车损照片</text>
+        <text class="count-value">{{damageCount}}/5 张</text>
+      </view>
+
+      <view wx:if="{{damageCount === 0}}" class="damage-tip">
+        <text>请对准车损处，稳定后自动拍照</text>
+      </view>
+    </view>
+
+    <view class="preview-btn" bindtap="onGoPreview">
+      <text class="preview-text">查看已拍</text>
+    </view>
+
+    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" bindtap="onFinishDamage">
+      <text class="finish-text">完成拍摄</text>
+    </view>
+  </view>
+
+  <view class="camera-wrapper">
+    <camera
+      wx:if="{{!showConfirmModal}}"
+      class="camera"
+      device-position="back"
+      flash="auto"
+      binderror="onCameraError"
+      bindstop="onCameraStop"
+      bindinitdone="onCameraInitDone"
+    >
+      <cover-view class="guide-container">
+        <cover-view
+          wx:if="{{currentStep === 'licensePlate'}}"
+          class="guide-frame guide-frame-license guide-frame-license-{{plateFrameState}}"
+        ></cover-view>
+        <cover-view
+          wx:if="{{currentStep === 'licensePlate' && plateDistanceHint}}"
+          class="plate-distance-hint plate-distance-hint-{{plateDistanceHint}}"
+        >
+          <cover-view class="plate-distance-arrows">
+            <cover-view class="plate-distance-frame" hidden="{{plateBlinkFrame !== 'a'}}">
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-1"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-2"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-3"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-4"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-5"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-6"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+            </cover-view>
+            <cover-view class="plate-distance-frame" hidden="{{plateBlinkFrame !== 'b'}}">
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-1"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-2"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-3"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-4"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-5"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+              ></cover-image>
+              <cover-image
+                class="plate-distance-arrow plate-distance-arrow-6"
+                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+              ></cover-image>
+            </cover-view>
+          </cover-view>
+        </cover-view>
+        <cover-view
+          wx:if="{{currentStep === 'vinCode'}}"
+          class="guide-frame guide-frame-vin"
+        ></cover-view>
+        <cover-view
+          wx:if="{{currentStep === 'damage'}}"
+          class="guide-frame guide-frame-damage guide-frame-damage-{{damageFrameState}}"
+        >
+          <cover-view class="cross-h"></cover-view>
+          <cover-view class="cross-v"></cover-view>
+        </cover-view>
+
+        <cover-view class="guide-tip tip-{{currentStep}}">
+          {{guideTip}}
+        </cover-view>
+
+        <cover-view
+          wx:if="{{currentStep === 'damage' && showDamageDebug && damageAreaRatioText}}"
+          class="damage-debug"
+        >
+          {{damageAreaRatioText}}
+        </cover-view>
+
+        <cover-view wx:if="{{aiStatusText}}" class="ai-tip {{aiLocked ? 'ai-tip-locked' : ''}}">
+          {{aiStatusText}}
+        </cover-view>
+      </cover-view>
+    </camera>
+
+    <view wx:if="{{showConfirmModal}}" class="photo-preview">
+      <image class="preview-image" src="{{pendingPhoto.compressedPath}}" mode="aspectFill"></image>
+    </view>
+  </view>
+
+  <view class="action-area">
+    <view wx:if="{{!showConfirmModal}}" class="capture-section">
+      <view class="capture-btn" bindtap="onCapture">
+        <view class="capture-inner"></view>
+      </view>
+      <text class="capture-text">{{aiEnabled && aiAvailable ? '手动拍照' : '点击拍照'}}</text>
+    </view>
+
+    <view wx:if="{{showConfirmModal}}" class="confirm-section">
+      <text class="confirm-tip">{{confirmContent}}</text>
+      <view class="btn-group">
+        <view class="btn-confirm" bindtap="onConfirmPhoto">
+          <text>确认</text>
+        </view>
+        <view class="btn-retake" bindtap="onRetakePhoto">
+          <text>重拍</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

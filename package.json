@@ -1,0 +1,22 @@
+{
+  "name": "selfcam-miniprogram",
+  "version": "1.1.0",
+  "description": "车辆定损拍摄小程序",
+  "scripts": {
+    "test": "jest",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "test:automator": "node e2e/run-tests.js",
+    "logs:collector": "node scripts/device-log-server.js",
+    "logs:latest": "node scripts/read-device-log.js"
+  },
+  "devDependencies": {
+    "miniprogram-automator": "^0.12.1",
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "miniprogram",
+    "wechat"
+  ],
+  "author": "",
+  "license": "ISC"
+}

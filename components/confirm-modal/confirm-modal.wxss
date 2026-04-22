@@ -1,0 +1,82 @@
+/* 确认弹框组件样式 */
+
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  width: 320rpx;
+  background-color: #FFFFFF;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.modal-image-wrapper {
+  width: 100%;
+  height: 240rpx;
+  background-color: #FAFAFA;
+}
+
+.modal-image {
+  width: 100%;
+  height: 100%;
+}
+
+.modal-content {
+  padding: 20rpx 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-text {
+  font-size: 16rpx;
+  color: #212121;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  flex-direction: row;
+  border-top: 1rpx solid #EEEEEE;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 45rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16rpx;
+  transition: all 0.2s ease;
+}
+
+.modal-btn-cancel {
+  background-color: #FFFFFF;
+  color: #757575;
+  border-right: 1rpx solid #EEEEEE;
+}
+
+.modal-btn-confirm {
+  background-color: #4CAF50;
+  color: #FFFFFF;
+}
+
+.modal-btn:active {
+  opacity: 0.8;
+  background-color: #FAFAFA;
+}
+
+.modal-btn-confirm:active {
+  background-color: #388E3C;
+}

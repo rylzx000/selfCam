@@ -1,0 +1,54 @@
+<!--单证资料上传页-->
+<view class="container">
+  <!-- 顶部栏 -->
+  <view class="header">
+    <view class="back-btn" bindtap="onBack">
+      <text>返回</text>
+    </view>
+    <text class="title">单证资料上传</text>
+    <view class="header-placeholder"></view>
+  </view>
+  
+  <!-- 照片网格 -->
+  <view class="photo-grid">
+    <!-- 已上传照片 -->
+    <view class="photo-item" wx:for="{{documents}}" wx:key="index">
+      <image class="photo-thumb" src="{{item.compressedPath}}" mode="aspectFill" bindtap="onPreviewDocument" data-index="{{index}}"></image>
+      <view class="delete-badge" bindtap="onDeleteDocument" data-index="{{index}}">
+        <text>×</text>
+      </view>
+    </view>
+    
+    <!-- 添加按钮 -->
+    <view class="photo-item add-btn" wx:if="{{documents.length < 10}}" bindtap="onAddDocument">
+      <text class="add-icon">+</text>
+    </view>
+  </view>
+  
+  <!-- 计数提示 -->
+  <view class="count-tip">
+    <text>已上传 {{documents.length}}/10 张</text>
+  </view>
+  
+  <!-- 确认提交按钮 -->
+  <view class="button-area">
+    <view class="btn btn-primary" bindtap="onSubmit">
+      <text>确认提交</text>
+    </view>
+  </view>
+  
+  <!-- 选择方式弹框 -->
+  <view class="action-sheet" wx:if="{{showActionSheet}}" bindtap="onCloseActionSheet">
+    <view class="action-content" catchtap="stopPropagation">
+      <view class="action-item" bindtap="onTakePhoto">
+        <text>拍照</text>
+      </view>
+      <view class="action-item" bindtap="onChooseAlbum">
+        <text>从相册选择</text>
+      </view>
+      <view class="action-item action-cancel" bindtap="onCloseActionSheet">
+        <text>取消</text>
+      </view>
+    </view>
+  </view>
+</view>

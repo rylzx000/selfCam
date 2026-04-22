@@ -1,0 +1,29 @@
+<!--开始页-->
+<view class="container">
+  <!-- 标题 -->
+  <view class="header">
+    <text class="title">车辆损失辅助拍照工具</text>
+  </view>
+  
+  <!-- 说明卡片区域 -->
+  <view class="cards-container">
+    <!-- 卡片1：拍摄车牌号及VIN码 -->
+    <view class="card">
+      <text class="card-icon">拍照</text>
+      <text class="card-text">1、拍摄车牌号及VIN码</text>
+    </view>
+    
+    <!-- 卡片2：依次拍摄车损 -->
+    <view class="card">
+      <text class="card-icon">车损</text>
+      <text class="card-text">2、依次拍摄车损</text>
+    </view>
+  </view>
+  
+  <!-- 开始按钮 -->
+  <view class="button-container">
+    <view class="start-button" bindtap="onStart">
+      <text>开始拍摄</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,62 @@
+{
+  "summary": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1,
+    "startTime": "2026-03-31T14:15:49.081Z",
+    "endTime": "2026-03-31T14:17:48.309Z",
+    "duration": 119228
+  },
+  "passed": [
+    {
+      "name": "测试1: 快速页面跳转",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:02.260Z"
+    },
+    {
+      "name": "测试2: 空缓存状态",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:07.544Z"
+    },
+    {
+      "name": "测试3: 损坏数据状态",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:12.741Z"
+    },
+    {
+      "name": "测试4: 正常流程",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:18.311Z"
+    },
+    {
+      "name": "测试5: 数据操作",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:18.552Z"
+    },
+    {
+      "name": "测试7: 边界值测试",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:33.787Z"
+    },
+    {
+      "name": "测试8: 重复操作",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:17:48.308Z"
+    }
+  ],
+  "failed": [
+    {
+      "name": "测试6: 页面跳转链",
+      "passed": false,
+      "error": "timeout",
+      "time": "2026-03-31T14:17:28.578Z"
+    }
+  ]
+}

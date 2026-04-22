@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "startTime": "2026-03-31T14:11:03.775Z",
+    "endTime": "2026-03-31T14:12:43.050Z",
+    "duration": 99275
+  },
+  "passed": [
+    {
+      "name": "测试1: 快速页面跳转",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:12:16.613Z"
+    },
+    {
+      "name": "测试2: 空缓存状态",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:12:21.873Z"
+    },
+    {
+      "name": "测试3: 损坏数据状态",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:12:27.169Z"
+    },
+    {
+      "name": "测试4: 正常流程",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:12:32.790Z"
+    },
+    {
+      "name": "测试5: 数据操作",
+      "passed": true,
+      "error": null,
+      "time": "2026-03-31T14:12:33.026Z"
+    }
+  ],
+  "failed": []
+}

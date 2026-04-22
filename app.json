@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/camera/camera",
+    "pages/preview/preview",
+    "pages/document/document",
+    "pages/complete/complete"
+  ],
+  "window": {
+    "pageOrientation": "landscape",
+    "navigationStyle": "custom",
+    "backgroundColor": "#FFFFFF"
+  },
+  "sitemapLocation": "sitemap.json"
+}
