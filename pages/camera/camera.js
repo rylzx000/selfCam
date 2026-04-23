@@ -13,6 +13,11 @@ const PLATE_DISTANCE_HINT_TEXT = {
   backward: '\u8bf7\u7a0d\u5fae\u540e\u9000'
 }
 
+const DAMAGE_DISTANCE_HINT_TEXT = {
+  forward: '\u8bf7\u9760\u8fd1\u4e00\u70b9',
+  backward: '\u8bf7\u7a0d\u5fae\u8fdc\u79bb'
+}
+
 Page({
   data: {
     currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
@@ -31,6 +36,7 @@ Page({
     aiLocked: false,
     plateFrameState: 'normal',
     plateDistanceHint: '',
+    damageDistanceHint: '',
     plateBlinkFrame: 'a',
     damageFrameState: 'normal',
     damageAreaRatioText: '',
@@ -79,7 +85,7 @@ Page({
     this.isLeaving = false
     this.setData({ isNavigating: false })
     this.loadCacheData()
-    this.syncPlateBlink(this.data.plateDistanceHint)
+    this.syncPlateBlink(this.getActiveDistanceHint())
     this.resumeAIDetection()
   },
 
@@ -378,7 +384,28 @@ Page({
 
     return `phase ${searchState.phase || 'SEEK'} | seen ${searchState.detectedFrames || 0} | hold ${searchState.holdStableCount || 0} | q ${(debug.trackQuality || 0).toFixed(2)} | s ${(debug.stability || 0).toFixed(2)} | c ${(debug.centerOffset || 0).toFixed(2)} | area ${((debug.areaRatio || 0) * 100).toFixed(1)}%`
   },
+
+  setDataIfChanged(updates = {}) {
+    const changed = {}
+
+    Object.keys(updates).forEach((key) => {
+      if (this.data[key] !== updates[key]) {
+        changed[key] = updates[key]
+      }
+    })
+
+    if (!Object.keys(changed).length) {
+      return false
+    }
+
+    this.setData(changed)
+    return true
+  },
+
   getDetectInterval(step) {
+    if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
+      return AUTO_CAPTURE.PLATE.detectInterval || AUTO_CAPTURE.DETECT_INTERVAL
+    }
     if (step === constants.SHOOT_STEP.DAMAGE) {
       return AUTO_CAPTURE.DAMAGE_FLOW.previewInterval || AUTO_CAPTURE.DETECT_INTERVAL
     }
@@ -392,22 +419,36 @@ Page({
     return this.damageAutoCaptureEngine.shouldRunDetector()
   },
 
+  getActiveDistanceHint() {
+    if (this.data.currentStep === constants.SHOOT_STEP.DAMAGE) {
+      return this.data.damageDistanceHint
+    }
+    if (this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
+      return this.data.plateDistanceHint
+    }
+    return ''
+  },
+
   startPlateBlink() {
     if (this.plateBlinkTimer) {
       return
     }
 
     if (this.data.plateBlinkFrame !== 'a') {
-      this.setData({ plateBlinkFrame: 'a' })
+      this.setDataIfChanged({ plateBlinkFrame: 'a' })
     }
 
     this.plateBlinkTimer = setInterval(() => {
-      if (this.isLeaving || this.data.showConfirmModal || this.data.currentStep !== constants.SHOOT_STEP.LICENSE_PLATE || !this.data.plateDistanceHint) {
+      const currentStep = this.data.currentStep
+      const activeHint = this.getActiveDistanceHint()
+      const supportDistanceHint = currentStep === constants.SHOOT_STEP.LICENSE_PLATE || currentStep === constants.SHOOT_STEP.DAMAGE
+
+      if (this.isLeaving || this.data.showConfirmModal || !supportDistanceHint || !activeHint) {
         this.stopPlateBlink()
         return
       }
 
-      this.setData({
+      this.setDataIfChanged({
         plateBlinkFrame: this.data.plateBlinkFrame === 'a' ? 'b' : 'a'
       })
     }, 400)
@@ -425,8 +466,9 @@ Page({
     this.plateHintClearTimer = setTimeout(() => {
       this.plateHintClearTimer = null
       this.stopPlateBlink()
-      this.setData({
+      this.setDataIfChanged({
         plateDistanceHint: '',
+        damageDistanceHint: '',
         plateBlinkFrame: 'a'
       })
     }, delay)
@@ -439,7 +481,7 @@ Page({
     }
 
     if (this.data.plateBlinkFrame !== 'a') {
-      this.setData({ plateBlinkFrame: 'a' })
+      this.setDataIfChanged({ plateBlinkFrame: 'a' })
     }
   },
 
@@ -447,7 +489,7 @@ Page({
     const shouldBlink = !!direction
       && !this.isLeaving
       && !this.data.showConfirmModal
-      && this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE
+      && (this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE || this.data.currentStep === constants.SHOOT_STEP.DAMAGE)
 
     if (shouldBlink) {
       this.startPlateBlink()
@@ -485,6 +527,38 @@ Page({
     }
   },
 
+  getDamageDistanceHint(damageState) {
+    if (!damageState || damageState.captureReady || !damageState.hasTrack) {
+      return {
+        direction: '',
+        text: ''
+      }
+    }
+
+    const minAreaRatio = AUTO_CAPTURE.DAMAGE_FLOW.phase.minAreaRatio
+    const maxAreaRatio = AUTO_CAPTURE.DAMAGE_FLOW.phase.maxAreaRatio
+    const areaRatio = damageState.debug?.areaRatio || 0
+
+    if (areaRatio < minAreaRatio) {
+      return {
+        direction: 'forward',
+        text: DAMAGE_DISTANCE_HINT_TEXT.forward
+      }
+    }
+
+    if (areaRatio > maxAreaRatio) {
+      return {
+        direction: 'backward',
+        text: DAMAGE_DISTANCE_HINT_TEXT.backward
+      }
+    }
+
+    return {
+      direction: '',
+      text: ''
+    }
+  },
+
   resetAIState() {
     if (this.plateFrameChecker) {
       this.plateFrameChecker.reset()
@@ -499,6 +573,7 @@ Page({
         aiStatusText: this.data.aiEnabled && this.data.aiAvailable ? '' : AUTO_CAPTURE.STATUS_TEXT.unavailable,
         plateFrameState: 'normal',
         plateDistanceHint: '',
+        damageDistanceHint: '',
         plateBlinkFrame: 'a',
         damageFrameState: 'normal',
         damageAreaRatioText: '',
@@ -554,7 +629,7 @@ Page({
       }
 
       if (Date.now() < this.aiCooldownUntil) {
-        this.setData({ aiStatusText: AUTO_CAPTURE.STATUS_TEXT.cooldown, aiLocked: false })
+        this.setDataIfChanged({ aiStatusText: AUTO_CAPTURE.STATUS_TEXT.cooldown, aiLocked: false })
         scheduleNext()
         return
       }
@@ -592,7 +667,7 @@ Page({
             finalReason: ready.aiDetection?.finalReason || '',
             selectedFramePath: !!ready.aiDetection?.selectedFramePath
           })
-          this.setData({
+          this.setDataIfChanged({
             aiLocked: true,
             aiStatusText: AUTO_CAPTURE.STATUS_TEXT.locked,
             damagePhaseLabel: step === constants.SHOOT_STEP.DAMAGE
@@ -603,7 +678,7 @@ Page({
           await this.triggerAutoCapture(step, ready.aiDetection)
           this.aiCooldownUntil = Date.now() + AUTO_CAPTURE.COOLDOWN_MS
         } else {
-          this.setData({
+          this.setDataIfChanged({
             aiLocked: false,
             aiStatusText: ready.statusText || this.getAIStatusByStep(step)
           })
@@ -614,7 +689,7 @@ Page({
           step,
           message: error?.message || ''
         })
-        this.setData({ aiLocked: false, aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback })
+        this.setDataIfChanged({ aiLocked: false, aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback })
       } finally {
         this.aiBusy = false
         if (shouldSchedule) {
@@ -638,7 +713,7 @@ Page({
 
     if (!result && step === constants.SHOOT_STEP.LICENSE_PLATE && this.plateFrameChecker) {
       this.plateFrameChecker.reset()
-      this.setData({
+      this.setDataIfChanged({
         plateFrameState: 'normal'
       })
       this.schedulePlateHintClear()
@@ -672,7 +747,7 @@ Page({
         statusText = AUTO_CAPTURE.STATUS_TEXT.adjustTarget
       }
 
-      this.setData({
+      this.setDataIfChanged({
         plateFrameState,
         plateDistanceHint: distanceHint.direction
       })
@@ -712,18 +787,27 @@ Page({
     const damageFrameState = damageState.captureReady
       ? 'locked'
       : ((damageState.phase === 'HOLD' || damageState.detected || damageState.hasTrack) ? 'active' : 'normal')
+    const damageDistanceHint = this.getDamageDistanceHint(damageState)
 
-    this.setData({
+    this.setDataIfChanged({
       damageFrameState,
+      damageDistanceHint: damageDistanceHint.direction,
       damageAreaRatioText: this.data.showDamageDebug
         ? this.formatDamageDebugText(damageState.debug, damageState)
         : '',
       damagePhaseLabel: this.getDamagePhaseLabel(damageState)
     })
 
+    if (damageDistanceHint.direction) {
+      this.cancelPlateHintClear()
+      this.syncPlateBlink(damageDistanceHint.direction)
+    } else {
+      this.schedulePlateHintClear(500)
+    }
+
     return {
       captureReady: !!damageState.captureReady,
-      statusText: damageState.statusText || AUTO_CAPTURE.STATUS_TEXT.detected,
+      statusText: damageDistanceHint.text || damageState.statusText || AUTO_CAPTURE.STATUS_TEXT.detected,
       aiDetection: damageState.aiDetection
     }
   },

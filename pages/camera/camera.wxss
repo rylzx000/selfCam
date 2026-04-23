@@ -340,6 +340,66 @@
   background-color: rgba(21, 101, 192, 0.10);
 }
 
+.damage-distance-hint {
+  position: absolute;
+  left: 50%;
+  top: 26rpx;
+  transform: translateX(-50%);
+  width: 164rpx;
+  height: 64rpx;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.damage-distance-arrows {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 164rpx;
+  height: 64rpx;
+}
+
+.damage-distance-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.damage-distance-arrow {
+  position: absolute;
+  left: 50%;
+  width: 132rpx;
+  height: 20rpx;
+  transform: translateX(-50%);
+}
+
+.damage-distance-arrow-1 {
+  top: 44rpx;
+}
+
+.damage-distance-arrow-2 {
+  top: 35rpx;
+}
+
+.damage-distance-arrow-3 {
+  top: 26rpx;
+}
+
+.damage-distance-arrow-4 {
+  top: 17rpx;
+}
+
+.damage-distance-arrow-5 {
+  top: 8rpx;
+}
+
+.damage-distance-arrow-6 {
+  top: 0;
+}
+
 /* 鍗佸瓧鍑嗘槦 */
 .cross-h {
   width: 24rpx;

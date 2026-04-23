@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.1.0（`package.json`）
+> 代码基线：v1.2.0（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-22
+> 最后更新：2026-04-23
 
 ---
 
@@ -305,6 +305,7 @@ const MODEL_HOST = 'http://192.168.100.100:8000'
 来自 `AUTO_CAPTURE` 配置：
 
 - 通用检测间隔：`650ms`
+- 车牌检测间隔：`800ms`
 - 自动拍照冷却：`2500ms`
 - 车损预览轮询：`280ms`
 - 车损检测器按 `detectorEveryNFrames = 3` 降频执行
@@ -322,6 +323,7 @@ const MODEL_HOST = 'http://192.168.100.100:8000'
 
 ```js
 AUTO_CAPTURE.PLATE = {
+  detectInterval: 800,
   minConsecutiveFrames: 3,
   minAreaRatio: 0.35,
   maxAreaRatio: 1.5,
@@ -360,10 +362,13 @@ AUTO_CAPTURE.PLATE = {
 - `startPlateBlink()` 使用 `setInterval(..., 400)` 定时切帧
 - `schedulePlateHintClear(900)` 用于检测丢帧时延迟清空提示
 - 当方向消失但仍在车牌页时，使用 `500ms` 的更短清理延时
+- 车损步骤复用同一套 `plateBlinkFrame`、定时器与清理逻辑，只额外增加 `damageDistanceHint`
+- 车牌页高频状态刷新通过 `setDataIfChanged()` 过滤，避免相同状态反复刷新相机覆盖层
 
 技术目的：
 
 - 降低 `camera + cover-view` 原生覆盖层内复杂 CSS 动画带来的不稳定
+- 降低周期性预览抓图与覆盖层刷新对相机预览流畅度的影响
 - 保证真机表现优先于视觉复杂度
 
 ---
@@ -442,6 +447,25 @@ SEEK -> HOLD -> SHOOT
 
 只有 `phaseState.captureReady === true` 且存在最佳候选帧时，最终才会触发自动拍照。
 
+### 7. 车损面积引导提示
+
+在车损步骤中，面积引导不再单独走旧版搜索流，而是附着在当前稳定流上：
+
+- 已识别到车损且 `areaRatio < minAreaRatio` 时：
+  - `damageDistanceHint = 'forward'`
+  - 底部状态文案切为 `请靠近一点`
+- 已识别到车损且 `areaRatio > maxAreaRatio` 时：
+  - `damageDistanceHint = 'backward'`
+  - 底部状态文案切为 `请稍微远离`
+- 当面积重新回到阈值范围内时：
+  - 清空 `damageDistanceHint`
+  - 恢复 `DamagePhaseController` 产出的正常状态文案
+
+当前阈值来源仍是 `AUTO_CAPTURE.DAMAGE_FLOW.phase`：
+
+- `minAreaRatio = 0.5`
+- `maxAreaRatio = 1`
+
 ---
 
 ## 十一、预览页实现细节
@@ -483,7 +507,8 @@ retakeMode = {
 本次文档更新后，已明确以下现状：
 
 - 车损流程为稳定判定流，不是远近搜索流
-- 车牌箭头为两整组静态帧切换，不是覆盖层复杂动画
+- 车牌与车损箭头都为两整组静态帧切换，不是覆盖层复杂动画
+- 车牌检测间隔已单独降频到 `800ms`，并过滤重复 `setData`，优先保证移动镜头时的预览流畅度
 - 单证主入口在预览页底部，不是独立页面
 
 ### 2. 仍需关注的实现差异

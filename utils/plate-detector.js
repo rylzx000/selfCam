@@ -74,7 +74,6 @@ class PlateDetector {
   }
 
   async detect(imagePath) {
-    console.log('[AI:model:plate] detect start', imagePath)
     if (!this.isLoaded) {
       throw new Error('Model not loaded, please call load() first')
     }

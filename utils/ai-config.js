@@ -24,6 +24,7 @@ const AUTO_CAPTURE = {
   COOLDOWN_MS: 2500,
   LOW_QUALITY: 'low',
   PLATE: {
+    detectInterval: 800,
     minConsecutiveFrames: 3,
     minAreaRatio: 0.35,
     maxAreaRatio: 1.5,
