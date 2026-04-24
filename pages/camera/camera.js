@@ -7,6 +7,8 @@ const DamageDetector = require('../../utils/damage-detector')
 const { PlateFrameUtils } = require('../../utils/frame-utils')
 const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine')
 const { PLATE_MODEL_PATH, DAMAGE_MODEL_PATH, PLATE_MODEL_URL, DAMAGE_MODEL_URL, AUTO_CAPTURE } = require('../../utils/ai-config')
+const workflow = require('../../utils/workflow-state')
+const workflowPage = require('../../utils/workflow-page')
 
 const PLATE_DISTANCE_HINT_TEXT = {
   forward: '\u8bf7\u9760\u8fd1\u4e00\u70b9',
@@ -41,7 +43,8 @@ Page({
     damageFrameState: 'normal',
     damageAreaRatioText: '',
     damagePhaseLabel: '',
-    showDamageDebug: false
+    showDamageDebug: false,
+    workflowState: workflow.STATES.IDLE
   },
 
   cameraContext: null,
@@ -852,7 +855,6 @@ Page({
 
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘搁悗鍏夊亾閻庯綆鍓涢敍鐔哥箾鐎电顎撳┑鈥虫喘楠炲繘鎮╃拠鑼唽闂佸湱鍎ら崺鍫濐焽閵夈儮鏀介柣妯活問閺嗩垶鏌嶈閸撴瑩宕捄銊ф／鐟滄棃寮婚悢纰辨晩闁绘挸绨堕崑鎾诲箹娴ｇ懓浠奸梺缁樺灱濡嫬鏁梻浣稿暱閹碱偊宕愰悷鎵虫瀺闁糕剝绋掗埛鎴︽煕韫囨稒锛熼柤鍓蹭邯閺屾稒鎯旈姀銏″垱闂佽桨绀侀崯鏉戠暦閹烘垟妲堥柟鐑樻尭椤忓綊姊婚崒娆戭槮婵犫偓鏉堚晛鍨濇い鏍ㄧ矋閺嗘粓鏌ｉ幇顒夊殶濠⒀€鍓濈换婵嬫偨闂堟刀锝嗐亜閺冣偓閻楃姴鐣风憴鍕嚤閻庢稒锚閳ь剝鍩栫换婵嬫濞戝啿濮涙繛瀛樼矆缁瑥顫忕紒妯诲闁告繂瀚紓鎾绘⒑缁嬫寧鍞夊ù婊庡墯缁旂喖寮撮姀鈺傛櫍闂佺粯锚閸熷潡宕㈣ぐ鎺撯拺?
     if (storage.isRetakeMode()) {
-    if (storage.isRetakeMode()) {
       const { photoType } = cache.retakeMode
       this.setData({
         currentStep: photoType,
@@ -863,6 +865,10 @@ Page({
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
         damageAreaRatioText: ''
+      })
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.RETAKING, {
+        page: 'camera',
+        step: photoType
       })
     } else {
       this.setData({
@@ -875,7 +881,16 @@ Page({
           : '',
         damageAreaRatioText: ''
       })
-    }
+      workflowPage.syncPageWorkflowState(
+        this,
+        this.data.showConfirmModal && this.data.pendingPhoto
+          ? workflow.STATES.CONFIRMING
+          : workflow.STATES.CAPTURING,
+        {
+          page: 'camera',
+          step: cache.currentStep
+        }
+      )
     }
   },
 
@@ -948,8 +963,11 @@ Page({
 
     if (storage.isRetakeMode()) {
       storage.saveRetakenPhoto(photo)
-      cache.fromPreview = false
-      storage.saveCache(cache)
+      const latestCache = storage.loadCache()
+      if (latestCache) {
+        latestCache.fromPreview = false
+        storage.saveCache(latestCache)
+      }
       wx.navigateBack({
         fail: () => {
           wx.redirectTo({ url: '/pages/preview/preview' })
@@ -971,6 +989,10 @@ Page({
       showConfirmModal: true,
       confirmContent,
       pendingPhoto: photo
+    })
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.CONFIRMING, {
+      page: 'camera',
+      step: cache.currentStep
     })
   },
 
@@ -1003,6 +1025,10 @@ Page({
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damagePhaseLabel: ''
       })
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: cache.currentStep
+      })
       this.resetAIState()
       this.resumeAIDetection()
       return
@@ -1027,6 +1053,10 @@ Page({
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damageCount,
         damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' })
+      })
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: cache.currentStep
       })
       this.resetAIState()
       this.resumeAIDetection()
@@ -1107,6 +1137,10 @@ Page({
       damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
       damageAreaRatioText: ''
     })
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+      page: 'camera',
+      step: cache.currentStep
+    })
     this.resumeAIDetection()
   },
 
@@ -1138,7 +1172,6 @@ Page({
     if (cache.fromPreview) {
       cache.fromPreview = false
       storage.saveCache(cache)
-
       const pages = getCurrentPages()
       const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
       if (hasPreviewInStack) {
@@ -1192,6 +1225,10 @@ Page({
       pendingPhoto: null,
       damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : ''
     })
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+      page: 'camera',
+      step: this.data.currentStep
+    })
     this.resumeAIDetection()
   },
 
@@ -1239,7 +1276,6 @@ Page({
       showConfirmModal: false,
       pendingPhoto: null
     })
-
     return true
   },
 

@@ -1,6 +1,8 @@
 const storage = require('../../utils/storage')
 const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
+const workflow = require('../../utils/workflow-state')
+const workflowPage = require('../../utils/workflow-page')
 
 Page({
   data: {
@@ -29,13 +31,19 @@ Page({
     modalType: '',
     // 滚动定位
     scrollToView: '',
-    highlightDocument: false
+    highlightDocument: false,
+    workflowState: workflow.STATES.IDLE
   },
 
   isLeaving: false,  // 是否正在离开页面
 
   onLoad() {
     this.isLeaving = false
+    if (storage.loadCache()) {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
+        page: 'preview'
+      })
+    }
     this.loadData()
   },
 
@@ -50,7 +58,12 @@ Page({
       cache.fromPreview = false
       storage.saveCache(cache)
     }
-    
+
+    if (cache) {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
+        page: 'preview'
+      })
+    }
     this.loadData()
   },
 
@@ -61,7 +74,6 @@ Page({
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
-
     // 构建照片数组
     const allPhotos = []
     let totalPhotoCount = 0
@@ -362,6 +374,10 @@ Page({
 
   // 完成提交
   submitComplete() {
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.LOCAL_COMPLETED, {
+      page: 'preview',
+      pageAction: 'submit_complete'
+    })
     this.isLeaving = true
     wx.redirectTo({ url: '/pages/complete/complete' })
   },
@@ -449,6 +465,10 @@ Page({
           if (!cache.documents) cache.documents = []
           cache.documents.push(photo)
           storage.saveCache(cache)
+          workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
+            page: 'preview',
+            pageAction: 'document_saved_from_camera'
+          })
           
           this.loadData()
           wx.hideLoading()
@@ -482,6 +502,10 @@ Page({
             cache.documents.push(photo)
           }
           storage.saveCache(cache)
+          workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
+            page: 'preview',
+            pageAction: 'document_saved_from_album'
+          })
           
           this.loadData()
           wx.hideLoading()

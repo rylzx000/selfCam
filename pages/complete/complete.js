@@ -1,9 +1,11 @@
 const storage = require('../../utils/storage')
+const workflow = require('../../utils/workflow-state')
 
 Page({
   data: {
     vehicleCount: 0,
-    totalPhotos: 0
+    totalPhotos: 0,
+    workflowState: workflow.STATES.IDLE
   },
 
   onLoad() {

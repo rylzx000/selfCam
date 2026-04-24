@@ -1,19 +1,32 @@
 const storage = require('../../utils/storage')
 const compress = require('../../utils/compress')
 const constants = require('../../utils/constants')
+const workflow = require('../../utils/workflow-state')
+const workflowPage = require('../../utils/workflow-page')
 
 Page({
   data: {
     documents: [],
     showActionSheet: false,
-    selectedIndex: null
+    selectedIndex: null,
+    workflowState: workflow.STATES.IDLE
   },
 
   onLoad() {
+    if (storage.loadCache()) {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
+        page: 'document'
+      })
+    }
     this.loadData()
   },
 
   onShow() {
+    if (storage.loadCache()) {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
+        page: 'document'
+      })
+    }
     this.loadData()
   },
 
@@ -23,7 +36,6 @@ Page({
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
-
     this.setData({
       documents: cache.documents || []
     })
@@ -126,6 +138,10 @@ Page({
   },
 
   onSubmit() {
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.LOCAL_COMPLETED, {
+      page: 'document',
+      pageAction: 'submit_complete'
+    })
     wx.redirectTo({ url: '/pages/complete/complete' })
   }
 })

@@ -20,6 +20,10 @@ function initCache() {
       photoType: null,
       damageIndex: null
     },
+    workflowState: {
+      current: 'IDLE',
+      updatedAt: new Date().toISOString()
+    },
     fromPreview: false,  // 是否从预览页跳转来
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
