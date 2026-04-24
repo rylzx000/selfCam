@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "showUserHint": true,
+  "saveQualityMeta": true,
+  "blurEnabled": true,
+  "exposureEnabled": true,
+  "brightnessEnabled": true,
+  "nearFarEnabled": false,
+  "thresholds": {
+    "blur": 0.38,
+    "dark": 0.24,
+    "bright": 0.9
+  },
+  "processing": {
+    "maxEdge": 1024,
+    "timeoutMs": 1500
+  },
+  "configVersion": "mock-2026-04-24",
+  "expiresInSeconds": 1200
+}

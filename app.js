@@ -1,10 +1,13 @@
+const qualityConfig = require('./utils/quality-config')
+
 App({
   onLaunch() {
-    // 小程序启动时执行
-    console.log('小程序启动')
+    qualityConfig.initQualityConfig().catch((error) => {
+      console.warn('[quality-config] init failed:', error?.message || error)
+    })
+
+    console.log('app launch')
   },
 
-  globalData: {
-    // 全局数据
-  }
+  globalData: {}
 })
