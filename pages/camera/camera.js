@@ -1,4 +1,5 @@
 ﻿const storage = require('../../utils/storage')
+const cacheSelectors = require('../../utils/cache-selectors')
 const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
 const runtimeLogger = require('../../utils/runtime-logger')
@@ -815,7 +816,8 @@ Page({
     }
   },
   loadCacheData() {
-    const cache = storage.loadCache()
+    const cache = storage.loadCacheForResume()
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
     
     if (!cache) {
       // 婵犵數濮烽弫鍛婃叏閻戣棄鏋侀柟闂寸绾剧粯绻涢幋鐐垫噧缂佸墎鍋ら弻娑㈠Ψ椤旂厧顫╃紓浣插亾闁割偆鍠撶弧鈧梻鍌氱墛缁嬫帡鏁嶉弮鍫熺厾闁哄娉曟禒銏ゆ婢舵劖鐓ユ繝闈涙婢ф稒銇勮箛鏇炐ラ柣銉邯瀹曪綁濡疯閻撴捇姊洪崫鍕伇闁哥姵鐗犻悰顕€宕卞鍏夹梻浣瑰缁嬫垹绮旇ぐ鎺戣摕闁绘柨鍚嬮崑鈺呮倶閻愮紟鎺楀几閸涘瓨鈷戦柛婵嗗椤箓鏌涢弬璺ㄧ劯闁糕斂鍎插鍕箾閵忋垹鏋涢柟铏墵閸┾剝鎷呴幇鐔哄仧缁辨捇宕掑顑藉亾閻戣姤鍤勯柛鎾茬閸ㄦ繃銇勯弽顐粶闁搞劌鍊块弻娑⑩€﹂幋婵囩亾闂佸搫妫寸粻鎾诲蓟濞戙埄鏁冮柨婵嗘椤︺劑姊虹粙鍖″姛闁稿繑锕㈠濠氬Χ閸パ勭€抽梺鍛婎殘閸嬫盯锝為锔解拺闁圭娴烽埊鏇犵磼鐎ｎ偄绗ч柟骞垮灩閳规垿宕辫箛鏃備簴闂備礁澹婇悡鍫ュ窗濡ゅ懏鍊堕柛顐ｇ箥濞撳鏌曢崼婵囶棞闁诲繈鍎查妵鍕晝閳ь剟鎮樺顓犫攳?
@@ -825,58 +827,67 @@ Page({
       return
     }
 
-    if (!cache.vehicles || cache.vehicles.length === 0) {
+    if (!flowContext.hasVehicles) {
       runtimeLogger.warn('camera', 'vehicles_missing_redirect_index')
       this.isLeaving = true
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
 
+    if (!flowContext.hasRetakeContext && flowContext.currentStep === constants.SHOOT_STEP.PREVIEW) {
+      runtimeLogger.info('camera', 'safe_resume_redirect_preview', {
+        workflowState: flowContext.workflowState
+      })
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/preview/preview' })
+      return
+    }
+
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘?currentVehicleIndex 闂傚倸鍊搁崐鎼佸磹妞嬪海鐭嗗〒姘ｅ亾妤犵偞鐗犻、鏇㈠Χ閸屾矮澹曞┑顔矫畷顒勫储鐎电硶鍋撶憴鍕妞ゎ偄顦遍埀顒勬涧閵堢顕ｉ崼鏇炵闁绘ê鐏氬В搴㈢節閻㈤潧浠﹂柟绋款煼瀹曟椽宕橀鑲╋紱闂佽鍎抽悘鍫ュ磻閹炬枼鏋旈柛顭戝枟閻忓牓姊虹拠鑼闁煎綊绠栭、姘跺Ψ閳轰胶顦板銈嗘尰缁嬫垶绂嶆ィ鍐╃叆婵犻潧妫濋妤€霉濠婂嫮绠為柡?
-    if (cache.currentVehicleIndex === undefined || cache.currentVehicleIndex === null) {
+    if (flowContext.currentVehicleIndex === undefined || flowContext.currentVehicleIndex === null) {
       runtimeLogger.warn('camera', 'vehicle_index_invalid_redirect_index')
       this.isLeaving = true
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
 
-    const currentVehicle = cache.vehicles[cache.currentVehicleIndex]
+    const currentVehicle = flowContext.currentVehicle
     
     if (!currentVehicle) {
       runtimeLogger.warn('camera', 'current_vehicle_missing_redirect_index', {
-        currentVehicleIndex: cache.currentVehicleIndex
+        currentVehicleIndex: flowContext.currentVehicleIndex
       })
       this.isLeaving = true
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
     
-    const damageCount = currentVehicle.damages?.length || 0
+    const damageCount = flowContext.damageCount
 
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘搁悗鍏夊亾閻庯綆鍓涢敍鐔哥箾鐎电顎撳┑鈥虫喘楠炲繘鎮╃拠鑼唽闂佸湱鍎ら崺鍫濐焽閵夈儮鏀介柣妯活問閺嗩垶鏌嶈閸撴瑩宕捄銊ф／鐟滄棃寮婚悢纰辨晩闁绘挸绨堕崑鎾诲箹娴ｇ懓浠奸梺缁樺灱濡嫬鏁梻浣稿暱閹碱偊宕愰悷鎵虫瀺闁糕剝绋掗埛鎴︽煕韫囨稒锛熼柤鍓蹭邯閺屾稒鎯旈姀銏″垱闂佽桨绀侀崯鏉戠暦閹烘垟妲堥柟鐑樻尭椤忓綊姊婚崒娆戭槮婵犫偓鏉堚晛鍨濇い鏍ㄧ矋閺嗘粓鏌ｉ幇顒夊殶濠⒀€鍓濈换婵嬫偨闂堟刀锝嗐亜閺冣偓閻楃姴鐣风憴鍕嚤閻庢稒锚閳ь剝鍩栫换婵嬫濞戝啿濮涙繛瀛樼矆缁瑥顫忕紒妯诲闁告繂瀚紓鎾绘⒑缁嬫寧鍞夊ù婊庡墯缁旂喖寮撮姀鈺傛櫍闂佺粯锚閸熷潡宕㈣ぐ鎺撯拺?
-    if (storage.isRetakeMode()) {
-      const { photoType } = cache.retakeMode
+    if (flowContext.hasRetakeContext) {
+      const { currentStep, vehicleType } = flowContext.retakeContext
       this.setData({
-        currentStep: photoType,
-        guideTip: constants.GUIDE_TIPS[photoType],
-        vehicleType: cache.vehicles[cache.retakeMode.vehicleIndex]?.type || constants.VEHICLE_TYPE.TARGET,
+        currentStep,
+        guideTip: flowContext.guideTip,
+        vehicleType: vehicleType || constants.VEHICLE_TYPE.TARGET,
         damageCount,
-        damagePhaseLabel: photoType === constants.SHOOT_STEP.DAMAGE
+        damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
         damageAreaRatioText: ''
       })
       workflowPage.syncPageWorkflowState(this, workflow.STATES.RETAKING, {
         page: 'camera',
-        step: photoType
+        step: currentStep
       })
     } else {
       this.setData({
-        currentStep: cache.currentStep,
-        guideTip: constants.GUIDE_TIPS[cache.currentStep],
-        vehicleType: currentVehicle?.type || constants.VEHICLE_TYPE.TARGET,
+        currentStep: flowContext.currentStep,
+        guideTip: flowContext.guideTip,
+        vehicleType: flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET,
         damageCount,
-        damagePhaseLabel: cache.currentStep === constants.SHOOT_STEP.DAMAGE
+        damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
         damageAreaRatioText: ''
@@ -888,7 +899,7 @@ Page({
           : workflow.STATES.CAPTURING,
         {
           page: 'camera',
-          step: cache.currentStep
+          step: flowContext.currentStep
         }
       )
     }
@@ -953,20 +964,21 @@ Page({
   },
 
   savePhoto(photo) {
+    const cachedFlowContext = cacheSelectors.getCurrentFlowContext(storage.loadCache())
     runtimeLogger.info('capture', 'photo_pending_confirm', {
-      currentStep: storage.loadCache()?.currentStep,
+      currentStep: cachedFlowContext.currentStep,
       captureMode: photo.captureMode,
       captureTrigger: photo.captureTrigger
     })
     const cache = storage.loadCache()
     if (!cache) return
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
     if (storage.isRetakeMode()) {
       storage.saveRetakenPhoto(photo)
       const latestCache = storage.loadCache()
       if (latestCache) {
-        latestCache.fromPreview = false
-        storage.saveCache(latestCache)
+        storage.saveCache(storage.clearPreviewFlags(latestCache))
       }
       wx.navigateBack({
         fail: () => {
@@ -977,11 +989,11 @@ Page({
     }
 
     let confirmContent = ''
-    if (cache.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
+    if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
       confirmContent = '\u8f66\u724c\u7167\u7247\u6e05\u6670\u5417\uff1f'
-    } else if (cache.currentStep === constants.SHOOT_STEP.VIN_CODE) {
+    } else if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
       confirmContent = 'VIN\u7801\u7167\u7247\u6e05\u6670\u5417\uff1f'
-    } else if (cache.currentStep === constants.SHOOT_STEP.DAMAGE) {
+    } else if (flowContext.currentStep === constants.SHOOT_STEP.DAMAGE) {
       confirmContent = '\u8f66\u635f\u7167\u7247\u6e05\u6670\u5417\uff1f'
     }
 
@@ -992,22 +1004,24 @@ Page({
     })
     workflowPage.syncPageWorkflowState(this, workflow.STATES.CONFIRMING, {
       page: 'camera',
-      step: cache.currentStep
+      step: flowContext.currentStep
     })
   },
 
   onConfirmPhoto() {
+    const cachedFlowContext = cacheSelectors.getCurrentFlowContext(storage.loadCache())
     runtimeLogger.info('capture', 'confirm_photo', {
-      currentStep: storage.loadCache()?.currentStep,
+      currentStep: cachedFlowContext.currentStep,
       hasPendingPhoto: !!this.data.pendingPhoto
     })
     const cache = storage.loadCache()
     if (!cache || !this.data.pendingPhoto) return
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
-    const currentVehicle = cache.vehicles[cache.currentVehicleIndex]
+    const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
     if (!currentVehicle) return
 
-    if (cache.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
+    if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
       currentVehicle.licensePlate = {
         ...this.data.pendingPhoto,
         status: 'completed',
@@ -1034,7 +1048,7 @@ Page({
       return
     }
 
-    if (cache.currentStep === constants.SHOOT_STEP.VIN_CODE) {
+    if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
       currentVehicle.vinCode = {
         ...this.data.pendingPhoto,
         status: 'completed',
@@ -1086,8 +1100,7 @@ Page({
       })
 
       if (cache.fromPreview) {
-        cache.fromPreview = false
-        storage.saveCache(cache)
+        storage.saveCache(storage.clearPreviewFlags(cache))
         const pages = getCurrentPages()
         const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
 
@@ -1111,8 +1124,7 @@ Page({
           })
         }
       } else {
-        cache.fromPreview = false
-        storage.saveCache(cache)
+        storage.saveCache(storage.clearPreviewFlags(cache))
         wx.navigateTo({
           url: '/pages/preview/preview',
           fail: () => {
@@ -1168,10 +1180,10 @@ Page({
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
-    if (cache.fromPreview) {
-      cache.fromPreview = false
-      storage.saveCache(cache)
+    if (flowContext.fromPreview) {
+      storage.saveCache(storage.clearPreviewFlags(cache))
       const pages = getCurrentPages()
       const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
       if (hasPreviewInStack) {
@@ -1197,8 +1209,7 @@ Page({
       return
     }
 
-    cache.fromPreview = false
-    storage.saveCache(cache)
+    storage.saveCache(storage.clearPreviewFlags(cache))
     wx.navigateTo({
       url: '/pages/preview/preview',
       fail: (err) => {
@@ -1233,19 +1244,21 @@ Page({
   },
 
   savePendingPhotoBeforeLeave() {
+    const cachedFlowContext = cacheSelectors.getCurrentFlowContext(storage.loadCache())
     runtimeLogger.info('capture', 'save_pending_photo_before_leave', {
-      currentStep: storage.loadCache()?.currentStep,
+      currentStep: cachedFlowContext.currentStep,
       hasPendingPhoto: !!this.data.pendingPhoto
     })
     if (!this.data.pendingPhoto) return false
 
     const cache = storage.loadCache()
     if (!cache) return false
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
-    const currentVehicle = cache.vehicles[cache.currentVehicleIndex]
+    const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
     if (!currentVehicle) return false
 
-    if (cache.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
+    if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
       currentVehicle.licensePlate = {
         ...this.data.pendingPhoto,
         status: 'completed',
@@ -1254,7 +1267,7 @@ Page({
         isNewEnergy: false
       }
       cache.currentStep = constants.SHOOT_STEP.VIN_CODE
-    } else if (cache.currentStep === constants.SHOOT_STEP.VIN_CODE) {
+    } else if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
       currentVehicle.vinCode = {
         ...this.data.pendingPhoto,
         status: 'completed',
@@ -1263,7 +1276,7 @@ Page({
       }
       cache.currentStep = constants.SHOOT_STEP.DAMAGE
       cache.currentDamageCount = 0
-    } else if (cache.currentStep === constants.SHOOT_STEP.DAMAGE) {
+    } else if (flowContext.currentStep === constants.SHOOT_STEP.DAMAGE) {
       if (!currentVehicle.damages) {
         currentVehicle.damages = []
       }
@@ -1326,7 +1339,9 @@ Page({
     this.isLeaving = true
 
     const cache = storage.loadCache()
-    if (cache && cache.fromPreview) {
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    if (cache && flowContext.fromPreview) {
+      storage.saveCache(storage.clearPreviewFlags(cache))
       const pages = getCurrentPages()
       const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
 

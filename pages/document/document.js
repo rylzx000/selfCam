@@ -1,6 +1,6 @@
 const storage = require('../../utils/storage')
+const cacheSelectors = require('../../utils/cache-selectors')
 const compress = require('../../utils/compress')
-const constants = require('../../utils/constants')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 
@@ -13,7 +13,7 @@ Page({
   },
 
   onLoad() {
-    if (storage.loadCache()) {
+    if (storage.loadCacheForResume()) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
         page: 'document'
       })
@@ -22,7 +22,7 @@ Page({
   },
 
   onShow() {
-    if (storage.loadCache()) {
+    if (storage.loadCacheForResume()) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {
         page: 'document'
       })
@@ -31,13 +31,16 @@ Page({
   },
 
   loadData() {
-    const cache = storage.loadCache()
+    const cache = storage.loadCacheForResume()
+    const documentSummary = cacheSelectors.getDocumentSummary(cache)
+
     if (!cache) {
       wx.redirectTo({ url: '/pages/index/index' })
       return
     }
+
     this.setData({
-      documents: cache.documents || []
+      documents: documentSummary.documents
     })
   },
 
@@ -57,7 +60,7 @@ Page({
 
   onTakePhoto() {
     this.setData({ showActionSheet: false })
-    
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -67,12 +70,17 @@ Page({
         try {
           const photo = await compress.compressImage(res.tempFiles[0].tempFilePath)
           photo.source = 'camera'
-          
+
           const cache = storage.loadCache()
-          if (!cache.documents) cache.documents = []
+          if (!cache) {
+            wx.hideLoading()
+            wx.redirectTo({ url: '/pages/index/index' })
+            return
+          }
+
           cache.documents.push(photo)
           storage.saveCache(cache)
-          
+
           this.loadData()
           wx.hideLoading()
         } catch (err) {
@@ -85,13 +93,17 @@ Page({
 
   onChooseAlbum() {
     this.setData({ showActionSheet: false })
-    
+
     const cache = storage.loadCache()
-    const currentCount = (cache.documents || []).length
-    const remaining = constants.LIMITS.MAX_DOCUMENTS - currentCount
-    
+    const documentSummary = cacheSelectors.getDocumentSummary(cache)
+
+    if (!cache) {
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
     wx.chooseMedia({
-      count: remaining,
+      count: documentSummary.remainingCount,
       mediaType: ['image'],
       sourceType: ['album'],
       success: async (res) => {
@@ -103,7 +115,7 @@ Page({
             cache.documents.push(photo)
           }
           storage.saveCache(cache)
-          
+
           this.loadData()
           wx.hideLoading()
         } catch (err) {
@@ -116,15 +128,15 @@ Page({
 
   onPreviewDocument(e) {
     const { index } = e.currentTarget.dataset
-    const urls = this.data.documents.map(d => d.compressedPath)
+    const urls = this.data.documents.map((document) => document.compressedPath)
     const current = this.data.documents[index].compressedPath
-    
+
     wx.previewImage({ urls, current })
   },
 
   onDeleteDocument(e) {
     const { index } = e.currentTarget.dataset
-    
+
     wx.showModal({
       title: '',
       content: '确定删除这张照片？',
