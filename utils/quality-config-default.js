@@ -15,7 +15,7 @@ const DEFAULT_QUALITY_CONFIG = {
     bright: 0.88
   },
   processing: {
-    maxEdge: 960,
+    maxEdge: 640,
     timeoutMs: 1200
   },
   configVersion: 'default-2026-04-24',

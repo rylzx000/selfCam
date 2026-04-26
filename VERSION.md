@@ -2,45 +2,45 @@
 
 ## 当前版本
 
-**版本号**: v1.2.3  
-**发布日期**: 2026-04-24  
+**版本号**: v1.2.4  
+**发布日期**: 2026-04-26  
 **状态**: 已封板（本地）
 
 ---
 
 ## 版本概述
 
-`v1.2.3` 是基于 `v1.2.2` 的一次补丁封板，核心目标是为“端上轻质检”补齐一套可灰度、可关闭、可调阈值的前端配置机制。在不接在线平台接口、不改主流程页面行为的前提下，先完成默认配置、静态 JSON 配置、本地短缓存和统一读取入口，为后续切在线平台接口预留替换点。
+`v1.2.4` 是基于 `v1.2.3` 的一次补丁封板，核心目标是为“端上轻质检”补齐真正可用的拍后单张图片质量分析模块。在不接页面主流程、不接后端接口的前提下，先完成独立检测能力、测试文档、设计文档，以及 disabled 语义和默认处理尺寸的收敛。
 
 ### 本版本重点
 
-- 新增轻质检三层配置体系：默认配置、静态 JSON 配置、本地短缓存。
-- 新增 `quality-config` 统一读取入口，后续页面和算法模块统一从配置层取值。
-- 完成远程配置校验与 sanitize，保证布尔项、阈值和处理参数都能安全降级。
-- 完成 `develop / trial / release` 的默认 source 策略，避免 `release` 环境静默使用 `mock`。
-- 补齐 `quality-config` 相关 Jest 测试与设计文档，确保后续替换为在线平台接口时改动面可控。
+- 新增独立 `photo-quality` 模块，支持拍后单张照片的轻量质量分析。
+- 打通 `photo-quality` 与 `quality-config` 的配置读取关系，所有核心阈值和开关统一从配置层获取。
+- 补齐 `photo-quality` 相关 Jest 测试与设计文档，确保后续页面接入前能力先独立稳定。
+- 将默认 `processing.maxEdge` 收紧为 `640`，控制端上像素分析开销。
+- 收敛 `enabled=false` 的返回语义，避免后续 UI 误将系统关闭状态当成质量告警。
 
 ---
 
-## v1.2.3 变更摘要
+## v1.2.4 变更摘要
 
-### 轻质检配置体系
+### 拍后轻质检模块
 
-- 新增 `utils/quality-config-default.js`，提供可直接运行的默认兜底配置。
-- 新增 `utils/quality-config-loader.js`，负责静态 JSON 拉取、结构校验、merge、sanitize 和缓存写入。
-- 新增 `utils/quality-config.js`，提供 `getQualityConfig()`、`initQualityConfig()`、`refreshQualityConfig()` 统一入口。
+- 新增 `utils/photo-quality.js`，提供 `analyzePhotoQuality()`、`analyzePhotoQualityPixels()`、`computeQualityMetrics()` 等统一入口。
+- 支持模糊、偏暗、过曝检测，并预留疑似过近 / 过远的 reason 结构。
+- 将“像素分析”和“图片读取”分层，后续页面接入时只需补采样调用。
 
-### 环境策略与降级控制
+### 配置与语义收敛
 
-- 默认 source 按 `envVersion` 区分：`develop / trial` 默认 `mock`，`release` 优先远程静态 JSON。
-- `release` 环境未配置远程地址时输出警告并降级到默认配置，不再悄悄使用 `mock`。
-- 内存配置增加 `expiresAt` 判断，已过期时允许重新 load，失败时仍回落到缓存或默认配置。
+- `photo-quality` 全量读取既有 `quality-config`，不在模块内写死核心阈值。
+- 将默认 `processing.maxEdge` 调低到 `640`，避免拍后分析直接处理过大的像素矩阵。
+- 明确 `enabled=false` 时返回 `level='good'`、`suggestRetake=false`、`reasons=['disabled']`。
 
 ### 测试与文档
 
-- 新增 `mock/quality-config.mock.json` 作为本地开发与回退用静态配置。
-- 新增 `docs/quality-config-design.md`，明确三层关系、字段说明、source 策略与后续切在线平台接口的最小改动点。
-- 新增 `__tests__/quality-config.test.js`，覆盖 merge、sanitize、缓存命中/过期、非法配置降级与主流程不阻断。
+- 新增 `__tests__/photo-quality.test.js`，覆盖正常图、偏暗、过曝、模糊、多问题叠加、阈值生效和异常输入安全降级。
+- 新增 `docs/photo-quality-design.md`，明确设计目标、检测项、配置控制、性能策略和后续接入方式。
+- 修复 `docs/photo-quality-design.md` 的 UTF-8 中文文档内容，确保本地与 GitHub 可正常阅读。
 
 ---
 
@@ -48,6 +48,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.2.4 | 2026-04-26 | 已封板（本地） | 端上轻质检拍后分析模块落地，补齐测试、设计文档与 disabled 语义修正 |
 | v1.2.3 | 2026-04-24 | 已封板（本地） | 端上轻质检三层配置体系落地，补齐环境策略、缓存降级、测试与设计文档 |
 | v1.2.2 | 2026-04-24 | 已封板（本地） | workflow-state 收敛、本地缓存治理三步补齐、异常链路测试与测试文档落地 |
 | v1.2.1 | 2026-04-24 | 已封板 | 前端状态机骨架接入、恢复收紧与单证流程修正 |
@@ -63,10 +64,10 @@
 
 ```powershell
 git fetch --tags
-git checkout v1.2.2
+git checkout v1.2.3
 ```
 
-如果后续需要把 `v1.2.3` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+如果后续需要把 `v1.2.4` 作为正式标签发布，建议在本地提交后再创建对应 tag。
 
 ---
 
@@ -74,10 +75,10 @@ git checkout v1.2.2
 
 建议后续继续按 `v1.2.x` 补丁版本递增，优先考虑：
 
-- 将轻质检配置统一接入后续 `photo-quality.js` 或相关算法模块
-- 将静态 JSON 配置源平滑替换为在线平台接口
-- 补生产环境远程静态 JSON 发布、灰度和回滚演练
+- 将 `photo-quality` 接入拍后确认页或压缩完成后的轻量分析节点
+- 根据 `showUserHint / saveQualityMeta` 决定提示展示与结果存储策略
+- 在不改主流程前提下，逐步补生产环境灰度验证与真机场景回归
 
 ---
 
-*最后更新：2026-04-24*
+*最后更新：2026-04-26*
