@@ -3,7 +3,7 @@
 > 项目名称：车辆损失辅助拍照工具
 > 代码基线：v1.2.4（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-24
+> 最后更新：2026-04-27
 
 ---
 
@@ -43,6 +43,10 @@ selfCam/
 │  ├─ compress.js
 │  ├─ constants.js
 │  ├─ ai-config.js
+│  ├─ quality-config-default.js
+│  ├─ quality-config-loader.js
+│  ├─ quality-config.js
+│  ├─ photo-quality.js
 │  ├─ plate-detector.js
 │  ├─ damage-detector.js
 │  ├─ frame-utils.js
@@ -51,6 +55,7 @@ selfCam/
 │  ├─ damage-tracker.js
 │  ├─ damage-motion-estimator.js
 │  ├─ damage-frame-scorer.js
+│  ├─ cache-selectors.js
 │  └─ runtime-logger.js
 ├─ PRDS/
 └─ docs/
@@ -76,6 +81,7 @@ selfCam/
 - 管理 AI 检测循环
 - 管理辅助框、顶部引导、底部 AI 状态
 - 触发拍照、压缩、确认
+- 在拍后确认前调用端上轻质检模块
 - 保存照片并推进流程
 
 ### 3. `pages/preview`
@@ -96,6 +102,8 @@ selfCam/
 ### 5. `pages/complete`
 
 - 汇总缓存中的车辆数和照片数
+- 读取 `cache-selectors` 生成的 `qualitySummary`
+- 根据 `photo-quality` 的纯函数生成完成页轻提示文案
 - 支持退出小程序
 - 支持返回预览继续修改
 
@@ -189,6 +197,41 @@ const STORAGE_KEY = 'car_damage_photos_cache'
 - `captureMode`：`auto` / `manual`
 - `captureTrigger`：`ai_auto` / `manual_button` 等
 - `aiDetection`：检测元信息
+- `quality`：轻质检摘要元数据
+
+`quality` 当前采用纯数据结构，至少包含：
+
+```js
+{
+  level: 'good' | 'warn' | 'bad',
+  suggestRetake: true | false,
+  reasons: [],
+  metrics: {
+    brightness: 0,
+    darkRatio: 0,
+    brightRatio: 0,
+    blurScore: 0,
+    contrast: 0,
+    sampledWidth: 0,
+    sampledHeight: 0
+  },
+  analyzedAt: '2026-04-27T00:00:00.000Z',
+  configVersion: '...'
+}
+```
+
+缓存摘要层会继续在不修改输入 cache 的前提下，生成：
+
+- `qualitySummary.totalPhotos`
+- `qualitySummary.analyzedCount`
+- `qualitySummary.riskCount`
+- `qualitySummary.suggestRetakeCount`
+- `qualitySummary.riskReasons`
+- `qualitySummary.riskPhotos`
+- `qualitySummary.failedCount`
+- `qualitySummary.disabledCount`
+- `qualitySummary.lowConfidenceCount`
+- `qualitySummary.unanalyzedCount`
 
 ---
 
@@ -255,10 +298,17 @@ licensePlate -> vinCode -> damage -> preview
 ```text
 cameraContext.takePhoto
   -> compress.compressImage()
+  -> photoQuality.analyzePhotoQuality()
   -> 生成 pendingPhoto
   -> 显示确认态
   -> 确认后写入 storage
 ```
+
+补充说明：
+
+- `photoQuality.analyzePhotoQuality()` 只在拍后单张照片上执行，不进入实时预览流
+- 质量阈值与开关统一来自 `quality-config`
+- 完成页不直接遍历原始 cache，而是统一读取 `cacheSelectors.getCacheSummary(cache).qualitySummary`
 
 压缩策略：
 
