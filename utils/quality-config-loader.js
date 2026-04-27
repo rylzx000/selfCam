@@ -5,7 +5,7 @@ const {
   cloneQualityConfigSource
 } = require('./quality-config-default')
 
-const LOCAL_MOCK_QUALITY_CONFIG = require('../mock/quality-config.mock.json')
+const LOCAL_MOCK_QUALITY_CONFIG = require('../mock/quality-config.mock')
 
 const BOOLEAN_TRUE_SET = {
   true: true,

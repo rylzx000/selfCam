@@ -289,6 +289,12 @@ describe('quality config system', () => {
     expect(source.envVersion).toBe(envVersion)
   })
 
+  test('uses JS module path for bundled mock config', () => {
+    const source = require('../utils/quality-config-default').cloneQualityConfigSource()
+
+    expect(source.mockModulePath).toBe('../mock/quality-config.mock')
+  })
+
   test('release env without remote url falls back to default and warns', async () => {
     global.wx.getAccountInfoSync = () => ({
       miniProgram: {

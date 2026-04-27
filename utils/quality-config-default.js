@@ -27,7 +27,7 @@ const DEFAULT_QUALITY_CONFIG_SOURCE = {
   remoteBaseUrl: '',
   remotePath: '/selfcam/quality-config.json',
   requestTimeoutMs: 3000,
-  mockModulePath: '../mock/quality-config.mock.json'
+  mockModulePath: '../mock/quality-config.mock'
 }
 
 function clonePlainData(value) {
