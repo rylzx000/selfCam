@@ -22,6 +22,36 @@ const DEFAULT_ANALYSIS_THRESHOLDS = {
   nearCoverageMax: 0.82
 }
 
+const ACTIONABLE_QUALITY_REASONS = {
+  blur: true,
+  dark: true,
+  overexposed: true,
+  too_near: true,
+  too_far: true
+}
+
+const QUALITY_REASON_HINT_TEXT = {
+  blur: '照片可能偏模糊，建议重拍',
+  dark: '照片可能偏暗，建议重拍',
+  overexposed: '照片可能反光或过亮，建议重拍',
+  too_near: '照片可能距离过近，建议重拍',
+  too_far: '照片可能距离过远，建议重拍'
+}
+
+const QUALITY_REASON_HINT_LABEL = {
+  blur: '模糊',
+  dark: '偏暗',
+  overexposed: '过亮',
+  too_near: '距离过近',
+  too_far: '距离过远'
+}
+
+const PERSISTED_QUALITY_LEVELS = {
+  good: true,
+  warn: true,
+  bad: true
+}
+
 function clonePlainData(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -52,6 +82,10 @@ function roundMetric(value, digits = 4) {
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 function toFiniteNumber(value) {
@@ -178,6 +212,168 @@ function createExecutionGuard(config, options = {}) {
         throw error
       }
     }
+  }
+}
+
+function cloneMetricsForPersist(metrics) {
+  if (!isPlainObject(metrics)) {
+    return createEmptyMetrics()
+  }
+
+  return {
+    brightness: roundMetric(toFiniteNumber(metrics.brightness) || 0),
+    darkRatio: roundMetric(toFiniteNumber(metrics.darkRatio) || 0),
+    brightRatio: roundMetric(toFiniteNumber(metrics.brightRatio) || 0),
+    blurScore: roundMetric(toFiniteNumber(metrics.blurScore) || 0),
+    contrast: roundMetric(toFiniteNumber(metrics.contrast) || 0),
+    sampledWidth: Math.max(0, Math.round(toFiniteNumber(metrics.sampledWidth) || 0)),
+    sampledHeight: Math.max(0, Math.round(toFiniteNumber(metrics.sampledHeight) || 0))
+  }
+}
+
+function getActionableQualityReasons(result) {
+  if (!isPlainObject(result) || !Array.isArray(result.reasons)) {
+    return []
+  }
+
+  const dedupedReasons = []
+
+  result.reasons.forEach((reason) => {
+    if (!ACTIONABLE_QUALITY_REASONS[reason]) {
+      return
+    }
+
+    if (dedupedReasons.indexOf(reason) >= 0) {
+      return
+    }
+
+    dedupedReasons.push(reason)
+  })
+
+  return dedupedReasons
+}
+
+function shouldShowQualityHint(result, options = {}) {
+  const config = resolvePhotoQualityConfig(options)
+
+  if (!config.enabled || !config.showUserHint) {
+    return false
+  }
+
+  if (!isPlainObject(result) || !result.suggestRetake) {
+    return false
+  }
+
+  return getActionableQualityReasons(result).length > 0
+}
+
+function buildQualityHintText(result, options = {}) {
+  if (!shouldShowQualityHint(result, options)) {
+    return ''
+  }
+
+  const actionableReasons = getActionableQualityReasons(result)
+
+  if (actionableReasons.length === 1) {
+    return QUALITY_REASON_HINT_TEXT[actionableReasons[0]] || ''
+  }
+
+  const labels = actionableReasons
+    .map((reason) => QUALITY_REASON_HINT_LABEL[reason])
+    .filter(Boolean)
+
+  if (labels.length === 0) {
+    return ''
+  }
+
+  return `照片可能存在${labels.join('、')}问题，建议重拍`
+}
+
+function buildCompleteQualitySummaryText(summary, options = {}) {
+  const config = resolvePhotoQualityConfig(options)
+
+  if (!config.enabled || !config.showUserHint) {
+    return ''
+  }
+
+  if (!isPlainObject(summary)) {
+    return ''
+  }
+
+  const riskCount = Math.max(0, Math.round(toFiniteNumber(summary.riskCount) || 0))
+  if (riskCount <= 0) {
+    return ''
+  }
+
+  const riskReasons = Array.isArray(summary.riskReasons)
+    ? summary.riskReasons.filter((reason) => ACTIONABLE_QUALITY_REASONS[reason])
+    : []
+  const labels = riskReasons
+    .slice(0, 2)
+    .map((reason) => QUALITY_REASON_HINT_LABEL[reason])
+    .filter(Boolean)
+
+  if (labels.length === 0) {
+    return `有 ${riskCount} 张照片建议重拍，可返回修改`
+  }
+
+  if (labels.length === 1) {
+    return `有 ${riskCount} 张照片可能存在${labels[0]}问题，建议返回修改`
+  }
+
+  return `有 ${riskCount} 张照片可能存在${labels[0]}或${labels[1]}问题，建议返回修改`
+}
+
+function buildPersistedQualityMeta(result, options = {}) {
+  const config = resolvePhotoQualityConfig(options)
+
+  if (!config.enabled || !config.saveQualityMeta) {
+    return null
+  }
+
+  if (!isPlainObject(result)) {
+    return null
+  }
+
+  if (Array.isArray(result.reasons) && result.reasons.indexOf(PHOTO_QUALITY_REASONS.DISABLED) >= 0) {
+    return null
+  }
+
+  const level = PERSISTED_QUALITY_LEVELS[result.level] ? result.level : 'warn'
+  const reasons = Array.isArray(result.reasons)
+    ? result.reasons.filter((item) => typeof item === 'string' && item.trim())
+    : []
+
+  return {
+    level,
+    suggestRetake: !!result.suggestRetake,
+    reasons,
+    metrics: cloneMetricsForPersist(result.metrics),
+    analyzedAt: isNonEmptyString(result.analyzedAt) ? result.analyzedAt : new Date().toISOString(),
+    configVersion: isNonEmptyString(result.configVersion) ? result.configVersion : config.configVersion
+  }
+}
+
+function attachPhotoQualityMeta(photo, result, options = {}) {
+  if (!isPlainObject(photo)) {
+    return photo
+  }
+
+  const qualityMeta = buildPersistedQualityMeta(result, options)
+
+  if (!qualityMeta) {
+    if (!Object.prototype.hasOwnProperty.call(photo, 'quality')) {
+      return photo
+    }
+
+    const nextPhoto = { ...photo }
+    delete nextPhoto.quality
+    return nextPhoto
+  }
+
+  return {
+    ...photo,
+    quality: qualityMeta
   }
 }
 
@@ -557,8 +753,12 @@ async function analyzePhotoQuality(input, options = {}) {
 
 module.exports = {
   PHOTO_QUALITY_REASONS,
+  attachPhotoQualityMeta,
   analyzePhotoQuality,
   analyzePhotoQualityPixels,
+  buildCompleteQualitySummaryText,
+  buildPersistedQualityMeta,
+  buildQualityHintText,
   buildSampledLumaMap,
   classifyQualityIssues,
   computeBlurScore,
@@ -566,8 +766,10 @@ module.exports = {
   createBaseResult,
   detectNearFarReason,
   determineQualityLevel,
+  getActionableQualityReasons,
   loadPhotoPixelsFromFile,
   resolvePhotoQualityConfig,
   resolveSampleSize,
+  shouldShowQualityHint,
   validatePixelInput
 }

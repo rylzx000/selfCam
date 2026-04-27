@@ -1,5 +1,6 @@
 const storage = require('../../utils/storage')
 const cacheSelectors = require('../../utils/cache-selectors')
+const photoQuality = require('../../utils/photo-quality')
 const workflow = require('../../utils/workflow-state')
 
 Page({
@@ -17,6 +18,19 @@ Page({
     hasRetakeContext: false,
     shouldSuggestBackToEdit: false,
     shouldSuggestBackToEditReasons: [],
+    qualitySummary: {
+      totalPhotos: 0,
+      analyzedCount: 0,
+      riskCount: 0,
+      suggestRetakeCount: 0,
+      riskReasons: [],
+      riskPhotos: [],
+      failedCount: 0,
+      disabledCount: 0,
+      lowConfidenceCount: 0,
+      unanalyzedCount: 0
+    },
+    qualitySummaryText: '',
     workflowState: workflow.STATES.IDLE
   },
 
@@ -44,7 +58,9 @@ Page({
       photoCounts: summary.photoCounts,
       hasRetakeContext: summary.hasRetakeContext,
       shouldSuggestBackToEdit: summary.shouldSuggestBackToEdit,
-      shouldSuggestBackToEditReasons: summary.shouldSuggestBackToEditReasons
+      shouldSuggestBackToEditReasons: summary.shouldSuggestBackToEditReasons,
+      qualitySummary: summary.qualitySummary,
+      qualitySummaryText: photoQuality.buildCompleteQualitySummaryText(summary.qualitySummary)
     })
   },
 

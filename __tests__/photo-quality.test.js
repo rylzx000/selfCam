@@ -264,4 +264,224 @@ describe('photo quality analyzer', () => {
     expect(result.reasons).toContain(photoQuality.PHOTO_QUALITY_REASONS.TOO_NEAR)
     expect(result.suggestRetake).toBe(true)
   })
+
+  test('builds the expected hint text for quality risks', () => {
+    const result = {
+      level: 'bad',
+      suggestRetake: true,
+      reasons: [
+        photoQuality.PHOTO_QUALITY_REASONS.BLUR,
+        photoQuality.PHOTO_QUALITY_REASONS.DARK
+      ],
+      metrics: {},
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-1'
+    }
+
+    expect(photoQuality.buildQualityHintText(result)).toBe('照片可能存在模糊、偏暗问题，建议重拍')
+  })
+
+  test('builds the expected complete summary text for quality risks', () => {
+    const summary = {
+      totalPhotos: 6,
+      analyzedCount: 5,
+      riskCount: 2,
+      suggestRetakeCount: 2,
+      riskReasons: [
+        photoQuality.PHOTO_QUALITY_REASONS.BLUR,
+        photoQuality.PHOTO_QUALITY_REASONS.DARK
+      ],
+      riskPhotos: []
+    }
+
+    expect(photoQuality.buildCompleteQualitySummaryText(summary)).toBe('有 2 张照片可能存在模糊或偏暗问题，建议返回修改')
+  })
+
+  test('does not build complete summary hint when showUserHint is false', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      showUserHint: false
+    }))
+
+    const summary = {
+      totalPhotos: 3,
+      analyzedCount: 3,
+      riskCount: 1,
+      suggestRetakeCount: 1,
+      riskReasons: [photoQuality.PHOTO_QUALITY_REASONS.OVEREXPOSED],
+      riskPhotos: []
+    }
+
+    expect(photoQuality.buildCompleteQualitySummaryText(summary)).toBe('')
+  })
+
+  test('does not show hint text when showUserHint is false', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      showUserHint: false
+    }))
+
+    const result = {
+      level: 'warn',
+      suggestRetake: true,
+      reasons: [photoQuality.PHOTO_QUALITY_REASONS.BLUR],
+      metrics: {},
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-1'
+    }
+
+    expect(photoQuality.shouldShowQualityHint(result)).toBe(false)
+    expect(photoQuality.buildQualityHintText(result)).toBe('')
+  })
+
+  test('does not persist quality meta when saveQualityMeta is false', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      saveQualityMeta: false
+    }))
+
+    const result = {
+      level: 'warn',
+      suggestRetake: true,
+      reasons: [photoQuality.PHOTO_QUALITY_REASONS.DARK],
+      metrics: {
+        brightness: 0.2
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-1'
+    }
+    const photo = {
+      compressedPath: '/photo.jpg',
+      captureMode: 'manual'
+    }
+
+    expect(photoQuality.buildPersistedQualityMeta(result)).toBeNull()
+    expect(photoQuality.attachPhotoQualityMeta(photo, result)).toEqual(photo)
+  })
+
+  test('keeps disabled flow unchanged for hint and persisted meta', async () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      enabled: false
+    }))
+
+    const result = await photoQuality.analyzePhotoQuality(createSolidImage(12, 12, 120))
+    const photo = {
+      compressedPath: '/photo.jpg',
+      captureMode: 'manual'
+    }
+
+    expect(photoQuality.buildQualityHintText(result)).toBe('')
+    expect(photoQuality.buildPersistedQualityMeta(result)).toBeNull()
+    expect(photoQuality.attachPhotoQualityMeta(photo, result)).toBe(photo)
+  })
+
+  test('does not block photo persistence when analyze result is analyze_failed', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      saveQualityMeta: true
+    }))
+
+    const result = {
+      level: 'warn',
+      suggestRetake: false,
+      reasons: [photoQuality.PHOTO_QUALITY_REASONS.ANALYZE_FAILED],
+      metrics: {},
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-2'
+    }
+    const photo = {
+      compressedPath: '/photo.jpg',
+      captureMode: 'manual'
+    }
+
+    const nextPhoto = photoQuality.attachPhotoQualityMeta(photo, result)
+
+    expect(photoQuality.buildQualityHintText(result)).toBe('')
+    expect(nextPhoto).toEqual(expect.objectContaining({
+      compressedPath: '/photo.jpg',
+      quality: expect.objectContaining({
+        level: 'warn',
+        suggestRetake: false,
+        reasons: [photoQuality.PHOTO_QUALITY_REASONS.ANALYZE_FAILED]
+      })
+    }))
+  })
+
+  test('keeps persisted quality meta structure stable on photo objects', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      saveQualityMeta: true
+    }))
+
+    const result = {
+      level: 'bad',
+      suggestRetake: true,
+      reasons: [
+        photoQuality.PHOTO_QUALITY_REASONS.BLUR,
+        photoQuality.PHOTO_QUALITY_REASONS.OVEREXPOSED
+      ],
+      metrics: {
+        brightness: 0.91,
+        darkRatio: 0,
+        brightRatio: 0.84,
+        blurScore: 0.12,
+        contrast: 0.08,
+        sampledWidth: 320,
+        sampledHeight: 180
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-3'
+    }
+    const photo = {
+      compressedPath: '/photo.jpg',
+      captureMode: 'manual'
+    }
+
+    const nextPhoto = photoQuality.attachPhotoQualityMeta(photo, result)
+
+    expect(nextPhoto.quality).toEqual({
+      level: 'bad',
+      suggestRetake: true,
+      reasons: [
+        photoQuality.PHOTO_QUALITY_REASONS.BLUR,
+        photoQuality.PHOTO_QUALITY_REASONS.OVEREXPOSED
+      ],
+      metrics: {
+        brightness: 0.91,
+        darkRatio: 0,
+        brightRatio: 0.84,
+        blurScore: 0.12,
+        contrast: 0.08,
+        sampledWidth: 320,
+        sampledHeight: 180
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-3'
+    })
+  })
+
+  test('remains compatible when legacy photo objects have no quality field', () => {
+    qualityConfig.getQualityConfig.mockReturnValue(createConfig({
+      saveQualityMeta: true
+    }))
+
+    const result = {
+      level: 'warn',
+      suggestRetake: true,
+      reasons: [photoQuality.PHOTO_QUALITY_REASONS.DARK],
+      metrics: {
+        brightness: 0.18,
+        darkRatio: 0.78
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'config-legacy'
+    }
+    const legacyPhoto = {
+      compressedPath: '/legacy.jpg',
+      captureMode: 'manual'
+    }
+
+    const nextPhoto = photoQuality.attachPhotoQualityMeta(legacyPhoto, result)
+
+    expect(nextPhoto.quality).toEqual(expect.objectContaining({
+      level: 'warn',
+      suggestRetake: true,
+      reasons: [photoQuality.PHOTO_QUALITY_REASONS.DARK]
+    }))
+  })
 })

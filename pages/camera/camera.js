@@ -2,6 +2,7 @@
 const cacheSelectors = require('../../utils/cache-selectors')
 const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
+const photoQuality = require('../../utils/photo-quality')
 const runtimeLogger = require('../../utils/runtime-logger')
 const PlateDetector = require('../../utils/plate-detector')
 const DamageDetector = require('../../utils/damage-detector')
@@ -29,6 +30,7 @@ Page({
     damageCount: 0,
     showConfirmModal: false,
     confirmContent: '',
+    qualityHintText: '',
     pendingPhoto: null,
     isNavigating: false,  // 闂傚倸鍊搁崐鎼佸磹閹间礁纾归柟闂寸绾惧綊鏌熼梻瀵割槮闁汇値鍠楅妵鍕箛閳轰胶鍔撮梺鎼炲€栧ú鐔煎蓟濞戙埄鏁冮柨婵嗘椤︹晠姊烘潪鎵槮婵☆偅鐟ч幑銏犫槈閵忕姷顓哄┑鐐叉缁绘帗绂掓ィ鍐┾拺缂備焦蓱鐏忣參鏌涙繝鍌ょ吋闁糕斁鍋撳銈嗗坊閸嬫挾绱掗悩鑼х€规洘娲熼弻鍡楊吋閸涱垼鍞甸梺璇插嚱缂嶅棝鍩€椤掑寮跨紒鎻掑⒔閹广垹鈹戦崱鈺傚兊濡炪倖鎸炬慨鎾嵁濡ゅ懏鈷掑ù锝呮憸缁夋椽鏌涚€ｎ亷韬€规洘婢樿灃闁告侗鍘奸幆鐐烘⒑闁偛鑻晶瀛樻叏?
     aiStatusText: '',
@@ -950,9 +952,15 @@ Page({
       // 闂傚倸鍊搁崐鎼佸磹妞嬪海鐭嗗〒姘ｅ亾妤犵偛顦甸弫鎾绘偐閾忣偅鐝ㄦ繝纰夌磿閸嬫垿宕愰弽顓炲瀭闂傚牊鑰藉ú顏勎╃憸搴綖閺囥垺鐓欓柣鎰靛墯缂嶆垹绱掗崜浣镐槐闁哄瞼鍠栭弻鍥晝閳ь剚鏅舵导瀛樼厱濠电姴瀚禒杈ㄦ叏婵犲啯銇濈€规洏鍔嶇换婵嬪礃閵娧勨枈闂傚倷绀侀幉锟犲礉濡ゅ懎纾婚柟鐐?
       const compressedPhoto = await compress.compressImage(tempFilePath)
       const normalizedPhoto = storage.normalizePhotoMeta(compressedPhoto, meta)
-      
+
+      const qualityResult = await this.analyzePendingPhotoQuality(normalizedPhoto)
+      const photoWithQuality = photoQuality.attachPhotoQualityMeta(normalizedPhoto, qualityResult)
+      const qualityHintText = photoQuality.buildQualityHintText(qualityResult)
+
       // 濠电姷鏁告慨鐑藉极閹间礁纾块柟瀵稿Т缁躲倝鏌﹀Ο渚＆婵炲樊浜濋弲婊堟煟閹伴潧澧幖鏉戯躬濮婅櫣绮欑捄銊т紘闂佺顑囬崑銈呯暦閹达箑围濠㈣泛顑囬崢顏呯節閻㈤潧浠ч柛瀣尭閳诲秹宕卞☉娆戝幈闁诲函缍嗘禍婊堝焵椤掆偓椤兘鐛径濠庢桨鐎光偓閳ь剟鎮块埀顒勬⒑閸濆嫬鏆婇柛瀣尰缁?
-      this.savePhoto(normalizedPhoto)
+      this.savePhoto(photoWithQuality, {
+        qualityHintText
+      })
       
       wx.hideLoading()
     } catch (err) {
@@ -963,7 +971,32 @@ Page({
     }
   },
 
-  savePhoto(photo) {
+  async analyzePendingPhotoQuality(photo) {
+    if (!photo || !photo.compressedPath) {
+      return null
+    }
+
+    try {
+      const result = await photoQuality.analyzePhotoQuality({
+        filePath: photo.compressedPath
+      })
+
+      runtimeLogger.info('capture', 'photo_quality_analyzed', {
+        level: result?.level || '',
+        suggestRetake: !!result?.suggestRetake,
+        reasons: Array.isArray(result?.reasons) ? result.reasons : []
+      })
+
+      return result
+    } catch (error) {
+      runtimeLogger.warn('capture', 'photo_quality_analyze_failed', {
+        message: error?.message || String(error)
+      })
+      return null
+    }
+  },
+
+  savePhoto(photo, options = {}) {
     const cachedFlowContext = cacheSelectors.getCurrentFlowContext(storage.loadCache())
     runtimeLogger.info('capture', 'photo_pending_confirm', {
       currentStep: cachedFlowContext.currentStep,
@@ -1000,6 +1033,7 @@ Page({
     this.setData({
       showConfirmModal: true,
       confirmContent,
+      qualityHintText: options.qualityHintText || '',
       pendingPhoto: photo
     })
     workflowPage.syncPageWorkflowState(this, workflow.STATES.CONFIRMING, {
@@ -1035,6 +1069,7 @@ Page({
       this.setData({
         showConfirmModal: false,
         pendingPhoto: null,
+        qualityHintText: '',
         currentStep: cache.currentStep,
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damagePhaseLabel: ''
@@ -1063,6 +1098,7 @@ Page({
       this.setData({
         showConfirmModal: false,
         pendingPhoto: null,
+        qualityHintText: '',
         currentStep: cache.currentStep,
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damageCount,
@@ -1094,6 +1130,7 @@ Page({
       this.setData({
         showConfirmModal: false,
         pendingPhoto: null,
+        qualityHintText: '',
         damageCount: currentVehicle.damages.length,
         damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
         damageAreaRatioText: ''
@@ -1144,6 +1181,7 @@ Page({
     this.setData({
       showConfirmModal: false,
       pendingPhoto: null,
+      qualityHintText: '',
       damageCount: currentVehicle.damages.length,
       damageFrameState: 'normal',
       damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
@@ -1234,6 +1272,7 @@ Page({
     this.setData({
       showConfirmModal: false,
       pendingPhoto: null,
+      qualityHintText: '',
       damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : ''
     })
     workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
@@ -1287,7 +1326,8 @@ Page({
     storage.saveCache(cache)
     this.setData({
       showConfirmModal: false,
-      pendingPhoto: null
+      pendingPhoto: null,
+      qualityHintText: ''
     })
     return true
   },

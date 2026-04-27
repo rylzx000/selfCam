@@ -1,5 +1,13 @@
 const constants = require('./constants')
 
+const ACTIONABLE_QUALITY_REASONS = {
+  blur: true,
+  dark: true,
+  overexposed: true,
+  too_near: true,
+  too_far: true
+}
+
 function getVehicles(cache) {
   return Array.isArray(cache && cache.vehicles) ? cache.vehicles : []
 }
@@ -8,8 +16,20 @@ function getDocuments(cache) {
   return Array.isArray(cache && cache.documents) ? cache.documents : []
 }
 
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
 function isCompletedPhoto(photo) {
   return !!photo && photo.status === 'completed' && !!photo.compressedPath
+}
+
+function hasStoredAttachment(record) {
+  return !!record && isNonEmptyString(record.compressedPath)
 }
 
 function getSafeCurrentVehicleIndex(cache, vehicles) {
@@ -216,6 +236,196 @@ function getDocumentSummary(cache) {
   }
 }
 
+function normalizePhotoQualityForSummary(quality) {
+  if (!isPlainObject(quality)) {
+    return null
+  }
+
+  return {
+    level: ['good', 'warn', 'bad'].indexOf(quality.level) >= 0 ? quality.level : 'warn',
+    suggestRetake: quality.suggestRetake === true,
+    reasons: Array.isArray(quality.reasons)
+      ? quality.reasons.filter((item) => isNonEmptyString(item))
+      : [],
+    analyzedAt: isNonEmptyString(quality.analyzedAt) ? quality.analyzedAt : '',
+    configVersion: isNonEmptyString(quality.configVersion) ? quality.configVersion : ''
+  }
+}
+
+function getActionableQualityReasons(quality) {
+  if (!quality || !Array.isArray(quality.reasons)) {
+    return []
+  }
+
+  const dedupedReasons = []
+
+  quality.reasons.forEach((reason) => {
+    if (!ACTIONABLE_QUALITY_REASONS[reason]) {
+      return
+    }
+
+    if (dedupedReasons.indexOf(reason) >= 0) {
+      return
+    }
+
+    dedupedReasons.push(reason)
+  })
+
+  return dedupedReasons
+}
+
+function collectQualityPhotoRecords(cache) {
+  const records = []
+  let seqNo = 0
+
+  getVehicles(cache).forEach((vehicle, vehicleIndex) => {
+    const vehicleType = isNonEmptyString(vehicle && vehicle.type)
+      ? vehicle.type
+      : constants.VEHICLE_TYPE.TARGET
+
+    if (isCompletedPhoto(vehicle && vehicle.licensePlate)) {
+      seqNo += 1
+      records.push({
+        seqNo,
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.LICENSE_PLATE,
+        photoIndex: null,
+        label: `${vehicleType} - 车牌`,
+        photo: vehicle.licensePlate
+      })
+    }
+
+    if (isCompletedPhoto(vehicle && vehicle.vinCode)) {
+      seqNo += 1
+      records.push({
+        seqNo,
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.VIN_CODE,
+        photoIndex: null,
+        label: `${vehicleType} - VIN码`,
+        photo: vehicle.vinCode
+      })
+    }
+
+    const damages = Array.isArray(vehicle && vehicle.damages) ? vehicle.damages : []
+    damages.forEach((damage, damageIndex) => {
+      if (!hasStoredAttachment(damage)) {
+        return
+      }
+
+      seqNo += 1
+      records.push({
+        seqNo,
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.DAMAGE,
+        photoIndex: damageIndex,
+        label: `${vehicleType} - 车损${damageIndex + 1}`,
+        photo: damage
+      })
+    })
+  })
+
+  getDocuments(cache).forEach((document, documentIndex) => {
+    if (!hasStoredAttachment(document)) {
+      return
+    }
+
+    seqNo += 1
+    records.push({
+      seqNo,
+      vehicleIndex: null,
+      photoType: 'document',
+      photoIndex: documentIndex,
+      label: `单证资料 ${documentIndex + 1}`,
+      photo: document
+    })
+  })
+
+  return records
+}
+
+function getQualitySummary(cache) {
+  const photoRecords = collectQualityPhotoRecords(cache)
+  const riskPhotos = []
+  const riskReasonCounts = {}
+  let analyzedCount = 0
+  let suggestRetakeCount = 0
+  let failedCount = 0
+  let disabledCount = 0
+  let lowConfidenceCount = 0
+
+  photoRecords.forEach((record) => {
+    const quality = normalizePhotoQualityForSummary(record.photo && record.photo.quality)
+
+    if (!quality) {
+      return
+    }
+
+    if (quality.reasons.indexOf('disabled') >= 0) {
+      disabledCount += 1
+      return
+    }
+
+    analyzedCount += 1
+
+    if (quality.reasons.indexOf('analyze_failed') >= 0) {
+      failedCount += 1
+      return
+    }
+
+    if (quality.reasons.indexOf('low_confidence') >= 0) {
+      lowConfidenceCount += 1
+    }
+
+    const actionableReasons = getActionableQualityReasons(quality)
+    if (!quality.suggestRetake || actionableReasons.length === 0) {
+      return
+    }
+
+    suggestRetakeCount += 1
+    actionableReasons.forEach((reason) => {
+      riskReasonCounts[reason] = (riskReasonCounts[reason] || 0) + 1
+    })
+
+    riskPhotos.push({
+      photoType: record.photoType,
+      vehicleIndex: record.vehicleIndex,
+      photoIndex: record.photoIndex,
+      seqNo: record.seqNo,
+      label: record.label,
+      quality: {
+        level: quality.level,
+        reasons: quality.reasons.slice(),
+        suggestRetake: quality.suggestRetake,
+        analyzedAt: quality.analyzedAt,
+        configVersion: quality.configVersion
+      }
+    })
+  })
+
+  const riskReasons = Object.keys(riskReasonCounts).sort((left, right) => {
+    if (riskReasonCounts[right] !== riskReasonCounts[left]) {
+      return riskReasonCounts[right] - riskReasonCounts[left]
+    }
+
+    return left.localeCompare(right)
+  })
+
+  return {
+    totalPhotos: photoRecords.length,
+    analyzedCount,
+    riskCount: riskPhotos.length,
+    suggestRetakeCount,
+    riskReasons,
+    riskReasonCounts,
+    riskPhotos,
+    failedCount,
+    disabledCount,
+    lowConfidenceCount,
+    unanalyzedCount: Math.max(photoRecords.length - analyzedCount - disabledCount, 0)
+  }
+}
+
 function getRetakeContext(cache, vehicles) {
   if (!cache || !cache.retakeMode || cache.retakeMode.enabled !== true) {
     return null
@@ -285,6 +495,7 @@ function getCacheSummary(cache) {
   const vehicleSummary = getVehicleSummary(cache)
   const documentSummary = getDocumentSummary(cache)
   const flowContext = getCurrentFlowContext(cache)
+  const qualitySummary = getQualitySummary(cache)
   const shouldSuggestBackToEditReasons = []
 
   if (flowContext.hasRetakeContext) {
@@ -314,6 +525,7 @@ function getCacheSummary(cache) {
     photoCounts,
     totalPhotos: photoCounts.total,
     allPhotos: vehicleSummary.photoEntries.concat(documentSummary.photoEntries),
+    qualitySummary,
     progress: {
       ...vehicleSummary.progress,
       step3: documentSummary.hasDocuments
@@ -332,6 +544,7 @@ module.exports = {
   getCacheSummary,
   getVehicleSummary,
   getDocumentSummary,
+  getQualitySummary,
   getCurrentFlowContext,
   hasRetakeContext
 }

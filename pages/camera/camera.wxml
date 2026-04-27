@@ -207,6 +207,7 @@
 
     <view wx:if="{{showConfirmModal}}" class="confirm-section">
       <text class="confirm-tip">{{confirmContent}}</text>
+      <text wx:if="{{qualityHintText}}" class="quality-hint">{{qualityHintText}}</text>
       <view class="btn-group">
         <view class="btn-confirm" bindtap="onConfirmPhoto">
           <text>确认</text>

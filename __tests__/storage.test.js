@@ -259,4 +259,46 @@ describe('storage cache governance', () => {
     expect(safeCache.retakeMode.enabled).toBe(true)
     expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
   })
+
+  test('normalizes photo quality meta and keeps legacy photos without quality compatible', () => {
+    const legacyPhoto = storage.normalizePhotoMeta({
+      compressedPath: '/legacy.jpg'
+    })
+
+    const qualityPhoto = storage.normalizePhotoMeta({
+      compressedPath: '/quality.jpg',
+      quality: {
+        level: 'bad',
+        suggestRetake: true,
+        reasons: ['blur', '', 'dark'],
+        metrics: {
+          brightness: 0.22,
+          darkRatio: 0.81,
+          blurScore: 0.11,
+          sampledWidth: 320.4,
+          sampledHeight: 180.2
+        },
+        analyzedAt: '2026-04-26T00:00:00.000Z',
+        configVersion: 'quality-v1'
+      }
+    })
+
+    expect(legacyPhoto).not.toHaveProperty('quality')
+    expect(qualityPhoto.quality).toEqual({
+      level: 'bad',
+      suggestRetake: true,
+      reasons: ['blur', 'dark'],
+      metrics: {
+        brightness: 0.22,
+        darkRatio: 0.81,
+        brightRatio: 0,
+        blurScore: 0.11,
+        contrast: 0,
+        sampledWidth: 320,
+        sampledHeight: 180
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'quality-v1'
+    })
+  })
 })

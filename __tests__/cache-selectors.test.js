@@ -3,6 +3,26 @@ describe('cache selectors', () => {
   let selectors
   let constants
 
+  function createQuality(overrides = {}) {
+    return {
+      level: 'good',
+      suggestRetake: false,
+      reasons: [],
+      metrics: {
+        brightness: 0.52,
+        darkRatio: 0.1,
+        brightRatio: 0.05,
+        blurScore: 0.62,
+        contrast: 0.2,
+        sampledWidth: 320,
+        sampledHeight: 240
+      },
+      analyzedAt: '2026-04-26T00:00:00.000Z',
+      configVersion: 'test-config',
+      ...overrides
+    }
+  }
+
   function createCompletedVehicle(index, damageCount = 1) {
     const vehicle = storage.createVehicle(index)
     vehicle.licensePlate = {
@@ -60,6 +80,13 @@ describe('cache selectors', () => {
     })
     expect(summary.canAddThirdVehicle).toBe(true)
     expect(summary.shouldSuggestBackToEdit).toBe(false)
+    expect(summary.qualitySummary).toEqual(expect.objectContaining({
+      totalPhotos: 13,
+      analyzedCount: 0,
+      riskCount: 0,
+      suggestRetakeCount: 0,
+      riskReasons: []
+    }))
   })
 
   test('prefers retake context when resolving current flow', () => {
@@ -94,5 +121,34 @@ describe('cache selectors', () => {
     expect(documentSummary.count).toBe(0)
     expect(documentSummary.remainingCount).toBe(constants.LIMITS.MAX_DOCUMENTS)
     expect(documentSummary.photoEntries).toEqual([])
+  })
+
+  test('builds quality summary with zero risks when analyzed photos are all good', () => {
+    const cache = storage.initCache()
+    const vehicle = createCompletedVehicle(0, 1)
+
+    vehicle.licensePlate.quality = createQuality()
+    vehicle.vinCode.quality = createQuality()
+    vehicle.damages[0].quality = createQuality()
+    cache.vehicles.push(vehicle)
+    cache.documents = [
+      {
+        compressedPath: '/doc-1.jpg',
+        quality: createQuality()
+      }
+    ]
+
+    const qualitySummary = selectors.getQualitySummary(cache)
+    const summary = selectors.getCacheSummary(cache)
+
+    expect(qualitySummary).toEqual(expect.objectContaining({
+      totalPhotos: 4,
+      analyzedCount: 4,
+      riskCount: 0,
+      suggestRetakeCount: 0,
+      riskReasons: []
+    }))
+    expect(qualitySummary.riskPhotos).toEqual([])
+    expect(summary.qualitySummary).toEqual(qualitySummary)
   })
 })

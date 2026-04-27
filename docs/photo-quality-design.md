@@ -171,6 +171,62 @@ qualityConfig.getQualityConfig()
 
 这样后续如果要把提示展示到确认页，只需要补调用和展示逻辑，不需要重写算法层。
 
+### 拍后确认接入说明
+
+本轮已经完成拍后确认流程的最小接入，接入点位于：
+
+- `pages/camera/camera.js` 的拍照处理链路
+- 时机是“拍照成功并压缩完成后、进入确认弹层前”
+
+当前接入规则如下：
+
+- 页面层调用 `analyzePhotoQuality()` 完成一次拍后分析
+- 如果 `showUserHint=true` 且结果 `suggestRetake=true`，则在现有确认区域展示一条轻提示
+- 如果 `saveQualityMeta=true`，则把标准化后的 `quality` 结果写入照片对象
+- 如果 `showUserHint=false`，则不展示提示，但仍可按配置决定是否保存质量元数据
+- 如果 `saveQualityMeta=false`，则不写入 `quality` 字段
+- 如果 `quality.enabled=false`，则不展示提示，流程保持原样
+- 如果分析失败或超时，用户仍然可以继续确认保存照片
+
+### 完成页摘要接入说明
+
+在拍后确认已经把 `quality` 元数据写入照片对象后，完成页不应再自己遍历所有车辆和照片做质量判断，而应统一通过摘要层读取结果。
+
+当前接入方式如下：
+
+- `storage-schema` 继续负责标准化照片对象上的 `quality` 字段，保证旧缓存和新缓存结构兼容
+- `cache-selectors` 新增 `getQualitySummary(cache)`，用于对所有已保存照片做只读汇总
+- `getCacheSummary(cache)` 挂出 `qualitySummary`，供 `preview`、`complete` 等摘要层页面统一消费
+- `complete` 页只负责展示一条轻提示，不在页面中写复杂遍历或阈值判断逻辑
+
+当前 `qualitySummary` 至少包含：
+
+- `totalPhotos`
+- `analyzedCount`
+- `riskCount`
+- `suggestRetakeCount`
+- `riskReasons`
+- `riskPhotos`
+- `failedCount`
+- `disabledCount`
+- `lowConfidenceCount`
+- `unanalyzedCount`
+
+完成页展示规则如下：
+
+- 当 `riskCount=0` 时，不额外打扰用户
+- 当存在风险照片时，展示“有 X 张照片可能存在模糊或偏暗问题，建议返回修改”这类轻提示
+- 提示是否展示继续受 `quality-config.showUserHint` 控制
+- 即使不展示提示，摘要数据仍然可以计算
+- 页面仍允许用户直接完成，不做强制返回修改
+
+风险识别规则如下：
+
+- `suggestRetake=true` 且存在可操作原因（如 `blur`、`dark`、`overexposed`）时，计入风险照片
+- `disabled` 不算风险
+- `analyze_failed` 不算风险，也不会阻断流程
+- 旧照片没有 `quality` 字段时，按“未分析”处理，不报错
+
 ## 注意事项
 
 为避免后续接入时出现误用，当前模块需要注意以下几点：

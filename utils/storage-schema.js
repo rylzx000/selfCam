@@ -107,8 +107,47 @@ function createCache() {
   }
 }
 
-function normalizePhotoMeta(photo = {}, meta = {}) {
+function normalizeQualityMetricNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Number(value.toFixed(4))
+    : 0
+}
+
+function normalizeQualityMetricInteger(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.round(value)
+    : 0
+}
+
+function normalizePhotoQualityMeta(quality) {
+  if (!isPlainObject(quality)) {
+    return null
+  }
+
+  const reasons = Array.isArray(quality.reasons)
+    ? quality.reasons.filter((item) => isNonEmptyString(item))
+    : []
+
   return {
+    level: ['good', 'warn', 'bad'].indexOf(quality.level) >= 0 ? quality.level : 'warn',
+    suggestRetake: !!quality.suggestRetake,
+    reasons,
+    metrics: {
+      brightness: normalizeQualityMetricNumber(quality.metrics && quality.metrics.brightness),
+      darkRatio: normalizeQualityMetricNumber(quality.metrics && quality.metrics.darkRatio),
+      brightRatio: normalizeQualityMetricNumber(quality.metrics && quality.metrics.brightRatio),
+      blurScore: normalizeQualityMetricNumber(quality.metrics && quality.metrics.blurScore),
+      contrast: normalizeQualityMetricNumber(quality.metrics && quality.metrics.contrast),
+      sampledWidth: normalizeQualityMetricInteger(quality.metrics && quality.metrics.sampledWidth),
+      sampledHeight: normalizeQualityMetricInteger(quality.metrics && quality.metrics.sampledHeight)
+    },
+    analyzedAt: isValidIsoString(quality.analyzedAt) ? quality.analyzedAt : nowIso(),
+    configVersion: isNonEmptyString(quality.configVersion) ? quality.configVersion : ''
+  }
+}
+
+function normalizePhotoMeta(photo = {}, meta = {}) {
+  const normalizedPhoto = {
     ...photo,
     captureMode: meta.captureMode || photo.captureMode || 'manual',
     captureTrigger: meta.captureTrigger || photo.captureTrigger || 'manual_button',
@@ -118,6 +157,18 @@ function normalizePhotoMeta(photo = {}, meta = {}) {
         ? photo.aiDetection
         : null
   }
+
+  const normalizedQuality = normalizePhotoQualityMeta(
+    isPlainObject(meta.quality) ? meta.quality : photo.quality
+  )
+
+  if (normalizedQuality) {
+    normalizedPhoto.quality = normalizedQuality
+  } else if (Object.prototype.hasOwnProperty.call(normalizedPhoto, 'quality')) {
+    delete normalizedPhoto.quality
+  }
+
+  return normalizedPhoto
 }
 
 function sanitizeTimestamp(value, fallbackValue, tracker, issueCode) {
