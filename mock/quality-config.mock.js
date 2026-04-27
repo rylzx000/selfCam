@@ -1,10 +1,10 @@
 module.exports = {
-  enabled: true,
-  showUserHint: true,
-  saveQualityMeta: true,
-  blurEnabled: true,
-  exposureEnabled: true,
-  brightnessEnabled: true,
+  enabled: false,
+  showUserHint: false,
+  saveQualityMeta: false,
+  blurEnabled: false,
+  exposureEnabled: false,
+  brightnessEnabled: false,
   nearFarEnabled: false,
   thresholds: {
     blur: 0.38,

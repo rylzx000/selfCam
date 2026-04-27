@@ -8,9 +8,19 @@ const photoQuality = require('../utils/photo-quality')
 
 function createConfig(overrides = {}) {
   const defaults = cloneQualityConfigDefaults()
+  const enabledDefaults = {
+    enabled: true,
+    showUserHint: true,
+    saveQualityMeta: true,
+    blurEnabled: true,
+    exposureEnabled: true,
+    brightnessEnabled: true,
+    nearFarEnabled: false
+  }
 
   return {
     ...defaults,
+    ...enabledDefaults,
     ...overrides,
     thresholds: {
       ...defaults.thresholds,

@@ -2,12 +2,12 @@ const QUALITY_CONFIG_CACHE_KEY = 'selfcam_quality_config_cache_v1'
 const QUALITY_CONFIG_CACHE_SCHEMA_VERSION = 1
 
 const DEFAULT_QUALITY_CONFIG = {
-  enabled: true,
-  showUserHint: true,
+  enabled: false,
+  showUserHint: false,
   saveQualityMeta: false,
-  blurEnabled: true,
-  exposureEnabled: true,
-  brightnessEnabled: true,
+  blurEnabled: false,
+  exposureEnabled: false,
+  brightnessEnabled: false,
   nearFarEnabled: false,
   thresholds: {
     blur: 0.35,
