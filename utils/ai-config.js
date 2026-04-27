@@ -2,21 +2,25 @@
  * AI 自动拍照配置
  */
 
-const PLATE_MODEL_PATH = `${wx.env.USER_DATA_PATH}/plate.onnx`
-const DAMAGE_MODEL_PATH = `${wx.env.USER_DATA_PATH}/damage.onnx`
-const MODEL_HOST = 'http://192.168.100.100:8000'
-const PLATE_MODEL_URL = `${MODEL_HOST}/plate.onnx`
-const DAMAGE_MODEL_URL = `${MODEL_HOST}/damage.onnx`
-const DEBUG_LOG_HOST = MODEL_HOST.replace(/:\d+$/, ':8101')
+const envConfig = require('./env-config')
+
+const resolvedAiConfig = envConfig.getAiConfig()
+const resolvedDebugConfig = envConfig.getDebugConfig()
+
+const PLATE_MODEL_PATH = resolvedAiConfig.plateModelPath
+const DAMAGE_MODEL_PATH = resolvedAiConfig.damageModelPath
+const PLATE_MODEL_URL = resolvedAiConfig.plateModelUrl
+const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 const DEBUG_LOG = {
-  enabled: true,
-  uploadUrl: `${DEBUG_LOG_HOST}/capture-log`,
-  batchSize: 20,
-  maxEntries: 400,
-  maxPendingEntries: 120,
-  uploadThrottleMs: 1500,
-  requestTimeoutMs: 2500
+  enabled: resolvedDebugConfig.enabled,
+  uploadEnabled: resolvedDebugConfig.uploadEnabled,
+  uploadUrl: resolvedDebugConfig.uploadUrl,
+  batchSize: resolvedDebugConfig.batchSize,
+  maxEntries: resolvedDebugConfig.maxEntries,
+  maxPendingEntries: resolvedDebugConfig.maxPendingEntries,
+  uploadThrottleMs: resolvedDebugConfig.uploadThrottleMs,
+  requestTimeoutMs: resolvedDebugConfig.requestTimeoutMs
 }
 
 const AUTO_CAPTURE = {

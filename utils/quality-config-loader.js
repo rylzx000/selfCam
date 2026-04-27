@@ -4,6 +4,7 @@ const {
   cloneQualityConfigDefaults,
   cloneQualityConfigSource
 } = require('./quality-config-default')
+const envConfig = require('./env-config')
 
 const LOCAL_MOCK_QUALITY_CONFIG = require('../mock/quality-config.mock')
 
@@ -19,11 +20,6 @@ const BOOLEAN_FALSE_SET = {
   '0': true,
   no: true,
   off: true
-}
-
-const MOCK_ENV_VERSIONS = {
-  develop: true,
-  trial: true
 }
 
 function clonePlainData(value) {
@@ -63,22 +59,10 @@ function getWx() {
 }
 
 function getMiniProgramEnvVersion(options = {}) {
-  if (typeof options.envVersion === 'string' && options.envVersion.trim()) {
-    return options.envVersion.trim().toLowerCase()
-  }
-
-  const wxRef = getWx()
-
-  if (!wxRef || typeof wxRef.getAccountInfoSync !== 'function') {
-    return 'develop'
-  }
-
-  try {
-    const envVersion = wxRef.getAccountInfoSync()?.miniProgram?.envVersion
-    return sanitizeString(envVersion, 'develop', 32).toLowerCase()
-  } catch (error) {
-    return 'develop'
-  }
+  return envConfig.getEnvVersion({
+    envVersion: options.envVersion,
+    wx: options.wx || getWx()
+  })
 }
 
 function sanitizeBoolean(value, fallback) {
@@ -333,6 +317,7 @@ function resolveConfigSource(options = {}) {
     ...sourceOverride
   }
   const envVersion = getMiniProgramEnvVersion(options)
+  const sourcePolicy = envConfig.getQualityConfigSourcePolicy({ envVersion })
   const requestedType = sanitizeString(resolvedSource.type, defaultSource.type, 32).toLowerCase()
 
   if (requestedType === 'mock') {
@@ -347,7 +332,7 @@ function resolveConfigSource(options = {}) {
     return resolveRemoteSource(resolvedSource, envVersion)
   }
 
-  if (MOCK_ENV_VERSIONS[envVersion]) {
+  if (sourcePolicy.defaultSourceType === 'mock') {
     return {
       ...resolvedSource,
       type: 'mock',
@@ -359,7 +344,7 @@ function resolveConfigSource(options = {}) {
     return resolveRemoteSource(resolvedSource, envVersion)
   }
 
-  if (envVersion === 'release') {
+  if (sourcePolicy.fallbackToDefaultOnMissingRemote) {
     return resolveReleaseDefaultSource(resolvedSource, envVersion)
   }
 

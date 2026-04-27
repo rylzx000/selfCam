@@ -1,4 +1,4 @@
-const { DEBUG_LOG } = require('./ai-config')
+const envConfig = require('./env-config')
 
 const LOG_STORAGE_KEY = 'selfcam_runtime_logs'
 const SESSION_STORAGE_KEY = 'selfcam_runtime_session'
@@ -6,6 +6,12 @@ const SESSION_STORAGE_KEY = 'selfcam_runtime_session'
 let uploadTimer = null
 let uploading = false
 let pendingUploadQueue = []
+
+const LOG_LEVEL_PRIORITY = {
+  info: 1,
+  warn: 2,
+  error: 3
+}
 
 function getNow() {
   return Date.now()
@@ -15,23 +21,40 @@ function getIsoTime(timestamp = getNow()) {
   return new Date(timestamp).toISOString()
 }
 
-function getEnvVersion() {
-  if (typeof wx.getAccountInfoSync !== 'function') {
-    return 'unknown'
+function getWx() {
+  if (typeof wx === 'undefined') {
+    return null
   }
 
-  try {
-    return wx.getAccountInfoSync()?.miniProgram?.envVersion || 'unknown'
-  } catch (error) {
-    return 'unknown'
+  return wx
+}
+
+function getLoggerConfig() {
+  return envConfig.getDebugConfig()
+}
+
+function getEnvVersion() {
+  return envConfig.getEnvVersion()
+}
+
+function shouldCaptureLevel(level) {
+  const runtimeLoggerLevel = getLoggerConfig().runtimeLoggerLevel || 'silent'
+
+  if (runtimeLoggerLevel === 'silent') {
+    return false
   }
+
+  return (LOG_LEVEL_PRIORITY[level] || 0) >= (LOG_LEVEL_PRIORITY[runtimeLoggerLevel] || 0)
 }
 
 function shouldUpload() {
-  return !!DEBUG_LOG.enabled
-    && !!DEBUG_LOG.uploadUrl
-    && getEnvVersion() !== 'release'
-    && typeof wx.request === 'function'
+  const wxRef = getWx()
+  const loggerConfig = getLoggerConfig()
+
+  return !!loggerConfig.uploadEnabled
+    && !!loggerConfig.uploadUrl
+    && !!wxRef
+    && typeof wxRef.request === 'function'
 }
 
 function safeClone(value, depth = 0) {
@@ -63,8 +86,14 @@ function safeClone(value, depth = 0) {
 }
 
 function readStorageObject(storageKey, fallbackValue) {
+  const wxRef = getWx()
+
+  if (!wxRef || typeof wxRef.getStorageSync !== 'function') {
+    return fallbackValue
+  }
+
   try {
-    const value = wx.getStorageSync(storageKey)
+    const value = wxRef.getStorageSync(storageKey)
     if (!value) {
       return fallbackValue
     }
@@ -75,7 +104,17 @@ function readStorageObject(storageKey, fallbackValue) {
 }
 
 function writeStorageObject(storageKey, value) {
-  wx.setStorageSync(storageKey, JSON.stringify(value))
+  const wxRef = getWx()
+
+  if (!wxRef || typeof wxRef.setStorageSync !== 'function') {
+    return
+  }
+
+  try {
+    wxRef.setStorageSync(storageKey, JSON.stringify(value))
+  } catch (error) {
+    // 本地日志写入失败不阻断主流程
+  }
 }
 
 function readLogs() {
@@ -83,7 +122,7 @@ function readLogs() {
 }
 
 function writeLogs(logs) {
-  const trimmedLogs = logs.slice(-DEBUG_LOG.maxEntries)
+  const trimmedLogs = logs.slice(-getLoggerConfig().maxEntries)
   writeStorageObject(LOG_STORAGE_KEY, trimmedLogs)
 }
 
@@ -115,6 +154,8 @@ function appendLocalLog(entry) {
 }
 
 function scheduleUpload() {
+  const loggerConfig = getLoggerConfig()
+
   if (!shouldUpload() || uploadTimer || uploading || pendingUploadQueue.length === 0) {
     return
   }
@@ -122,21 +163,24 @@ function scheduleUpload() {
   uploadTimer = setTimeout(() => {
     uploadTimer = null
     flush()
-  }, DEBUG_LOG.uploadThrottleMs)
+  }, loggerConfig.uploadThrottleMs)
 }
 
 function flush() {
+  const wxRef = getWx()
+  const loggerConfig = getLoggerConfig()
+
   if (!shouldUpload() || uploading || pendingUploadQueue.length === 0) {
     return
   }
 
-  const batch = pendingUploadQueue.slice(0, DEBUG_LOG.batchSize)
+  const batch = pendingUploadQueue.slice(0, loggerConfig.batchSize)
   uploading = true
 
-  wx.request({
-    url: DEBUG_LOG.uploadUrl,
+  wxRef.request({
+    url: loggerConfig.uploadUrl,
     method: 'POST',
-    timeout: DEBUG_LOG.requestTimeoutMs,
+    timeout: loggerConfig.requestTimeoutMs,
     data: {
       app: 'selfCam',
       sentAt: getIsoTime(),
@@ -157,6 +201,10 @@ function flush() {
 }
 
 function addLog(level, scope, event, payload = {}, sessionMeta = null) {
+  if (!shouldCaptureLevel(level)) {
+    return null
+  }
+
   const session = ensureSession(sessionMeta || {})
   const timestamp = getNow()
   const entry = {
@@ -173,9 +221,10 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
   appendLocalLog(entry)
 
   if (shouldUpload()) {
+    const loggerConfig = getLoggerConfig()
     pendingUploadQueue.push(entry)
-    if (pendingUploadQueue.length > DEBUG_LOG.maxPendingEntries) {
-      pendingUploadQueue = pendingUploadQueue.slice(-DEBUG_LOG.maxPendingEntries)
+    if (pendingUploadQueue.length > loggerConfig.maxPendingEntries) {
+      pendingUploadQueue = pendingUploadQueue.slice(-loggerConfig.maxPendingEntries)
     }
     scheduleUpload()
   }
@@ -196,14 +245,25 @@ function endSession(scope, meta = {}) {
 }
 
 function clearSession(clearLogs = true) {
+  const wxRef = getWx()
+
   pendingUploadQueue = []
   if (uploadTimer) {
     clearTimeout(uploadTimer)
     uploadTimer = null
   }
-  wx.removeStorageSync(SESSION_STORAGE_KEY)
-  if (clearLogs) {
-    wx.removeStorageSync(LOG_STORAGE_KEY)
+
+  if (!wxRef || typeof wxRef.removeStorageSync !== 'function') {
+    return
+  }
+
+  try {
+    wxRef.removeStorageSync(SESSION_STORAGE_KEY)
+    if (clearLogs) {
+      wxRef.removeStorageSync(LOG_STORAGE_KEY)
+    }
+  } catch (error) {
+    // 清理失败不阻断主流程
   }
 }
 

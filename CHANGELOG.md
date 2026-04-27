@@ -4,6 +4,27 @@
 
 ---
 
+## [v1.2.5] - 2026-04-27
+
+### 新增
+
+- 新增统一环境配置模块 `utils/env-config.js`，统一读取 `wx.getAccountInfoSync().miniProgram.envVersion` 并收口 `develop / trial / release` 默认策略。
+- 新增 `__tests__/env-config.test.js`，覆盖环境识别、`wx` 缺失安全降级、异常保护，以及 develop / trial / release 默认开关行为。
+- 新增 `docs/env-config-design.md`，说明环境配置收口目标、三套环境策略、生产禁用项与后续扩展方式。
+
+### 变更
+
+- `utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js`、`app.js` 与 `pages/camera/camera.js` 最小接入统一环境配置模块，减少散落环境判断。
+- `release` 环境下的调试日志、调试上传、开发面板和 mock 默认策略统一由 `env-config` 兜底控制。
+- 强化 `docs/codex-review-workflow.md`，要求 `review.diff` 与 `review-summary.md` 基于同一份“本轮相关文件列表”生成，并用 diff 文件头判断是否混入旧任务文件。
+
+### 修复
+
+- 修复 `utils/ai-config.js` 中 `DEBUG_LOG.enabled` 在 `release` 环境下可能被误判为开启的问题。
+- 修复审查材料工作流中“`review-summary.md` 已切到本轮任务，但 `review.diff` 仍是旧任务内容”的规则漏洞。
+
+---
+
 ## [v1.2.4] - 2026-04-26
 
 ### 新增
@@ -150,6 +171,7 @@
 
 | 版本 | 日期 | 类型 | 说明 |
 | --- | --- | --- | --- |
+| v1.2.5 | 2026-04-27 | 封板补丁版 | 环境配置与调试开关收口，补齐 env-config 测试与审查工作流规则 |
 | v1.2.4 | 2026-04-26 | 封板补丁版 | 端上轻质检拍后分析模块落地，补齐测试、设计文档与 disabled 语义修正 |
 | v1.2.3 | 2026-04-24 | 封板补丁版 | 端上轻质检三层配置体系落地，补齐环境策略、缓存降级、测试与设计文档 |
 | v1.2.2 | 2026-04-24 | 封板补丁版 | workflow-state 收敛、本地缓存治理三步补齐、异常链路测试与测试文档落地 |
@@ -160,4 +182,4 @@
 
 ---
 
-*最后更新：2026-04-24*
+*最后更新：2026-04-27*

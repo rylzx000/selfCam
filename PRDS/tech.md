@@ -1,7 +1,7 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.2.4（`package.json`）
+> 代码基线：v1.2.5（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-04-27
 
@@ -43,6 +43,7 @@ selfCam/
 │  ├─ compress.js
 │  ├─ constants.js
 │  ├─ ai-config.js
+│  ├─ env-config.js
 │  ├─ quality-config-default.js
 │  ├─ quality-config-loader.js
 │  ├─ quality-config.js
@@ -325,15 +326,18 @@ cameraContext.takePhoto
 `utils/ai-config.js` 当前配置：
 
 ```js
-const PLATE_MODEL_PATH = `${wx.env.USER_DATA_PATH}/plate.onnx`
-const DAMAGE_MODEL_PATH = `${wx.env.USER_DATA_PATH}/damage.onnx`
-const MODEL_HOST = 'http://192.168.100.100:8000'
+const resolvedAiConfig = envConfig.getAiConfig()
+const PLATE_MODEL_PATH = resolvedAiConfig.plateModelPath
+const DAMAGE_MODEL_PATH = resolvedAiConfig.damageModelPath
+const PLATE_MODEL_URL = resolvedAiConfig.plateModelUrl
+const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 ```
 
 说明：
 
 - 模型不随主包直接打包
-- 首次需要从远程地址下载到 `USER_DATA_PATH`
+- 本地模型文件统一写入 `USER_DATA_PATH`
+- `develop` 允许使用本地模型地址，`trial / release` 默认不开放本地模型 host
 - 推理能力依赖 `wx.createInferenceSession`
 - 若推理不可用，则自动降级为手动拍照
 
@@ -359,6 +363,14 @@ const MODEL_HOST = 'http://192.168.100.100:8000'
 - 自动拍照冷却：`2500ms`
 - 车损预览轮询：`280ms`
 - 车损检测器按 `detectorEveryNFrames = 3` 降频执行
+
+### 4. 环境配置收口
+
+- 新增 `utils/env-config.js` 作为统一环境配置入口
+- 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`
+- 支持 `develop / trial / release` 三种环境，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
+- `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
+- `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断
 
 ---
 
@@ -565,4 +577,4 @@ retakeMode = {
 
 - 预览页进度点的“完成”定义与实际允许提交条件不完全一致
 - `document` 页面仍保留在路由中，但不是主流程入口
-- AI 模型地址当前仍是局域网开发地址，正式发布前需替换为可访问的正式静态资源地址
+- AI 模型地址与调试上传地址后续如需接正式静态资源或在线配置，应继续统一扩展到 `env-config`，不要回退到模块内硬编码

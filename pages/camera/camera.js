@@ -4,6 +4,7 @@ const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
 const photoQuality = require('../../utils/photo-quality')
 const runtimeLogger = require('../../utils/runtime-logger')
+const envConfig = require('../../utils/env-config')
 const PlateDetector = require('../../utils/plate-detector')
 const DamageDetector = require('../../utils/damage-detector')
 const { PlateFrameUtils } = require('../../utils/frame-utils')
@@ -118,17 +119,7 @@ Page({
   },
 
   shouldShowAIDebug() {
-    if (typeof wx.getAccountInfoSync !== 'function') {
-      return false
-    }
-
-    try {
-      const accountInfo = wx.getAccountInfoSync()
-      return accountInfo?.miniProgram?.envVersion !== 'release'
-    } catch (error) {
-      console.warn('[AI] shouldShowAIDebug failed:', error)
-      return false
-    }
+    return envConfig.getDebugConfig().showAIPanel
   },
 
   getAIStatusByStep(step) {

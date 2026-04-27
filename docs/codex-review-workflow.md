@@ -40,6 +40,8 @@
 
 生成 `review.diff` 时必须遵循以下规则：
 
+- 每次生成前，必须先明确写出“本轮相关文件列表”
+- `review.diff` 和 `review-summary.md` 必须基于同一份“本轮相关文件列表”生成
 - 每次生成前先删除旧的 `review.diff`
 - `review.diff` 只包含本次任务相关文件
 - 必须包含新增文件和修改文件
@@ -47,13 +49,35 @@
 - 不要使用 PowerShell `Out-File` 生成 diff
 - 优先使用 Git 自带的 `--output` 方式生成
 
-### 3.2 推荐命令
+### 3.2 本轮相关文件列表（强制）
+
+生成 `review.diff` 和 `review-summary.md` 前，必须先明确“本轮相关文件列表”，并在后续步骤中始终复用这一份列表。
+
+强制要求如下：
+
+- “本轮相关文件列表”必须是显式文件列表，不能只写模糊描述
+- 如果工作区里同时存在其他未提交任务，必须把无关文件排除在这份列表之外
+- `review.diff` 必须只基于这份列表生成
+- `review-summary.md` 必须明确列出这份列表
+- 后续所有自检动作，也必须仍以这份列表为唯一基准
+
+### 3.3 强制命令
+
+生成 `review.diff` 时，必须使用以下命令：
+
+```bash
+git diff --cached --output=review.diff -- <本轮相关文件列表>
+```
+
+这是强制要求，不要改用其他临时导出方式。
+
+### 3.4 推荐命令
 
 推荐命令格式如下：
 
 ```bash
-git add <本次相关文件列表>
-git diff --cached --output=review.diff -- <本次相关文件列表>
+git add <本轮相关文件列表>
+git diff --cached --output=review.diff -- <本轮相关文件列表>
 ```
 
 例如：
@@ -63,20 +87,25 @@ git add utils/photo-quality.js __tests__/photo-quality.test.js docs/photo-qualit
 git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo-quality.test.js docs/photo-quality-design.md
 ```
 
-### 3.3 操作要求
+### 3.5 操作要求
 
 - 如果不确定哪些文件属于本次任务，先执行 `git status --short`
-- 不要盲目执行 `git add .`
+- 禁止直接执行 `git add .`，除非已经先确认工作区没有无关改动
+- 即使确认可以执行 `git add .`，也仍然建议优先显式写出“本轮相关文件列表”
 - 如果必须执行 `git add .`，要先确认 `.gitignore` 已忽略 `review*.diff`、`review-summary.md`、`coverage/`、`reports/` 等临时产物
 - 如果工作区里同时存在其他未提交任务，必须显式列出本次相关文件，避免把旧任务改动混入本次 `review.diff`
+- 如果 `review.diff` 为空、仍是旧任务内容，或与“本轮相关文件列表”不一致，不能报告完成，必须重新生成
 
 ## 4. review-summary.md 内容要求
 
 每次任务结束后，必须同时生成 `review-summary.md`，并至少包含以下内容：
 
 - 本次任务目标
+- 本轮相关文件列表
 - 新增文件列表
 - 修改文件列表
+- `review.diff` 实际包含的文件列表
+- `review.diff` 正文中出现的示例关键词
 - 关键实现说明
 - 运行过的测试命令
 - 测试结果
@@ -93,9 +122,15 @@ git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo
 
 ## 本次任务目标
 
+## 本轮相关文件列表
+
 ## 新增文件
 
 ## 修改文件
+
+## review.diff 实际包含的文件列表
+
+## review.diff 正文中出现的示例关键词
 
 ## 关键实现说明
 
@@ -114,15 +149,40 @@ git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo
 
 Codex 生成审查材料后，必须做一次自检，至少检查以下内容：
 
+- `review-summary.md` 是否已明确写出“本轮相关文件列表”
+- `review-summary.md` 是否已列出 `review.diff` 实际包含的文件列表
+- `review-summary.md` 是否已区分“实际包含的文件列表”和“正文中出现的示例关键词”
+- 两个列表是否一致；如果不一致，必须重新生成 `review.diff`
 - `review.diff` 是否存在
 - `review.diff` 是否不为空
 - `review.diff` 是否包含本次任务核心关键词
+- `review.diff` 是否确实基于“本轮相关文件列表”生成
 - `review.diff` 是否没有包含 `review.diff` 自身
-- `review.diff` 是否没有混入明显无关的旧任务内容
+- `review.diff` 实际文件列表是否通过 `^diff --git ` 文件头提取，而不是靠全文关键词搜索
+- `review.diff` 是否没有包含无关旧任务文件头
+- 文档正文中的示例关键词是否被误判成旧任务混入；如果只是正文示例提到 `photo-quality`，不算混入旧文件
 - `review-summary.md` 是否存在
 - `review-summary.md` 是否为中文 UTF-8
 
 如果自检失败，应先修正审查材料，再结束任务。
+
+建议的 PowerShell 自检方式：
+
+```powershell
+Select-String -Path review.diff -Pattern "^diff --git "
+```
+
+说明：
+
+- 这条命令用于提取 `review.diff` 实际包含的文件列表
+- 判断是否混入旧任务文件时，应该比对完整文件头，而不是比对普通关键词
+- 例如文档正文里出现 `photo-quality` 示例，不算混入；只有出现旧任务文件头才算混入
+
+例如检查是否混入 `photo-quality` 旧任务文件：
+
+```powershell
+Select-String -Path review.diff -Pattern "^diff --git a/utils/photo-quality.js b/utils/photo-quality.js"
+```
 
 ## 6. .gitignore 建议
 
@@ -152,12 +212,34 @@ reports/
 推荐顺序如下：
 
 1. 先确认本次任务相关文件列表
-2. 删除旧的 `review.diff`
-3. `git add` 本次相关文件
-4. 生成 `review.diff`
-5. 生成 `review-summary.md`
-6. 执行自检
-7. 将以下两份文件交给人工 review：
+2. 明确记录这份列表就是“本轮相关文件列表”
+3. 检查工作区里是否存在无关改动
+4. 删除旧的 `review.diff`
+5. `git add` 本轮相关文件列表
+6. 使用以下强制命令生成 `review.diff`
+
+```bash
+git diff --cached --output=review.diff -- <本轮相关文件列表>
+```
+
+7. 读取 `review.diff` 实际包含的文件列表
+8. 生成 `review-summary.md`，并同时写入：
+   - 本轮相关文件列表
+   - `review.diff` 实际包含的文件列表
+   - `review.diff` 正文中出现的示例关键词
+9. 使用以下命令从 `review.diff` 中提取实际文件列表
+
+```powershell
+Select-String -Path review.diff -Pattern "^diff --git "
+```
+
+10. 检查两个列表是否一致；不一致则重新生成 `review.diff`
+11. 检查 `review.diff` 是否包含本轮核心关键词
+12. 检查 `review.diff` 是否包含无关旧任务文件头，而不是全文关键词
+13. 如果 `review.diff` 为空或仍是旧内容，必须继续修正，不能报告完成
+14. 如果文档正文只是出现旧任务示例关键词，但没有出现旧任务文件头，不算混入旧文件
+15. 执行自检
+16. 将以下两份文件交给人工 review：
    - `review.diff`
    - `review-summary.md`
 
@@ -165,12 +247,15 @@ reports/
 
 - 如果本次任务修改的是 `AGENTS.md`、全局配置、长提示词、系统提示词、协作规则或其他“指令层内容”，也必须执行同样的收尾动作。
 - 不要因为“只是改提示词”或“只是改协作规则”就跳过 `review.diff`。
+- 如果发现 `review-summary.md` 已更新为本轮任务内容，但 `review.diff` 仍是旧任务内容，视为收尾失败，必须重新核对“本轮相关文件列表”、重新暂存并重新生成。
+- 如果发现 `review.diff` 只是正文示例提到旧任务关键词，而没有出现旧任务文件头，不能误判为“混入旧任务文件”。
 
 ## 8. 示例
 
 以 `photo-quality` 任务为例：
 
 ```bash
+git status --short
 git add utils/photo-quality.js __tests__/photo-quality.test.js docs/photo-quality-design.md
 git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo-quality.test.js docs/photo-quality-design.md
 ```
@@ -178,7 +263,10 @@ git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo
 然后生成 `review-summary.md`，写清楚：
 
 - 本次任务目标
+- 本轮相关文件列表
 - 新增和修改文件
+- `review.diff` 实际包含的文件列表
+- `review.diff` 正文中出现的示例关键词
 - 核心实现
 - 测试命令与结果
 - 建议人工重点 review 的位置
@@ -190,3 +278,6 @@ git diff --cached --output=review.diff -- utils/photo-quality.js __tests__/photo
 - 如果本次任务只改文档，也同样要生成 `review.diff` 和 `review-summary.md`
 - 如果本次任务是长提示词、全局配置或协作规则调整，也同样要生成 `review.diff` 和 `review-summary.md`
 - 文档类审查材料建议统一保存为 UTF-8，避免在 VS Code、GitHub、PowerShell 中出现乱码
+- `review-summary.md` 和 `review.diff` 不能各写各的，必须绑定同一份“本轮相关文件列表”
+- 只要两个文件反映的任务范围不一致，就不能报告完成
+- 判断 `review.diff` 是否混入旧任务时，优先检查 `diff --git a/<file> b/<file>` 文件头，不要用普通关键词全文搜索替代

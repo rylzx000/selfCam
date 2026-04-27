@@ -57,6 +57,18 @@ describe('quality config system', () => {
     expect(qualityConfig.getQualityConfigMeta().source).toBe('default')
   })
 
+  test('keeps default quality switches disabled before initialization', () => {
+    expect(qualityConfig.getQualityConfig()).toEqual(expect.objectContaining({
+      enabled: false,
+      showUserHint: false,
+      saveQualityMeta: false,
+      blurEnabled: false,
+      exposureEnabled: false,
+      brightnessEnabled: false,
+      nearFarEnabled: false
+    }))
+  })
+
   test('falls back to defaults when remote config misses fields', () => {
     const merged = loader.mergeQualityConfig(defaultConfig, {
       enabled: false,
@@ -287,6 +299,30 @@ describe('quality config system', () => {
 
     expect(source.type).toBe('mock')
     expect(source.envVersion).toBe(envVersion)
+  })
+
+  test('returns disabled bundled mock config in develop env', async () => {
+    global.wx.getAccountInfoSync = () => ({
+      miniProgram: {
+        envVersion: 'develop'
+      }
+    })
+
+    const config = await qualityConfig.initQualityConfig({
+      now: 1000
+    })
+
+    expect(config).toEqual(expect.objectContaining({
+      enabled: false,
+      showUserHint: false,
+      saveQualityMeta: false,
+      blurEnabled: false,
+      exposureEnabled: false,
+      brightnessEnabled: false,
+      nearFarEnabled: false,
+      configVersion: 'mock-2026-04-24'
+    }))
+    expect(qualityConfig.getQualityConfigMeta().source).toBe('mock')
   })
 
   test('uses JS module path for bundled mock config', () => {
