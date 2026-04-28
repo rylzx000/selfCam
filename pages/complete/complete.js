@@ -1,36 +1,20 @@
 const storage = require('../../utils/storage')
 const cacheSelectors = require('../../utils/cache-selectors')
-const photoQuality = require('../../utils/photo-quality')
 const workflow = require('../../utils/workflow-state')
+
+function resolvePhotoCount(value, fallback) {
+  if (Number.isFinite(value)) {
+    return value
+  }
+
+  return Number.isFinite(fallback) ? fallback : 0
+}
 
 Page({
   data: {
     vehicleCount: 0,
-    totalPhotos: 0,
-    documentCount: 0,
-    photoCounts: {
-      licensePlate: 0,
-      vinCode: 0,
-      damage: 0,
-      document: 0,
-      total: 0
-    },
-    hasRetakeContext: false,
-    shouldSuggestBackToEdit: false,
-    shouldSuggestBackToEditReasons: [],
-    qualitySummary: {
-      totalPhotos: 0,
-      analyzedCount: 0,
-      riskCount: 0,
-      suggestRetakeCount: 0,
-      riskReasons: [],
-      riskPhotos: [],
-      failedCount: 0,
-      disabledCount: 0,
-      lowConfidenceCount: 0,
-      unanalyzedCount: 0
-    },
-    qualitySummaryText: '',
+    damagePhotoCount: 0,
+    documentPhotoCount: 0,
     workflowState: workflow.STATES.IDLE
   },
 
@@ -53,14 +37,9 @@ Page({
 
     this.setData({
       vehicleCount: summary.vehicleCount,
-      totalPhotos: summary.totalPhotos,
-      documentCount: summary.documentCount,
-      photoCounts: summary.photoCounts,
-      hasRetakeContext: summary.hasRetakeContext,
-      shouldSuggestBackToEdit: summary.shouldSuggestBackToEdit,
-      shouldSuggestBackToEditReasons: summary.shouldSuggestBackToEditReasons,
-      qualitySummary: summary.qualitySummary,
-      qualitySummaryText: photoQuality.buildCompleteQualitySummaryText(summary.qualitySummary)
+      damagePhotoCount: resolvePhotoCount(summary.damagePhotoCount, summary.photoCounts && summary.photoCounts.damage),
+      documentPhotoCount: resolvePhotoCount(summary.documentPhotoCount, summary.photoCounts && summary.photoCounts.document),
+      workflowState: summary.flowContext.workflowState
     })
   },
 

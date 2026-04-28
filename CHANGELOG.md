@@ -4,6 +4,26 @@
 
 ---
 
+## [v1.2.6] - 2026-04-28
+
+### 新增
+
+- 新增 `__tests__/complete-page.test.js`，覆盖完成页三指标展示映射、旧摘要字段回退、返回修改保留缓存和完成退出直接清缓存的既有行为。
+
+### 变更
+
+- `pages/complete/complete.js` 改为读取缓存摘要中的 `vehicleCount`、`damagePhotoCount` 和 `documentPhotoCount`，不再在页面层保留质量提示相关状态。
+- `pages/complete/complete.wxml` 保持原始横屏居中成功页结构，只将白色统计框从“车辆数 / 照片数”调整为“车辆数 / 车损照片 / 单证照片”。
+- `pages/complete/complete.wxss` 仅做统计卡片的轻微收紧，保持成功图标、主标题、提示文案和底部按钮的原始视觉风格。
+- `utils/cache-selectors.js` 在现有 `getCacheSummary(cache)` 上补充 `damagePhotoCount` 与 `documentPhotoCount`，供完成页直接读取。
+- 同步更新 `PRDS/PRD.md`、`PRDS/UI.md` 和 `PRDS/tech.md`，让产品、UI 和技术说明与当前完成页轻量实现一致。
+
+### 修复
+
+- 移除完成页中已不再使用的质量提示卡片依赖，避免页面说明与当前实现不一致。
+
+---
+
 ## [v1.2.5] - 2026-04-27
 
 ### 新增
@@ -182,4 +202,4 @@
 
 ---
 
-*最后更新：2026-04-27*
+*最后更新：2026-04-28*

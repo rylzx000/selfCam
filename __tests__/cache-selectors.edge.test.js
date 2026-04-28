@@ -90,7 +90,9 @@ describe('cache selectors edge cases', () => {
     const summary = selectors.getCacheSummary(cache)
 
     expect(summary.vehicleCount).toBe(1)
+    expect(summary.damagePhotoCount).toBe(0)
     expect(summary.documentCount).toBe(0)
+    expect(summary.documentPhotoCount).toBe(0)
     expect(summary.totalPhotos).toBe(0)
     expect(summary.photoCounts).toEqual({
       licensePlate: 0,

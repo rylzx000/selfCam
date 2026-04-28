@@ -64,7 +64,9 @@ describe('cache selectors', () => {
     const summary = selectors.getCacheSummary(cache)
 
     expect(summary.vehicleCount).toBe(2)
+    expect(summary.damagePhotoCount).toBe(7)
     expect(summary.documentCount).toBe(2)
+    expect(summary.documentPhotoCount).toBe(2)
     expect(summary.photoCounts).toEqual({
       licensePlate: 2,
       vinCode: 2,

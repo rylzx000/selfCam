@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.2.5（`package.json`）
+> 代码基线：v1.2.6（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-27
+> 最后更新：2026-04-28
 
 ---
 
@@ -102,9 +102,8 @@ selfCam/
 
 ### 5. `pages/complete`
 
-- 汇总缓存中的车辆数和照片数
-- 读取 `cache-selectors` 生成的 `qualitySummary`
-- 根据 `photo-quality` 的纯函数生成完成页轻提示文案
+- 汇总缓存中的车辆数、车损照片数和单证照片数
+- 直接读取 `cache-selectors.getCacheSummary(cache)` 中的 `vehicleCount`、`damagePhotoCount`、`documentPhotoCount`
 - 支持退出小程序
 - 支持返回预览继续修改
 
@@ -309,7 +308,8 @@ cameraContext.takePhoto
 
 - `photoQuality.analyzePhotoQuality()` 只在拍后单张照片上执行，不进入实时预览流
 - 质量阈值与开关统一来自 `quality-config`
-- 完成页不直接遍历原始 cache，而是统一读取 `cacheSelectors.getCacheSummary(cache).qualitySummary`
+- 完成页不直接遍历原始 cache，而是统一读取 `cacheSelectors.getCacheSummary(cache)` 中的统计字段
+- `qualitySummary` 仍由摘要层统一生成，但当前轻量完成页不直接展示质量提示卡片
 
 压缩策略：
 
