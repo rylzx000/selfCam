@@ -30,7 +30,6 @@ Page({
     vehicleType: constants.VEHICLE_TYPE.TARGET,
     damageCount: 0,
     showConfirmModal: false,
-    confirmContent: '',
     qualityHintText: '',
     pendingPhoto: null,
     isNavigating: false,  // 闂傚倸鍊搁崐鎼佸磹閹间礁纾归柟闂寸绾惧綊鏌熼梻瀵割槮闁汇値鍠楅妵鍕箛閳轰胶鍔撮梺鎼炲€栧ú鐔煎蓟濞戙埄鏁冮柨婵嗘椤︹晠姊烘潪鎵槮婵☆偅鐟ч幑銏犫槈閵忕姷顓哄┑鐐叉缁绘帗绂掓ィ鍐┾拺缂備焦蓱鐏忣參鏌涙繝鍌ょ吋闁糕斁鍋撳銈嗗坊閸嬫挾绱掗悩鑼х€规洘娲熼弻鍡楊吋閸涱垼鍞甸梺璇插嚱缂嶅棝鍩€椤掑寮跨紒鎻掑⒔閹广垹鈹戦崱鈺傚兊濡炪倖鎸炬慨鎾嵁濡ゅ懏鈷掑ù锝呮憸缁夋椽鏌涚€ｎ亷韬€规洘婢樿灃闁告侗鍘奸幆鐐烘⒑闁偛鑻晶瀛樻叏?
@@ -63,6 +62,7 @@ Page({
   plateFrameChecker: null,
   damageAutoCaptureEngine: null,
   cameraInitialized: false,
+  aiDetectionRunId: 0,
 
   onLoad() {
     this.isLeaving = false
@@ -75,7 +75,7 @@ Page({
       showDamageDebug: this.data.showDamageDebug
     })
     this.initAICapability()
-    this.loadCacheData()
+    this.loadCacheData('page_load')
   },
 
   onReady() {
@@ -91,9 +91,7 @@ Page({
     })
     this.isLeaving = false
     this.setData({ isNavigating: false })
-    this.loadCacheData()
-    this.syncPlateBlink(this.getActiveDistanceHint())
-    this.resumeAIDetection()
+    this.loadCacheData('page_show')
   },
 
   onHide() {
@@ -204,18 +202,46 @@ Page({
     }
   },
 
-  resumeAIDetection() {
+  resumeAIDetection(reason = 'manual') {
     const { currentStep, showConfirmModal } = this.data
     const aiSupportedStep = [constants.SHOOT_STEP.LICENSE_PLATE, constants.SHOOT_STEP.DAMAGE].includes(currentStep)
+    const detectionRunning = !!this.detectTimer || this.aiBusy
+
+    runtimeLogger.info('ai', 'resume_detection_request', {
+      reason,
+      currentStep,
+      showConfirmModal,
+      isLeaving: this.isLeaving,
+      cameraInitialized: this.cameraInitialized,
+      hasCameraContext: !!this.cameraContext,
+      aiAvailable: this.data.aiAvailable,
+      aiEnabled: this.data.aiEnabled,
+      detectionRunning,
+      plateModelLoaded: !!this.plateDetector?.isModelLoaded?.(),
+      damageModelLoaded: !!this.damageDetector?.isModelLoaded?.()
+    })
 
     this.stopAIDetectionLoop()
 
     if (!aiSupportedStep || showConfirmModal || this.isLeaving || !this.cameraInitialized) {
       this.setData({ aiStatusText: this.getAIStatusByStep(currentStep), aiLocked: false })
+      runtimeLogger.info('ai', 'resume_detection_skipped', {
+        reason,
+        currentStep,
+        aiSupportedStep,
+        showConfirmModal,
+        isLeaving: this.isLeaving,
+        cameraInitialized: this.cameraInitialized
+      })
       return
     }
 
     this.startAIDetectionLoop(currentStep)
+  },
+
+  resumeAIDetectionAfterStepReady(reason) {
+    this.syncPlateBlink(this.getActiveDistanceHint())
+    this.resumeAIDetection(reason)
   },
 
   getDamageCaptureBox() {
@@ -317,6 +343,7 @@ Page({
   },
 
   stopAIDetectionLoop() {
+    this.aiDetectionRunId += 1
     if (this.detectTimer) {
       clearTimeout(this.detectTimer)
       this.detectTimer = null
@@ -606,17 +633,37 @@ Page({
 
     if (!this.data.aiAvailable || !this.data.aiEnabled || !this.cameraContext || !this.cameraInitialized) {
       this.setData({ aiStatusText: this.getAIStatusByStep(step) || AUTO_CAPTURE.STATUS_TEXT.unavailable })
+      runtimeLogger.info('ai', 'detection_loop_blocked', {
+        step,
+        aiAvailable: this.data.aiAvailable,
+        aiEnabled: this.data.aiEnabled,
+        hasCameraContext: !!this.cameraContext,
+        cameraInitialized: this.cameraInitialized
+      })
       return
     }
 
+    const runId = this.aiDetectionRunId
+    runtimeLogger.info('ai', 'detection_loop_start', {
+      step,
+      runId,
+      detectInterval: this.getDetectInterval(step),
+      plateModelLoaded: !!this.plateDetector?.isModelLoaded?.(),
+      damageModelLoaded: !!this.damageDetector?.isModelLoaded?.()
+    })
+
     const scheduleNext = () => {
-      if (!this.isLeaving && !this.data.showConfirmModal) {
+      if (runId === this.aiDetectionRunId && !this.isLeaving && !this.data.showConfirmModal) {
         this.detectTimer = setTimeout(loop, this.getDetectInterval(step))
       }
     }
 
     const loop = async () => {
       let shouldSchedule = true
+      const isActiveRun = () => runId === this.aiDetectionRunId
+      if (runId !== this.aiDetectionRunId) {
+        return
+      }
       if (this.isLeaving) {
         return
       }
@@ -634,12 +681,12 @@ Page({
       try {
         this.aiBusy = true
         const detector = await this.ensureDetector(step)
-        if (!detector) {
+        if (!detector || !isActiveRun()) {
           return
         }
 
         const previewPhoto = await this.takeAIPreviewPhoto()
-        if (!previewPhoto) {
+        if (!previewPhoto || !isActiveRun()) {
           return
         }
 
@@ -647,9 +694,16 @@ Page({
         let result = null
         if (shouldDetect) {
           result = await detector.detect(previewPhoto)
+          if (!isActiveRun()) {
+            return
+          }
           if (result) {
             result.previewPath = previewPhoto
           }
+        }
+
+        if (!isActiveRun()) {
+          return
         }
 
         const ready = this.checkAutoCaptureReady(step, {
@@ -686,8 +740,13 @@ Page({
           step,
           message: error?.message || ''
         })
-        this.setDataIfChanged({ aiLocked: false, aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback })
+        if (isActiveRun()) {
+          this.setDataIfChanged({ aiLocked: false, aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback })
+        }
       } finally {
+        if (!isActiveRun()) {
+          return
+        }
         this.aiBusy = false
         if (shouldSchedule) {
           scheduleNext()
@@ -808,7 +867,7 @@ Page({
       aiDetection: damageState.aiDetection
     }
   },
-  loadCacheData() {
+  loadCacheData(resumeReason = 'load_cache_data') {
     const cache = storage.loadCacheForResume()
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
     
@@ -869,6 +928,16 @@ Page({
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
         damageAreaRatioText: ''
+      }, () => {
+        runtimeLogger.info('camera', 'cache_data_applied', {
+          resumeReason,
+          currentStep: this.data.currentStep,
+          cameraInitialized: this.cameraInitialized,
+          hasCameraContext: !!this.cameraContext,
+          aiEnabled: this.data.aiEnabled,
+          detectionRunning: !!this.detectTimer || this.aiBusy
+        })
+        this.resumeAIDetectionAfterStepReady(resumeReason)
       })
       workflowPage.syncPageWorkflowState(this, workflow.STATES.RETAKING, {
         page: 'camera',
@@ -884,6 +953,16 @@ Page({
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
         damageAreaRatioText: ''
+      }, () => {
+        runtimeLogger.info('camera', 'cache_data_applied', {
+          resumeReason,
+          currentStep: this.data.currentStep,
+          cameraInitialized: this.cameraInitialized,
+          hasCameraContext: !!this.cameraContext,
+          aiEnabled: this.data.aiEnabled,
+          detectionRunning: !!this.detectTimer || this.aiBusy
+        })
+        this.resumeAIDetectionAfterStepReady(resumeReason)
       })
       workflowPage.syncPageWorkflowState(
         this,
@@ -1012,18 +1091,8 @@ Page({
       return
     }
 
-    let confirmContent = ''
-    if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
-      confirmContent = '\u8f66\u724c\u7167\u7247\u6e05\u6670\u5417\uff1f'
-    } else if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
-      confirmContent = 'VIN\u7801\u7167\u7247\u6e05\u6670\u5417\uff1f'
-    } else if (flowContext.currentStep === constants.SHOOT_STEP.DAMAGE) {
-      confirmContent = '\u8f66\u635f\u7167\u7247\u6e05\u6670\u5417\uff1f'
-    }
-
     this.setData({
       showConfirmModal: true,
-      confirmContent,
       qualityHintText: options.qualityHintText || '',
       pendingPhoto: photo
     })
@@ -1041,6 +1110,7 @@ Page({
     })
     const cache = storage.loadCache()
     if (!cache || !this.data.pendingPhoto) return
+
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
@@ -1064,13 +1134,14 @@ Page({
         currentStep: cache.currentStep,
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damagePhaseLabel: ''
+      }, () => {
+        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+          page: 'camera',
+          step: cache.currentStep
+        })
+        this.resetAIState()
+        this.resumeAIDetectionAfterStepReady('confirm_license_plate')
       })
-      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-        page: 'camera',
-        step: cache.currentStep
-      })
-      this.resetAIState()
-      this.resumeAIDetection()
       return
     }
 
@@ -1094,13 +1165,14 @@ Page({
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damageCount,
         damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' })
+      }, () => {
+        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+          page: 'camera',
+          step: cache.currentStep
+        })
+        this.resetAIState()
+        this.resumeAIDetectionAfterStepReady('confirm_vin_to_damage')
       })
-      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-        page: 'camera',
-        step: cache.currentStep
-      })
-      this.resetAIState()
-      this.resumeAIDetection()
       return
     }
 
@@ -1168,7 +1240,6 @@ Page({
       return
     }
 
-    this.resetAIState()
     this.setData({
       showConfirmModal: false,
       pendingPhoto: null,
@@ -1177,12 +1248,14 @@ Page({
       damageFrameState: 'normal',
       damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
       damageAreaRatioText: ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: cache.currentStep
+      })
+      this.resetAIState()
+      this.resumeAIDetectionAfterStepReady('confirm_damage_continue')
     })
-    workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-      page: 'camera',
-      step: cache.currentStep
-    })
-    this.resumeAIDetection()
   },
 
   onFinishDamage() {
@@ -1265,12 +1338,13 @@ Page({
       pendingPhoto: null,
       qualityHintText: '',
       damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: this.data.currentStep
+      })
+      this.resumeAIDetectionAfterStepReady('retake_photo')
     })
-    workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-      page: 'camera',
-      step: this.data.currentStep
-    })
-    this.resumeAIDetection()
   },
 
   savePendingPhotoBeforeLeave() {
@@ -1283,6 +1357,7 @@ Page({
 
     const cache = storage.loadCache()
     if (!cache) return false
+
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
@@ -1344,10 +1419,14 @@ Page({
 
   onCameraInitDone(e) {
     runtimeLogger.info('camera', 'camera_init_done', {
-      hasDetail: !!e?.detail
+      hasDetail: !!e?.detail,
+      currentStep: this.data.currentStep,
+      aiEnabled: this.data.aiEnabled,
+      aiAvailable: this.data.aiAvailable,
+      detectionRunning: !!this.detectTimer || this.aiBusy
     })
     this.cameraInitialized = true
-    this.resumeAIDetection()
+    this.resumeAIDetection('camera_init_done')
   },
 
   onCameraStop(e) {

@@ -175,4 +175,30 @@ describe('storage safe resume and fault injection', () => {
     expect(persisted.fromPreview).toBe(false)
     expect(persisted.workflowState.current).toBe('CAPTURING')
   })
+
+  test('preserves fresh preview-to-damage navigation as capturing', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-24T12:00:00.000Z'))
+
+    const cache = storage.initCache()
+    cache.vehicles.push(createCompletedVehicle(0, 0))
+    cache.currentVehicleIndex = 0
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.fromPreview = true
+    cache.updatedAt = '2026-04-24T12:00:00.000Z'
+    cache.workflowState = {
+      current: 'PREVIEWING',
+      updatedAt: '2026-04-24T12:00:00.000Z'
+    }
+    memoryStorage[storage.STORAGE_KEY] = JSON.stringify(cache)
+
+    const safeCache = storage.loadCacheForResume()
+    const persisted = JSON.parse(memoryStorage[storage.STORAGE_KEY])
+
+    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(safeCache.workflowState.current).toBe('CAPTURING')
+    expect(safeCache.fromPreview).toBe(false)
+    expect(persisted.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(persisted.workflowState.current).toBe('CAPTURING')
+    expect(persisted.fromPreview).toBe(false)
+  })
 })

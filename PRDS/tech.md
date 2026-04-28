@@ -1,7 +1,7 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.1（`package.json`）
+> 代码基线：v1.3.2（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-04-28
 
@@ -141,6 +141,7 @@ index
 辅助跳转规则：
 
 - 从预览页返回拍照页时，使用缓存字段 `fromPreview`
+- 当 `fromPreview = true` 且 `currentStep` 是车牌/VIN/车损等拍摄步骤时，安全恢复应优先落到 `CAPTURING`，用于预览页补拍或添加车损后继续拍摄
 - 拍照页结束后：
   - 若 `fromPreview = true` 且栈内存在预览页，优先 `navigateBack`
   - 否则 `navigateTo` / `redirectTo` 到预览页
@@ -350,9 +351,16 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - `initAICapability()`
 - `ensureDetector(step)`
 - `resumeAIDetection()`
+- `resumeAIDetectionAfterStepReady(reason)`
 - `startAIDetectionLoop(step)`
 - `checkAutoCaptureReady(step, framePayload)`
 - `triggerAutoCapture(step, aiDetection)`
+
+启动时机约束：
+- `resumeAIDetection()` 会先判断当前步骤、确认态、离页状态、相机初始化状态和已有循环状态。
+- `loadCacheData()` 必须在 `setData` 完成后再调用 `resumeAIDetectionAfterStepReady()`，避免 `currentStep` 尚未落定导致车损检测没有启动。
+- `onCameraInitDone()` 设置 `cameraInitialized = true` 后，会针对当前步骤再次尝试恢复检测。
+- 每次停止检测会递增 `aiDetectionRunId`，旧检测循环在异步返回后不再继续调度，避免重复循环。
 
 ### 3. 检测节奏
 

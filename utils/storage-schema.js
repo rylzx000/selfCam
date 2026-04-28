@@ -653,12 +653,11 @@ function resolveSafeResumeCache(cache) {
     alignMidContext(nextCache)
     nextCache.currentStep = nextCache.retakeMode.photoType
     setWorkflowState(nextCache, 'RETAKING', nextCache.workflowState && nextCache.workflowState.updatedAt)
+  } else if (nextCache.fromPreview && isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
+    moveToCapturingState(nextCache)
+    reasons.push('preview_to_capture')
   } else if (nextCache.fromPreview && !freshContext) {
-    if (isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
-      moveToCapturingState(nextCache)
-    } else {
-      moveToPreviewState(nextCache)
-    }
+    moveToPreviewState(nextCache)
     reasons.push('stale_preview_flag')
   } else if (workflowState === 'DOCUMENTING' && !freshContext) {
     moveToPreviewState(nextCache)

@@ -1,7 +1,7 @@
 # selfCam AI 自动拍照功能 - 测试用例
 
 **生成日期**: 2026-04-28
-**代码基线**: v1.3.1
+**代码基线**: v1.3.2
 **测试类型**: E2E 用户流程测试 / 集成测试
 
 ---
@@ -165,6 +165,31 @@
 - 页面提示进入识别和锁定状态
 - 满足条件后自动拍照
 - 拍照后车损照片计数正确增加
+
+---
+
+### TC-AI-005A: 首次进入车损步骤后 AI 检测启动 [ ]
+
+**Priority**: Critical
+**Type**: Regression
+**Status**: [ ] Not Run
+**Suite**: Smoke
+**Tags**: @feature:auto-capture, @component:camera, @feature:damage, @feature:startup
+
+**Preconditions**:
+- 已完成车牌与 VIN 拍摄
+- 即将切换到车损拍摄步骤
+
+**Steps**:
+1. 点击 VIN 确认态的"确认使用"
+2. 等待相机 `initdone` 与页面数据更新完成
+3. 观察车损步骤底部 AI 状态与调试日志
+
+**Expected Result**:
+- 当前步骤稳定为车损拍摄
+- 车损 AI 检测循环被启动，日志中 `currentStep=damage`、`cameraInitialized=true`
+- 不重复启动多个检测循环
+- 手动拍照兜底仍可使用
 
 ---
 
