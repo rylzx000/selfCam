@@ -1,7 +1,7 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.2（`package.json`）
+> 代码基线：v1.3.3（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-04-28
 
@@ -59,6 +59,8 @@ selfCam/
 │  ├─ cache-selectors.js
 │  └─ runtime-logger.js
 ├─ PRDS/
+├─ __tests__/        # 纯 Jest 单元/逻辑测试
+├─ e2e/              # 微信开发者工具 miniprogram-automator + Jest 页面自动化
 └─ docs/
 ```
 
@@ -570,7 +572,29 @@ retakeMode = {
 
 ---
 
-## 十二、当前已知实现备注
+## 十二、测试与自动化
+
+当前测试分两层：
+
+- 默认 `npm test` 运行根级 `jest.config.js` 指定的单元/逻辑测试，不混入微信开发者工具页面自动化。
+- `npm run test:automator` 运行 `e2e/jest.config.js`，通过 `miniprogram-automator` 连接或启动微信开发者工具执行页面自动化。
+
+页面自动化当前覆盖：
+
+- 首页冒烟与开始采集跳转
+- VIN 提示与确认态文案
+- 预览页添加图片成功、取消、失败兜底
+- 车损 AI 在 `onCameraInitDone()` 后恢复检测且不重复启动循环
+- 连续确认/重拍、连续打开关闭添加图片弹层、快速步骤切换和损坏缓存恢复等破坏性场景
+
+自动化环境通过以下变量配置：
+
+- `WECHAT_DEVTOOLS_CLI` / `WECHAT_CLI_PATH`
+- `MINIPROGRAM_PROJECT_PATH`
+- `MINIPROGRAM_AUTOMATOR_PORT`
+- `E2E_TIMEOUT_MS`
+
+## 十三、当前已知实现备注
 
 ### 1. 文档与主流程差异已清理
 

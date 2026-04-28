@@ -1,7 +1,7 @@
 # AI 自动拍照集成文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.2（`package.json`）
+> 代码基线：v1.3.3（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-04-28
 
@@ -312,6 +312,10 @@ AUTO_CAPTURE.DAMAGE_FLOW.phase = {
 ---
 
 ## 七、调试与日志
+
+### 0. 页面自动化覆盖
+
+v1.3.3 已增加微信开发者工具自动化用例，模拟 `currentStep = damage` 且 `cameraInitialized = false` 的场景，验证 `onCameraInitDone()` 后会再次尝试 `resumeAIDetection()`，同时连续触发 `initdone` 不会启动多个检测循环。
 
 ### 1. 开发态调试信息
 

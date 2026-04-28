@@ -1,23 +1,25 @@
 /**
- * 微信小程序自动化测试配置
+ * 微信开发者工具自动化测试配置。
+ * Windows 下可通过环境变量覆盖 CLI 路径：
+ *   $env:WECHAT_DEVTOOLS_CLI='D:\environment\wechat-devtools\cli.bat'
  */
 
+const path = require('path')
+
+const projectPath = process.env.MINIPROGRAM_PROJECT_PATH || path.resolve(__dirname, '..')
+
 module.exports = {
-  // 微信开发者工具 CLI 路径
-  cliPath: 'D:\\environment\\wechat-devtools\\cli.bat',
-  
-  // 项目路径
-  projectPath: 'D:\\project\\selfCam',
-  
-  // 服务端口
-  port: 53146,
-  
-  // 测试超时时间（毫秒）
-  timeout: 60000,
-  
-  // 截图保存路径
-  screenshotPath: 'D:\\project\\selfCam\\e2e\\screenshots',
-  
-  // 测试报告路径
-  reportPath: 'D:\\project\\selfCam\\e2e\\reports',
+  cliPath: process.env.WECHAT_DEVTOOLS_CLI
+    || process.env.WECHAT_CLI_PATH
+    || 'D:\\environment\\wechat-devtools\\cli.bat',
+
+  projectPath,
+
+  port: Number(process.env.MINIPROGRAM_AUTOMATOR_PORT || 9420),
+
+  timeout: Number(process.env.E2E_TIMEOUT_MS || 90000),
+
+  screenshotPath: path.join(projectPath, 'e2e', 'screenshots'),
+
+  reportPath: path.join(projectPath, 'e2e', 'reports')
 }

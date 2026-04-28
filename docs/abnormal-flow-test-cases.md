@@ -13,7 +13,7 @@
 
 ### TC-AF-001: 无缓存时返回安全结果 [P]
 
-**自动化 / 手工**：自动化  
+**自动化 / 手工**：自动化
 **前置条件**：本地不存在 `car_damage_photos_cache`  
 **操作步骤**：
 1. 调用 `storage.loadCache()`
@@ -31,7 +31,7 @@
 
 ### TC-AF-002: 坏 JSON 缓存自动降级为空壳 [P]
 
-**自动化 / 手工**：自动化  
+**自动化 / 手工**：自动化
 **前置条件**：将本地缓存伪造为非法 JSON  
 **操作步骤**：
 1. 注入坏 JSON 到本地缓存
@@ -49,7 +49,7 @@
 
 ### TC-AF-003: 旧版本缓存自动迁移并补齐字段 [P]
 
-**自动化 / 手工**：自动化  
+**自动化 / 手工**：自动化
 **前置条件**：准备无 `schemaVersion`、旧格式 `workflowState` 的缓存  
 **操作步骤**：
 1. 注入旧缓存
@@ -118,7 +118,7 @@
 
 ### TC-AF-007: DOCUMENTING / LOCAL_COMPLETED 不应被过度恢复 [P]
 
-**自动化 / 手工**：自动化  
+**自动化 / 手工**：自动化
 **前置条件**：
 - 场景 A：`DOCUMENTING` checkpoint 过期
 - 场景 B：`LOCAL_COMPLETED` checkpoint 过期
@@ -264,7 +264,7 @@
 - 中断恢复时不进入错误业务态
 
 **关联模块**：page flow、storage、cache-selectors  
-**备注**：仓库已有 automator 基础，但本次执行环境未纳入自动化运行范围，需手工或专用设备环境复测
+**备注**：v1.3.3 已补齐 Jest 版 automator 入口，但本用例覆盖的是更长的跨页面实拍主链路，仍建议真机或专用设备环境复测
 
 ---
 
@@ -283,3 +283,29 @@
 
 **关联模块**：storage、page flow  
 **备注**：与平台退出行为耦合，建议真机或开发者工具手工验证
+
+---
+
+### TC-AF-016: 首批页面破坏性自动化回归 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：
+- 本机微信开发者工具 CLI 路径可用
+- `npm run test:automator` 可连接或启动 automator 端口
+
+**操作步骤**：
+1. 连续快速触发确认使用与重新拍摄
+2. 连续打开/关闭预览页添加图片弹层
+3. 连续触发 `onCameraInitDone`
+4. 在车牌、VIN、车损步骤之间快速切换
+5. 注入损坏缓存后进入页面
+
+**预期结果**：
+- 页面不白屏、不卡死
+- `showActionSheet` 最终为 `false`
+- 车损 AI 检测循环不重复启动
+- `currentStep` 最终保持合法值
+- 损坏缓存能够恢复或安全清理
+
+**关联模块**：camera、preview、storage、page flow
+**备注**：对应 `e2e/specs/current-regression.spec.js`

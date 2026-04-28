@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-**版本号**: v1.3.2
+**版本号**: v1.3.3
 **发布日期**: 2026-04-28  
 **状态**: 已封板（本地）
 
@@ -10,39 +10,38 @@
 
 ## 版本概述
 
-`v1.3.2` 是基于 `v1.3.1` 的拍照页与缓存恢复修复版本。重点修复真机测试中从预览页点击车损 `+` 后拍照页一闪回到预览页的问题，并补齐车损步骤 AI 检测在相机初始化、缓存恢复和步骤切换后的重新启动时机。
+`v1.3.3` 是基于 `v1.3.2` 的自动化测试增强版本。重点补齐微信开发者工具中的 `miniprogram-automator + Jest` 页面自动化测试，覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片异常兜底、车损 AI 启动时机和首批破坏性回归场景。
 
 ### 本版本重点
 
-- 修复预览页车损补拍入口进入相机页后被安全恢复逻辑误退回预览页的问题。
-- 优化车损 AI 检测恢复时机：缓存数据落定、VIN 确认切换到车损、相机 `initdone` 后都会按当前步骤重新尝试启动。
-- VIN 拍摄步骤新增更明确的前挡风玻璃左下角 VIN 码引导。
-- 拍照确认态移除“是否清晰？”类问句，按钮文案更新为 `确认使用` / `重新拍摄`。
-- 新增缓存恢复与相机 AI 启动回归测试。
+- 新增 Jest 版 `test:automator`，复用现有 `e2e/` 目录运行微信开发者工具页面自动化。
+- 补齐预览页添加图片成功、取消、失败三类兜底测试，确认 loading 和 actionSheet 不会卡死。
+- 补齐车损 AI 在相机 `initdone` 后恢复检测、且不会重复启动检测循环的自动化测试。
+- 增加连续确认/重拍、连续打开关闭添加图片弹层、快速切换拍摄步骤和损坏缓存恢复等破坏性用例。
+- 拍照页只增加轻量数据绑定以便断言 VIN 提示与确认态文案，不改变 UI 样式、事件或业务流程。
 
 ---
 
-## v1.3.2 变更摘要
+## v1.3.3 变更摘要
 
-### 拍照与恢复流程
+### 页面自动化测试
 
-- `utils/storage-schema.js` 在安全恢复时优先处理 `fromPreview + 拍摄步骤`，确保预览页点击车损 `+` 后恢复为 `CAPTURING`，不再被旧的 `PREVIEWING` 状态带回预览页。
-- `pages/camera/camera.js` 在 `loadCacheData()` 的 `setData` 回调中恢复 AI 检测，避免 currentStep 尚未落定时提前启动失败。
-- `onCameraInitDone()` 设置 `cameraInitialized` 后按当前步骤再次调用 `resumeAIDetection()`。
-- 检测循环增加 `aiDetectionRunId`，避免停止后旧循环继续调度。
+- `e2e/specs/current-regression.spec.js` 覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片异常、车损 AI 启动时机和首批破坏性测试。
+- `e2e/support/automator.js` 封装开发者工具启动/连接、缓存注入、文本断言、wx media mock 和相机 AI 测试补丁。
+- `e2e/support/fixtures.js` 提供车辆、照片与缓存构造数据，降低用例重复。
 
-### 文案与确认态
+### 测试脚本
 
-- VIN 步骤顶部提示改为 `请对准前挡风玻璃左下角VIN码，拍清完整字符`。
-- 拍后确认态不再显示“是否清晰？”类问句。
-- 确认态按钮文案调整为 `确认使用` / `重新拍摄`，原确认、重拍事件和保存流程不变。
+- `test:e2e` 与 `test:automator` 指向 Jest 版页面自动化。
+- `test:automator:legacy` 保留旧版 `node e2e/run-tests.js` 入口。
+- `test:automator:smoke` 支持只跑首页、VIN 与确认态相关烟测。
+- 根级 `jest.config.js` 将默认 `npm test` 限定在单元测试目录，避免 e2e 误跑。
 
 ### 测试与文档同步
 
-- 新增 `__tests__/camera-ai-start.test.js`。
-- 更新 `__tests__/storage-resume.test.js`。
-- `package.json` 与 `package-lock.json` 版本号同步至 `1.3.2`。
-- 同步更新 `CHANGELOG.md`、`PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md`、`PRDS/auto-capture-ai.md`、`docs/test-cases.md` 与 `docs/ai-auto-capture-test-cases.md`。
+- `package.json` 与 `package-lock.json` 版本号同步至 `1.3.3`。
+- 同步更新 `CHANGELOG.md`、`PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md`、`PRDS/auto-capture-ai.md`、`docs/test-run-guide.md`、`docs/test-cases.md`、`docs/ai-auto-capture-test-cases.md` 与 `docs/abnormal-flow-test-cases.md`。
+- 本轮验证通过 `npm test -- --runInBand` 与 `npm run test:automator`。
 
 ---
 
@@ -50,6 +49,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.3.3 | 2026-04-28 | 已封板（本地） | 补齐微信开发者工具 miniprogram-automator + Jest 自动化测试入口，覆盖首批回归与破坏性测试场景 |
 | v1.3.2 | 2026-04-28 | 已封板（本地） | 修复预览页车损补拍一闪回预览页、车损 AI 首次启动时机，并同步 VIN 引导与确认态文案 |
 | v1.3.1 | 2026-04-28 | 已封板（本地） | 首页按横屏样式稿重构为单屏品牌入口，补齐 logo 资源与版本/PRDS/测试文档同步 |
 | v1.2.6 | 2026-04-28 | 已封板（本地） | 完成页轻量收口，统计卡片改为车辆数/车损照片/单证照片，并同步摘要字段、测试与 PRDS 文档 |
@@ -70,17 +70,17 @@
 
 ```powershell
 git fetch --tags
-git checkout v1.3.1
+git checkout v1.3.2
 ```
 
-如果后续需要把 `v1.3.2` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+如果后续需要把 `v1.3.3` 作为正式标签发布，建议在本地提交后再创建对应 tag。
 
 ---
 
 ## 下一步版本建议
 
-- 在真机上复测“开始 -> 拍车牌 -> 拍 VIN -> 查看已拍 -> 拍摄车损 +”链路，确认拍照页不再一闪回预览页。
-- 继续观察车损 AI 检测日志中的 `currentStep / cameraInitialized / aiEnabled / modelLoaded / detectionRunning` 状态。
+- 在真机上继续抽测“开始 -> 拍车牌 -> 拍 VIN -> 查看已拍 -> 拍摄车损 +”链路，确认自动化覆盖之外的原生相机行为稳定。
+- 后续如继续扩充破坏性测试，优先沉淀到 `e2e/specs/` 并保留必要真机手测清单。
 - 后续业务改动继续按 `v1.3.x` 递增。
 
 ---

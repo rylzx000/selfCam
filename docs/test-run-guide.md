@@ -35,6 +35,16 @@
 - `__tests__/cache-selectors.test.js`
 - `__tests__/damage-capture-modules.test.js`
 
+### 微信开发者工具页面自动化
+
+- `jest.config.js`
+- `e2e/jest.config.js`
+- `e2e/setup.js`
+- `e2e/config.js`
+- `e2e/specs/current-regression.spec.js`
+- `e2e/support/automator.js`
+- `e2e/support/fixtures.js`
+
 ## 如何运行单元测试
 
 ### 只跑 Jest
@@ -111,30 +121,69 @@ if (fs.existsSync(coveragePath)) {
 
 ## 页面自动化如何运行
 
-仓库已有 `miniprogram-automator` 与 `e2e/` 基础，默认入口如下：
+仓库当前复用已有 `miniprogram-automator` 与 `e2e/` 目录，Jest 版页面自动化是默认入口：
 
 ```powershell
 npm run test:automator
 ```
 
-或：
+等价命令：
 
 ```powershell
-node e2e/run-tests.js
+npm run test:e2e
+```
+
+只跑首页、VIN 与确认态烟测：
+
+```powershell
+npm run test:automator:smoke
+```
+
+旧版脚本仍保留为：
+
+```powershell
+npm run test:automator:legacy
 ```
 
 ### 页面自动化运行前提
 
 - 已安装微信开发者工具
 - 已开启开发者工具服务端口
-- `e2e/config.js` 或相关脚本中的 CLI 路径可用
+- `e2e/config.js` 或环境变量中的 CLI 路径可用
 - 本机允许 automator 连接正在打开的项目
 
-### 本次为什么不把页面自动化作为主交付
+### Windows 下 CLI 路径配置
 
-- 这类脚本依赖外部 IDE 和服务端口，不是纯 Node/Jest 环境
-- 当前任务重点是缓存治理与恢复边界，更适合先把单元测试和故障注入做扎实
-- 若上线前有稳定的开发者工具环境，建议再执行一次主链路自动化或真机手工回归
+默认建议把微信开发者工具安装在 `D:\environment` 下，例如：
+
+```text
+D:\environment\wechat-devtools\cli.bat
+```
+
+如本机路径不同，可在当前 PowerShell 会话中设置：
+
+```powershell
+$env:WECHAT_DEVTOOLS_CLI="D:\environment\wechat-devtools\cli.bat"
+```
+
+兼容旧变量名：
+
+```powershell
+$env:WECHAT_CLI_PATH="D:\environment\wechat-devtools\cli.bat"
+```
+
+其他可选环境变量：
+
+```powershell
+$env:MINIPROGRAM_PROJECT_PATH="D:\project\selfCam"
+$env:MINIPROGRAM_AUTOMATOR_PORT="9420"
+$env:E2E_TIMEOUT_MS="90000"
+```
+
+本轮已在本机运行：
+
+- `npm test -- --runInBand`：13 个测试套件、102 个用例通过。
+- `npm run test:automator`：1 个测试套件、12 个页面自动化用例通过。
 
 ## 哪些场景仍建议手工验证
 

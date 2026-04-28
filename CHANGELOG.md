@@ -4,6 +4,28 @@
 
 ---
 
+## [v1.3.3] - 2026-04-28
+
+### 新增
+
+- 新增 `miniprogram-automator + Jest` 页面自动化测试入口，覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片异常兜底、车损 AI 启动时机与首批破坏性回归场景。
+- 新增 `e2e/specs/current-regression.spec.js`、`e2e/support/automator.js`、`e2e/support/fixtures.js`、`e2e/setup.js` 与 `e2e/jest.config.js`，复用现有 `e2e/` 目录而不另起复杂框架。
+- 新增根级 `jest.config.js`，让默认 `npm test` 继续只运行单元测试，避免页面自动化用例误混入普通 Jest。
+
+### 变更
+
+- `test:automator` 改为运行 Jest 版页面自动化；旧版 `node e2e/run-tests.js` 保留为 `test:automator:legacy`。
+- `e2e/config.js` 支持通过 `WECHAT_DEVTOOLS_CLI` / `WECHAT_CLI_PATH`、`MINIPROGRAM_PROJECT_PATH`、`MINIPROGRAM_AUTOMATOR_PORT` 与 `E2E_TIMEOUT_MS` 配置微信开发者工具自动化环境。
+- 拍照页 VIN 提示与确认态按钮文案改为数据绑定，作为轻量测试标识，不改变 UI 样式、点击事件或业务流程。
+- 同步更新测试运行指南、产品/技术/UI/AI 文档与测试用例文档到 `v1.3.3`。
+
+### 验证
+
+- `npm test -- --runInBand`：13 个测试套件、102 个用例通过。
+- `npm run test:automator`：1 个测试套件、12 个页面自动化用例通过。
+
+---
+
 ## [v1.3.2] - 2026-04-28
 
 ### 新增
@@ -230,6 +252,8 @@
 
 | 版本 | 日期 | 类型 | 说明 |
 | --- | --- | --- | --- |
+| v1.3.3 | 2026-04-28 | 测试增强版 | 补齐微信开发者工具 miniprogram-automator + Jest 自动化测试入口，覆盖当前首批回归与破坏性测试场景 |
+| v1.3.2 | 2026-04-28 | 拍照修复版 | 修复预览页车损补拍一闪回预览页、车损 AI 首次启动时机，并同步 VIN 引导与确认态文案 |
 | v1.3.1 | 2026-04-28 | 业务调整版 | 首页按横屏样式稿重构为单屏品牌入口，补齐 logo 资源与版本/PRDS/测试文档同步 |
 | v1.2.6 | 2026-04-28 | 封板补丁版 | 完成页轻量收口，统计卡片改为车辆数/车损照片/单证照片，并同步摘要字段、测试与 PRDS 文档 |
 | v1.2.5 | 2026-04-27 | 封板补丁版 | 环境配置与调试开关收口，补齐 env-config 测试与审查工作流规则 |

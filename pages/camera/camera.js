@@ -23,10 +23,17 @@ const DAMAGE_DISTANCE_HINT_TEXT = {
   backward: '\u8bf7\u7a0d\u5fae\u8fdc\u79bb'
 }
 
+const VIN_GUIDE_TIP = '\u8bf7\u5bf9\u51c6\u524d\u6321\u98ce\u73bb\u7483\u5de6\u4e0b\u89d2VIN\u7801\uff0c\u62cd\u6e05\u5b8c\u6574\u5b57\u7b26'
+const CONFIRM_USE_TEXT = '\u786e\u8ba4\u4f7f\u7528'
+const RETAKE_TEXT = '\u91cd\u65b0\u62cd\u6444'
+
 Page({
   data: {
     currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
     guideTip: constants.GUIDE_TIPS[constants.SHOOT_STEP.LICENSE_PLATE],
+    vinGuideTip: VIN_GUIDE_TIP,
+    confirmUseText: CONFIRM_USE_TEXT,
+    retakeText: RETAKE_TEXT,
     vehicleType: constants.VEHICLE_TYPE.TARGET,
     damageCount: 0,
     showConfirmModal: false,

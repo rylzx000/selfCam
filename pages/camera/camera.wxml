@@ -176,7 +176,7 @@
         </cover-view>
 
         <cover-view class="guide-tip tip-{{currentStep}}">
-          {{currentStep === 'vinCode' ? '请对准前挡风玻璃左下角VIN码，拍清完整字符' : guideTip}}
+          {{currentStep === 'vinCode' ? vinGuideTip : guideTip}}
         </cover-view>
 
         <cover-view
@@ -209,10 +209,10 @@
       <text wx:if="{{qualityHintText}}" class="quality-hint">{{qualityHintText}}</text>
       <view class="btn-group">
         <view class="btn-confirm" bindtap="onConfirmPhoto">
-          <text>确认使用</text>
+          <text>{{confirmUseText}}</text>
         </view>
         <view class="btn-retake" bindtap="onRetakePhoto">
-          <text>重新拍摄</text>
+          <text>{{retakeText}}</text>
         </view>
       </view>
     </view>
