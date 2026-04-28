@@ -1,29 +1,52 @@
-<!--开始页-->
+<!-- 首页 -->
 <view class="container">
-  <!-- 标题 -->
-  <view class="header">
-    <text class="title">车辆损失辅助拍照工具</text>
+  <view class="page-glow"></view>
+
+  <!-- 左上角品牌标识 -->
+  <view class="brand">
+    <image class="brand-logo" src="/assets/logo.png" mode="aspectFit"></image>
   </view>
-  
-  <!-- 说明卡片区域 -->
-  <view class="cards-container">
-    <!-- 卡片1：拍摄车牌号及VIN码 -->
-    <view class="card">
-      <text class="card-icon">拍照</text>
-      <text class="card-text">1、拍摄车牌号及VIN码</text>
+
+  <!-- 主体内容 -->
+  <view class="content">
+    <view class="hero">
+      <text class="title">车辆损失照片采集工具</text>
+      <text class="subtitle">请按照提示完成车辆信息、车损照片及单证资料采集</text>
     </view>
-    
-    <!-- 卡片2：依次拍摄车损 -->
-    <view class="card">
-      <text class="card-icon">车损</text>
-      <text class="card-text">2、依次拍摄车损</text>
+
+    <view class="notice-card">
+      <view class="notice-header">
+        <view class="notice-bar"></view>
+        <text class="notice-title">拍摄须知</text>
+      </view>
+
+      <view class="notice-list">
+        <view class="notice-item">
+          <view class="index-badge">
+            <text class="index-text">1</text>
+          </view>
+          <text class="notice-text">拍摄前，请提前准备好所有事故车辆的行驶证、驾驶员身份证、驾驶证</text>
+        </view>
+
+        <view class="notice-item">
+          <view class="index-badge">
+            <text class="index-text">2</text>
+          </view>
+          <text class="notice-text">依次拍摄您的车（标的车）、其他出险车辆（三者车）的车牌号、VIN码和车损部位</text>
+        </view>
+
+        <view class="notice-item">
+          <view class="index-badge">
+            <text class="index-text">3</text>
+          </view>
+          <text class="notice-text">拍摄时，为了估损准确，请尽量按引导使用自动拍照</text>
+        </view>
+      </view>
     </view>
-  </view>
-  
-  <!-- 开始按钮 -->
-  <view class="button-container">
-    <view class="start-button" bindtap="onStart">
-      <text>开始拍摄</text>
+
+    <view class="actions">
+      <button class="start-button" bindtap="onStart">开始采集</button>
+      <text class="permission-note">ⓘ 开始采集后将使用摄像头拍摄照片，确认后的照片将尝试保存至手机相册。</text>
     </view>
   </view>
 </view>
