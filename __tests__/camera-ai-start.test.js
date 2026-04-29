@@ -5,6 +5,7 @@ describe('camera AI detection start timing', () => {
   let storage
   let cacheSelectors
   let workflowPage
+  let album
 
   function loadCameraPage() {
     jest.resetModules()
@@ -68,6 +69,9 @@ describe('camera AI detection start timing', () => {
 
     workflowPage = {
       syncPageWorkflowState: jest.fn()
+    }
+    album = {
+      saveConfirmedPhotoToAlbum: jest.fn(() => Promise.resolve({ saved: true }))
     }
 
     global.wx = {
@@ -152,6 +156,7 @@ describe('camera AI detection start timing', () => {
       }
     }))
     jest.doMock('../utils/workflow-page', () => workflowPage)
+    jest.doMock('../utils/album', () => album)
 
     require('../pages/camera/camera')
   }
@@ -208,6 +213,7 @@ describe('camera AI detection start timing', () => {
     jest.dontMock('../utils/ai-config')
     jest.dontMock('../utils/workflow-state')
     jest.dontMock('../utils/workflow-page')
+    jest.dontMock('../utils/album')
   })
 
   test('retries AI detection after damage step data is applied from cache', () => {
@@ -240,7 +246,61 @@ describe('camera AI detection start timing', () => {
       compressedPath: '/tmp/vin.jpg',
       status: 'completed'
     }))
+    expect(album.saveConfirmedPhotoToAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({ compressedPath: '/tmp/vin.jpg' })
+    )
     expect(instance.resetAIState).toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_vin_to_damage')
+  })
+
+  test('continues confirmation when album save fails', async () => {
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    album.saveConfirmedPhotoToAlbum.mockResolvedValueOnce({
+      saved: false,
+      reason: 'save_failed'
+    })
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/plate.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+    expect(cache.vehicles[0].licensePlate).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/plate.jpg',
+      status: 'completed'
+    }))
+    expect(storage.saveCache).toHaveBeenCalledWith(cache)
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_license_plate')
+
+    await Promise.resolve()
+  })
+
+  test('does not save to album when user retakes pending photo', () => {
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/rejected.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onRetakePhoto.call(instance)
+
+    expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
+    expect(instance.data.pendingPhoto).toBeNull()
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('retake_photo')
   })
 })

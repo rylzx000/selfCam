@@ -1,7 +1,7 @@
 # selfCam 车辆定损拍摄小程序 - 测试用例
 
 **生成日期**: 2026-04-28
-**代码基线**: v1.3.3
+**代码基线**: v1.3.4
 **测试类型**: E2E 用户流程测试
 
 ---
@@ -1339,3 +1339,175 @@
 
 *文档生成工具: qa-test-cases skill*
 *最后更新: 2026-04-24*
+
+---
+
+## v1.3.4 同步备注
+
+- 本版本仅收敛首页权限申请、相册保存失败轻提示和开始采集防重复点击。
+- 不修改 UI 样式，不修改拍照、缓存、重拍、补拍、预览主流程。
+- 项目未主动调用 backgroundFetch 相关 API，本版本不新增相关处理。
+
+---
+
+## v1.3.4 权限与相册保存补充用例
+
+### TC-053: 开始采集申请相机和相册权限 [P]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:entry, @component:index, @integration:permission
+
+**Preconditions**:
+- 用户在首页
+- 相机和相册权限均未授权
+
+**Steps**:
+1. 点击 `开始采集`
+2. 同意相机权限
+3. 同意相册权限
+
+**Expected Result**:
+- 进入 `/pages/camera/camera`
+- 当前步骤为车牌拍摄
+- 不重复初始化缓存
+
+### TC-054: 拒绝相机权限后不进入拍摄页 [P]
+
+**Priority**: Critical
+**Type**: Error Handling
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:entry, @component:index, @integration:permission
+
+**Preconditions**:
+- 用户在首页
+- 相机权限被拒绝或设置页仍未开启
+
+**Steps**:
+1. 点击 `开始采集`
+2. 拒绝相机权限或取消设置
+
+**Expected Result**:
+- 不进入拍摄页
+- 不初始化新的拍摄流程
+
+### TC-055: 拒绝相册权限后仍进入拍摄页 [P]
+
+**Priority**: High
+**Type**: Error Handling
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:entry, @component:index, @integration:permission
+
+**Preconditions**:
+- 相机权限已授权
+- 相册权限被拒绝
+
+**Steps**:
+1. 点击 `开始采集`
+
+**Expected Result**:
+- 仍进入 `/pages/camera/camera`
+- 不因相册权限拒绝阻断拍摄
+
+### TC-056: 连续快速点击开始采集不会重复跳转 [P]
+
+**Priority**: High
+**Type**: Edge Case
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:entry, @component:index
+
+**Preconditions**:
+- 用户在首页
+- 权限检查尚未完成
+
+**Steps**:
+1. 连续快速点击 `开始采集` 两次以上
+
+**Expected Result**:
+- 只执行一次权限检查和一次跳转
+- `isStartingCapture` 在流程结束后释放
+
+### TC-057: 确认照片保存成功时业务代码不弹成功提示 [P]
+
+**Priority**: High
+**Type**: Happy Path
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:capture, @component:camera, @integration:album
+
+**Preconditions**:
+- 用户在拍照确认态
+- 当前照片有 `compressedPath`
+- 相册保存 API 成功
+
+**Steps**:
+1. 点击 `确认使用`
+
+**Expected Result**:
+- 照片写入缓存并推进原流程
+- 调用 `wx.saveImageToPhotosAlbum`
+- 不调用业务成功 `wx.showToast`
+
+### TC-058: 相册保存失败只轻提示且不阻断确认 [P]
+
+**Priority**: High
+**Type**: Error Handling
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:capture, @component:camera, @integration:album
+
+**Preconditions**:
+- 用户在拍照确认态
+- 相册保存 API 返回非权限类失败
+
+**Steps**:
+1. 点击 `确认使用`
+
+**Expected Result**:
+- 照片仍写入缓存并推进下一步或预览流程
+- 只提示 `照片未保存到相册，不影响拍摄`
+- 不抛异常阻断主流程
+
+### TC-059: 相册权限拒绝导致保存失败时不逐张提示 [P]
+
+**Priority**: Medium
+**Type**: Error Handling
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:capture, @component:camera, @integration:album
+
+**Preconditions**:
+- 用户在拍照确认态
+- `wx.saveImageToPhotosAlbum` 返回权限拒绝类失败
+
+**Steps**:
+1. 点击 `确认使用`
+
+**Expected Result**:
+- 照片仍写入缓存并推进流程
+- 只记录日志
+- 不弹出失败 toast
+
+### TC-060: 重新拍摄不保存到系统相册 [P]
+
+**Priority**: High
+**Type**: Edge Case
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:capture, @component:camera, @integration:album
+
+**Preconditions**:
+- 用户在拍照确认态
+- 当前存在待确认照片
+
+**Steps**:
+1. 点击 `重新拍摄`
+
+**Expected Result**:
+- 关闭确认态并回到当前拍摄步骤
+- 不调用 `wx.saveImageToPhotosAlbum`

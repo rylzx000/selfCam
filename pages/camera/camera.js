@@ -12,6 +12,7 @@ const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine'
 const { PLATE_MODEL_PATH, DAMAGE_MODEL_PATH, PLATE_MODEL_URL, DAMAGE_MODEL_URL, AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+const album = require('../../utils/album')
 
 const PLATE_DISTANCE_HINT_TEXT = {
   forward: '\u8bf7\u9760\u8fd1\u4e00\u70b9',
@@ -1116,16 +1117,22 @@ Page({
       hasPendingPhoto: !!this.data.pendingPhoto
     })
     const cache = storage.loadCache()
-    if (!cache || !this.data.pendingPhoto) return
+    const pendingPhoto = this.data.pendingPhoto
+    if (!cache || !pendingPhoto) return
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
     if (!currentVehicle) return
 
+    Promise.resolve(album.saveConfirmedPhotoToAlbum(pendingPhoto))
+      .catch((err) => {
+        console.warn('[album] saveConfirmedPhotoToAlbum unexpected failure:', err)
+      })
+
     if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
       currentVehicle.licensePlate = {
-        ...this.data.pendingPhoto,
+        ...pendingPhoto,
         status: 'completed',
         recognizedText: '',
         isManualInput: true,
@@ -1154,7 +1161,7 @@ Page({
 
     if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
       currentVehicle.vinCode = {
-        ...this.data.pendingPhoto,
+        ...pendingPhoto,
         status: 'completed',
         recognizedText: '',
         isManualInput: true
@@ -1186,13 +1193,13 @@ Page({
     if (!currentVehicle.damages) {
       currentVehicle.damages = []
     }
-    currentVehicle.damages.push(this.data.pendingPhoto)
+    currentVehicle.damages.push(pendingPhoto)
     cache.currentDamageCount = currentVehicle.damages.length
     storage.saveCache(cache)
     runtimeLogger.info('damage_flow', 'damage_photo_saved', {
       damageCount: currentVehicle.damages.length,
-      captureMode: this.data.pendingPhoto.captureMode,
-      captureTrigger: this.data.pendingPhoto.captureTrigger
+      captureMode: pendingPhoto.captureMode,
+      captureTrigger: pendingPhoto.captureTrigger
     })
 
     if (currentVehicle.damages.length >= constants.LIMITS.MAX_DAMAGES) {

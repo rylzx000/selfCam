@@ -1,7 +1,7 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.3（`package.json`）
+> 代码基线：v1.3.4（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-04-28
 
@@ -41,6 +41,8 @@ selfCam/
 ├─ utils/
 │  ├─ storage.js
 │  ├─ compress.js
+│  ├─ permission.js
+│  ├─ album.js
 │  ├─ constants.js
 │  ├─ ai-config.js
 │  ├─ env-config.js
@@ -610,3 +612,47 @@ retakeMode = {
 - 预览页进度点的“完成”定义与实际允许提交条件不完全一致
 - `document` 页面仍保留在路由中，但不是主流程入口
 - AI 模型地址与调试上传地址后续如需接正式静态资源或在线配置，应继续统一扩展到 `env-config`，不要回退到模块内硬编码
+
+---
+
+## v1.3.4 同步备注
+
+- 本版本仅收敛首页权限申请、相册保存失败轻提示和开始采集防重复点击。
+- 不修改 UI 样式，不修改拍照、缓存、重拍、补拍、预览主流程。
+- 项目未主动调用 backgroundFetch 相关 API，本版本不新增相关处理。
+
+---
+
+## v1.3.4 权限与相册保存技术补充
+
+### `utils/permission.js`
+
+- 模块只保留 `scope.camera` 与 `scope.writePhotosAlbum` 两类权限处理。
+- `ensureStartCapturePermissions()` 返回简单结果：`{ cameraGranted, albumGranted }`。
+- 相机权限处理流程：
+  - 已授权：直接返回 `true`。
+  - 未出现过授权结果：调用 `wx.authorize({ scope: 'scope.camera' })`。
+  - 已拒绝或授权失败：通过 `wx.showModal` 引导用户进入 `wx.openSetting`。
+  - 最终仍未授权：返回 `false`，首页不进入拍摄页。
+- 相册权限处理流程：
+  - 已授权：返回 `true`。
+  - 已拒绝：返回 `false` 并记录日志，不阻断开始采集。
+  - 未出现过授权结果：调用 `wx.authorize({ scope: 'scope.writePhotosAlbum' })`，失败返回 `false`。
+- 不保留权限状态机、权限历史缓存、重试计时器或 backgroundFetch 相关逻辑。
+
+### `utils/album.js`
+
+- `getConfirmedPhotoPath(photo)` 按 `compressedPath -> tempFilePath -> originalPath -> filePath` 选择保存路径。
+- `saveConfirmedPhotoToAlbum(photo)` 只负责触发相册保存并返回结果对象，不向调用方抛出异常。
+- 保存成功返回 `{ saved: true, filePath }`，不调用 `wx.showToast`。
+- 普通保存失败返回 `{ saved: false, reason: 'save_failed', err }`，并调用 `wx.showToast({ title: '照片未保存到相册，不影响拍摄', icon: 'none' })`。
+- 权限拒绝类失败返回 `{ saved: false, reason: 'permission_denied', err }`，只记录日志，不弹失败提示。
+- 缺少路径、API 不可用、同步异常等分支都 resolve 失败结果，避免阻断确认流程。
+- 不使用 `wx.hideToast` 或延迟隐藏逻辑处理系统原生保存成功提示。
+
+### 页面接入点
+
+- `pages/index/index.js` 在 `onStart()` 中使用 `isStartingCapture` 防重复点击，并用 `try/catch/finally` 确保流程结束后释放锁。
+- `startCaptureFlow()` 保留原缓存初始化和 `/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
+- `pages/camera/camera.js` 在 `onConfirmPhoto()` 中 fire-and-forget 调用 `album.saveConfirmedPhotoToAlbum(pendingPhoto)`，失败只写日志，不改变缓存推进逻辑。
+- `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。

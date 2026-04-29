@@ -309,3 +309,66 @@
 
 **关联模块**：camera、preview、storage、page flow
 **备注**：对应 `e2e/specs/current-regression.spec.js`
+
+---
+
+## v1.3.4 同步备注
+
+- 本版本仅收敛首页权限申请、相册保存失败轻提示和开始采集防重复点击。
+- 不修改 UI 样式，不修改拍照、缓存、重拍、补拍、预览主流程。
+- 项目未主动调用 backgroundFetch 相关 API，本版本不新增相关处理。
+
+---
+
+## v1.3.4 权限与相册异常链路补充
+
+### TC-AF-017: 开始采集重复点击不会重复进入流程 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：首页权限检查 Promise 未完成
+**操作步骤**：
+1. 连续触发 `onStart()`
+2. 释放权限检查结果为相机和相册均授权
+
+**预期结果**：
+- `ensureStartCapturePermissions()` 只调用一次
+- 缓存初始化只执行一次
+- `wx.navigateTo` 只调用一次
+
+**关联模块**：`pages/index/index.js`
+**备注**：对应 `__tests__/index-permission.test.js`
+
+---
+
+### TC-AF-018: 相册保存失败不阻断确认链路 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：拍照页处于确认态，`album.saveConfirmedPhotoToAlbum()` 返回失败结果
+**操作步骤**：
+1. 触发 `onConfirmPhoto()`
+
+**预期结果**：
+- 当前照片写入对应车辆字段或车损数组
+- 缓存正常保存
+- 当前步骤正常推进
+- AI 检测恢复逻辑正常执行
+
+**关联模块**：`pages/camera/camera.js`、`utils/album.js`
+**备注**：对应 `__tests__/camera-ai-start.test.js`
+
+---
+
+### TC-AF-019: 相册权限拒绝类失败不逐张弹窗 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：`wx.saveImageToPhotosAlbum` 返回 `auth deny` 等权限拒绝错误
+**操作步骤**：
+1. 调用 `saveConfirmedPhotoToAlbum()`
+
+**预期结果**：
+- 返回 `reason: 'permission_denied'`
+- 不调用失败 toast
+- 调用方流程继续
+
+**关联模块**：`utils/album.js`
+**备注**：对应 `__tests__/album.test.js`
