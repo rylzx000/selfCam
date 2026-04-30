@@ -1,14 +1,14 @@
 # selfCam 车辆定损拍摄小程序 - 测试用例
 
-**生成日期**: 2026-04-28
-**代码基线**: v1.3.4
+**生成日期**: 2026-04-30
+**代码基线**: v1.3.5
 **测试类型**: E2E 用户流程测试
 
 ---
 
 ## 功能概述
 
-车辆定损拍摄小程序，用于保险公司定损员现场拍摄车辆照片，包括车牌、VIN码、车损照片，支持多车辆（标的车+三者车）和单证资料管理。
+车辆定损拍摄小程序，用于保险公司定损员现场拍摄车辆照片，包括车牌、VIN码、车损照片，支持多车辆（标的车+三者车）和每辆车行驶证资料管理。
 
 ---
 
@@ -22,7 +22,7 @@
 - ✅ 照片确认与重拍
 - ✅ 预览页管理（查看、重拍、删除）
 - ✅ 多车辆处理（标的车 + 三者车）
-- ✅ 单证资料管理
+- ✅ 每辆车行驶证资料管理
 - ✅ 提交流程
 - ✅ 完成页
 
@@ -588,17 +588,17 @@
 **Preconditions**:
 - 用户在预览页
 - 标的车拍摄完成
-- 点击"提交"按钮
+- 当前三者车未达到上限
 
 **Steps**:
-1. 点击"提交"按钮
-2. 在弹窗"是否有其他三者车？"中点击"是"
+1. 点击"完成采集"按钮
+2. 在弹窗"确认所有车辆损伤均已拍摄，无需增加其他三者车？"中点击"否，添加其他三者车"
 
 **Expected Result**:
-- 显示弹窗："是否有其他三者车？"
-- 确认按钮："是"
-- 取消按钮："否，下一步"
-- 点击"是"后跳转到拍照页
+- 显示弹窗："确认所有车辆损伤均已拍摄，无需增加其他三者车？"
+- 左侧按钮："否，添加其他三者车"
+- 右侧按钮："是，继续提交"
+- 点击左侧按钮后跳转到拍照页
 - 车辆类型显示"三者车1"
 - 开始拍摄三者车车牌
 
@@ -614,15 +614,15 @@
 
 **Preconditions**:
 - 用户在预览页
-- 点击"提交"按钮
+- 每辆车行驶证资料已完成
 
 **Steps**:
-1. 在弹窗"是否有其他三者车？"中点击"否，下一步"
-2. 在单证弹窗中点击"否，提交"
+1. 点击"完成采集"按钮
+2. 在弹窗"确认所有车辆损伤均已拍摄，无需增加其他三者车？"中点击"是，继续提交"
 
 **Expected Result**:
-- 第一个弹窗关闭
-- 显示单证资料询问弹窗
+- 三者车确认弹窗关闭
+- 不显示行驶证风险提示
 - 点击后跳转到完成页
 
 ---
@@ -667,11 +667,12 @@
 - 已有一辆三者车
 
 **Steps**:
-1. 点击"提交"按钮
-2. 在弹窗中点击"是"
+1. 点击"完成采集"按钮
+2. 在弹窗"确认所有车辆损伤均已拍摄，无需增加其他三者车？"中点击"否，添加其他三者车"
 
 **Expected Result**:
-- 跳转到拍照页
+- 显示三者车确认弹窗
+- 点击后跳转到拍照页
 - 车辆类型显示"三者车2"
 - 开始拍摄三者车2的车牌
 
@@ -690,11 +691,11 @@
 - 已有两辆三者车（达到上限）
 
 **Steps**:
-1. 点击"提交"按钮
+1. 点击"完成采集"按钮
 
 **Expected Result**:
 - 不显示三者车询问弹窗
-- 直接显示单证资料询问弹窗
+- 直接进入行驶证完成状态检查
 
 ---
 
@@ -743,173 +744,187 @@
 
 ---
 
-## 五、单证资料模块
+## 五、每辆车行驶证资料模块
 
-### TC-030: 添加单证资料 - 拍照 [ ]
+### TC-030: 预览页按车辆展示行驶证入口 [ ]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [ ] Not Run
+**Suite**: Smoke
+**Tags**: @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 用户在预览页
+- 标的车与三者车均已完成车牌、VIN、车损拍摄
+- 两辆车均未上传行驶证
+
+**Steps**:
+1. 查看标的车照片列表
+2. 查看三者车照片列表
+
+**Expected Result**:
+- 每辆车照片顺序为车牌、VIN、车损照片、行驶证资料
+- 每辆车列表末尾显示"上传行驶证"入口
+- 入口下方标签为"行驶证资料"
+- 页面不显示独立"单证资料"模块
+
+---
+
+### TC-031: 实体行驶证正页和副页齐全才算完成 [ ]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [ ] Not Run
+**Suite**: Regression
+**Tags**: @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 用户在预览页
+- 当前车辆行驶证模式为实体行驶证
+
+**Steps**:
+1. 点击当前车辆"上传行驶证"
+2. 上传"行驶证正页"
+3. 关闭面板后查看车辆照片列表
+4. 再次打开面板并上传"行驶证副页"
+
+**Expected Result**:
+- 只上传正页时当前车辆仍为行驶证未完成
+- 用户仍能继续补充副页
+- 正页和副页齐全后，车辆列表展示两张真实缩略图："行驶证正页"、"行驶证副页"
+- 两张图片都写入当前车辆 `documents[]`
+
+---
+
+### TC-032: 电子行驶证上传后算完成 [ ]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [ ] Not Run
+**Suite**: Regression
+**Tags**: @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 用户在预览页
+- 当前车辆未上传行驶证
+
+**Steps**:
+1. 点击当前车辆"上传行驶证"
+2. 点击"改传电子行驶证"
+3. 上传"电子行驶证"
+4. 关闭面板后查看车辆照片列表
+
+**Expected Result**:
+- `documentSelections.driving_license` 更新为 `electronic`
+- 车辆列表展示一张真实缩略图："电子行驶证"
+- 当前车辆行驶证状态为完成
+
+---
+
+### TC-033: 实体/电子切换不删除已上传图片 [ ]
+
+**Priority**: High
+**Type**: Edge Case
+**Status**: [ ] Not Run
+**Suite**: Regression
+**Tags**: @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 用户在预览页
+- 当前车辆已有实体正页和副页
+
+**Steps**:
+1. 打开行驶证面板
+2. 切换到电子行驶证模式
+3. 上传电子行驶证
+4. 切回实体行驶证模式
+
+**Expected Result**:
+- 切换到电子模式时实体正页、副页仍保留在 `documents[]`
+- 上传电子行驶证后不会删除实体图片
+- 切回实体模式后面板继续显示已上传的正页、副页缩略图
+- 当前完成状态只按当前选择模式计算
+
+---
+
+### TC-034: 行驶证图片支持拍照和相册选择 [ ]
 
 **Priority**: High
 **Type**: Happy Path
 **Status**: [ ] Not Run
 **Suite**: Regression
-**Tags**: @feature:document, @component:preview
+**Tags**: @feature:driving-license, @integration:chooseMedia
 
 **Preconditions**:
-- 用户在预览页
-- 单证资料区域可见
+- 用户在行驶证上传面板
+- 目标上传位未上传或允许替换
 
 **Steps**:
-1. 点击"添加单证资料"按钮
-2. 在弹窗中选择"拍照"
-3. 拍摄照片
-4. 确认
+1. 点击"行驶证正页"上传位
+2. 在操作菜单选择"拍照"
+3. 上传成功后点击"行驶证副页"上传位
+4. 在操作菜单选择"从手机相册选择"
 
 **Expected Result**:
-- 显示选择方式弹窗（拍照/相册）
-- 选择拍照后打开相机
-- 拍摄后照片自动压缩
-- 单证资料列表显示新照片
+- 两次均调用 `wx.chooseMedia({ count: 1, mediaType: ['image'] })`
+- 拍照来源 `sourceType` 记为 `camera`，上传成功后尝试保存到手机相册
+- 相册来源 `sourceType` 记为 `album`，不重复保存到手机相册
+- 成功后对应上传位显示真实图片缩略图
 
 ---
 
-### TC-031: 添加单证资料 - 从相册选择单张 [ ]
+### TC-035: 同一上传位第二次上传会替换旧图片 [ ]
 
 **Priority**: High
 **Type**: Happy Path
 **Status**: [ ] Not Run
 **Suite**: Regression
-**Tags**: @feature:document, @component:preview
+**Tags**: @feature:driving-license, @component:preview
 
 **Preconditions**:
-- 用户在预览页
+- 当前车辆已有"行驶证正页"
 
 **Steps**:
-1. 点击"添加单证资料"按钮
-2. 在弹窗中选择"从相册选择"
-3. 选择 1 张照片
+1. 打开当前车辆行驶证面板
+2. 点击已上传的"行驶证正页"
+3. 选择"重新上传"
+4. 选择或拍摄新图片
 
 **Expected Result**:
-- 打开相册
-- 选择后照片自动压缩
-- 单证资料列表显示新照片
+- 旧的 `docType=driving_license` + `docSide=front_page` 图片被替换
+- 当前车辆 `documents[]` 不出现重复的正页记录
+- 列表和面板都显示新图片缩略图
 
 ---
 
-### TC-032: 添加单证资料 - 从相册选择多张 [ ]
+### TC-036: 删除行驶证图片后更新完成状态 [ ]
 
 **Priority**: High
 **Type**: Happy Path
 **Status**: [ ] Not Run
 **Suite**: Regression
-**Tags**: @feature:document, @component:preview
+**Tags**: @feature:driving-license, @component:preview
 
 **Preconditions**:
-- 用户在预览页
-- 当前单证数量 < 10
+- 当前车辆实体行驶证正页、副页均已上传
 
 **Steps**:
-1. 点击"添加单证资料"按钮
-2. 选择"从相册选择"
-3. 选择 3 张照片
+1. 点击车辆列表中的"行驶证副页"缩略图
+2. 选择删除
+3. 确认删除
 
 **Expected Result**:
-- 可选择多张照片
-- 选择后自动压缩处理
-- 单证资料列表显示 3 张新照片
-
----
-
-### TC-033: 单证资料达到上限 [ ]
-
-**Priority**: Medium
-**Type**: Boundary
-**Status**: [ ] Not Run
-**Suite**: Regression
-**Tags**: @feature:document, @component:preview
-
-**Preconditions**:
-- 用户在预览页
-- 已有 10 张单证资料（达到上限）
-
-**Steps**:
-1. 尝试添加更多单证资料
-
-**Expected Result**:
-- 无法添加超过 10 张
-- 或显示已达上限提示
-
----
-
-### TC-034: 预览单证资料 [ ]
-
-**Priority**: Medium
-**Type**: Happy Path
-**Status**: [ ] Not Run
-**Suite**: Regression
-**Tags**: @feature:document, @component:preview
-
-**Preconditions**:
-- 用户在预览页
-- 有单证资料照片
-
-**Steps**:
-1. 点击单证资料照片
-
-**Expected Result**:
-- 进入微信原生图片预览
-- 可左右滑动查看
-- 支持缩放
-
----
-
-### TC-035: 删除单证资料 [ ]
-
-**Priority**: High
-**Type**: Happy Path
-**Status**: [ ] Not Run
-**Suite**: Regression
-**Tags**: @feature:document, @component:preview
-
-**Preconditions**:
-- 用户在预览页
-- 有单证资料照片
-
-**Steps**:
-1. 长按或点击删除按钮
-2. 在确认弹窗中点击"删除"
-
-**Expected Result**:
-- 显示确认弹窗："确定删除这张照片？"
-- 确认后照片被删除
-- 单证数量减少 1
-
----
-
-### TC-036: 从提交弹窗进入添加单证 [ ]
-
-**Priority**: High
-**Type**: Happy Path
-**Status**: [ ] Not Run
-**Suite**: Regression
-**Tags**: @feature:document, @component:preview
-
-**Preconditions**:
-- 用户在预览页
-- 点击"提交"按钮
-
-**Steps**:
-1. 在三者车弹窗中点击"否，下一步"
-2. 在单证弹窗中点击"是"
-
-**Expected Result**:
-- 弹窗关闭
-- 页面滚动到单证资料区域
-- 单证区域高亮显示
+- 对应图片从当前车辆 `documents[]` 移除
+- 删除后实体行驶证状态重新变为未完成
+- 车辆列表末尾继续提供"上传行驶证"入口，用户可补齐
+- 其他车辆的行驶证数据不受影响
 
 ---
 
 ## 六、提交流程
 
-### TC-037: 完整提交流程 - 无三者车无单证 [ ]
+### TC-037: 完整提交流程 - 无三者车且行驶证齐全 [ ]
 
 **Priority**: Critical
 **Type**: Happy Path
@@ -919,21 +934,23 @@
 
 **Preconditions**:
 - 标的车拍摄完成（车牌 + VIN + 车损）
+- 标的车行驶证资料已完成
 - 用户在预览页
 
 **Steps**:
-1. 点击"提交"按钮
-2. 在三者车弹窗中点击"否，下一步"
-3. 在单证弹窗中点击"否，提交"
+1. 点击"完成采集"按钮
+2. 在三者车确认弹窗中点击"是，继续提交"
 
 **Expected Result**:
+- 先显示三者车确认弹窗
+- 不显示行驶证风险提示
 - 跳转到完成页
 - 显示车辆数量：1
 - 显示总照片数量
 
 ---
 
-### TC-038: 完整提交流程 - 有三者车有单证 [ ]
+### TC-038: 完整提交流程 - 有三者车且行驶证齐全 [ ]
 
 **Priority**: Critical
 **Type**: Happy Path
@@ -944,20 +961,46 @@
 **Preconditions**:
 - 标的车拍摄完成
 - 添加了 1 辆三者车并完成拍摄
-- 添加了 2 张单证资料
+- 标的车和三者车行驶证资料均已完成
 
 **Steps**:
-1. 点击"提交"
-2. 添加三者车（点击"是"）→ 完成拍摄
-3. 再次提交
-4. 不再添加三者车（点击"否，下一步"）
-5. 添加单证（点击"是"）→ 添加 2 张
-6. 点击"提交"
+1. 点击"完成采集"
+2. 在三者车确认弹窗中点击"是，继续提交"
 
 **Expected Result**:
+- 三者车确认弹窗关闭
+- 不显示行驶证风险提示
 - 跳转到完成页
 - 显示车辆数量：2
 - 显示总照片数量正确
+
+---
+
+### TC-038A: 有车辆行驶证未完成时继续提交风险提示 [ ]
+
+**Priority**: Critical
+**Type**: Edge Case
+**Status**: [ ] Not Run
+**Suite**: Smoke
+**Tags**: @feature:submit, @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 用户在预览页
+- 至少一辆车行驶证资料未完成
+
+**Steps**:
+1. 点击"完成采集"
+2. 在三者车确认弹窗中点击"是，继续提交"
+3. 查看第二个弹窗文案
+4. 点击"返回补充"
+5. 再次重复步骤 1-3
+6. 点击"确认提交"
+
+**Expected Result**:
+- 三者车确认弹窗先显示
+- 第二个弹窗显示："仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？"
+- 点击"返回补充"关闭弹窗并停留预览页
+- 点击"确认提交"继续原完成流程
 
 ---
 
@@ -1066,27 +1109,33 @@
 
 **Expected Result**:
 - 不再询问是否添加三者车
-- 直接进入单证资料流程
+- 直接进入行驶证完成状态检查
+- 若存在未完成行驶证，则弹出一次总风险提示
+- 若全部行驶证完成，则进入完成页
 
 ---
 
-### TC-044: 单证资料上限边界 [ ]
+### TC-044: 旧缓存无行驶证字段仍能进入预览页 [ ]
 
-**Priority**: Medium
-**Type**: Boundary
+**Priority**: High
+**Type**: Edge Case
 **Status**: [ ] Not Run
 **Suite**: Regression
-**Tags**: @feature:document, @component:preview
+**Tags**: @feature:cache, @feature:driving-license, @component:preview
 
 **Preconditions**:
-- 已有 10 张单证资料
+- 本地缓存车辆对象没有 `documents`
+- 本地缓存车辆对象没有 `documentSelections`
 
 **Steps**:
-1. 尝试添加更多单证资料
+1. 从旧缓存恢复进入预览页
+2. 查看每辆车照片列表末尾
 
 **Expected Result**:
-- 显示已达上限提示
-- 或选择数量限制为 0
+- 页面不白屏
+- 每辆车自动补齐 `documents: []`
+- 每辆车自动补齐 `documentSelections.driving_license = 'physical'`
+- 每辆车列表末尾显示"上传行驶证"入口
 
 ---
 
@@ -1132,23 +1181,27 @@
 
 ---
 
-### TC-047: 相册权限未授权 [ ]
+### TC-047: 行驶证相册选择失败不破坏数据 [ ]
 
 **Priority**: Medium
 **Type**: Error Handling
 **Status**: [ ] Not Run
 **Suite**: Regression
-**Tags**: @feature:document, @integration:permission
+**Tags**: @feature:driving-license, @integration:permission
 
 **Preconditions**:
 - 用户未授权相册权限
+- 用户在行驶证上传面板
 
 **Steps**:
-1. 尝试从相册选择单证资料
+1. 点击任一行驶证上传位
+2. 选择"从手机相册选择"
 
 **Expected Result**:
 - 显示权限引导
 - 或无法打开相册选择器
+- 已有行驶证图片不被清空
+- 面板仍可继续选择拍照或关闭
 
 ---
 
@@ -1273,7 +1326,7 @@
 - 车牌照片示例
 - VIN 码照片示例
 - 车损照片示例
-- 单证资料照片示例
+- 行驶证正页、行驶证副页、电子行驶证照片示例
 
 ---
 
@@ -1281,7 +1334,8 @@
 
 ### 当前自动化覆盖补充
 
-- `npm run test:automator` 已覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片成功/取消/失败兜底、拍照添加单证成功、车损 AI `initdone` 恢复与首批破坏性场景。
+- `npm run test:automator` 已覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片成功/取消/失败兜底、车损 AI `initdone` 恢复与首批破坏性场景。
+- v1.3.5 Jest 已覆盖车辆级行驶证旧缓存兼容、实体/电子完成态、上传替换、删除、拍照保存相册、提交风险提示和标的车/三者车串车隔离。
 - 微信开发者工具自动化入口和环境配置见 `docs/test-run-guide.md` 与 `e2e/README.md`。
 - 真机相机权限、真实相册权限、真实拍照预览流和模型推理效果仍需手工回归。
 
@@ -1306,10 +1360,10 @@
 
 | Suite | Total | Pass | Fail | Blocked | Skip | Not Run |
 |-------|-------|------|------|---------|------|---------|
-| Smoke | 12 | 0 | 0 | 0 | 0 | 12 |
-| Regression | 34 | 0 | 0 | 0 | 0 | 34 |
+| Smoke | 13 | 0 | 0 | 0 | 0 | 13 |
+| Regression | 35 | 0 | 0 | 0 | 0 | 35 |
 | Full | 6 | 0 | 0 | 0 | 0 | 6 |
-| **Total** | **52** | **0** | **0** | **0** | **0** | **52** |
+| **Total** | **54** | **0** | **0** | **0** | **0** | **54** |
 
 ---
 
@@ -1338,7 +1392,7 @@
 ---
 
 *文档生成工具: qa-test-cases skill*
-*最后更新: 2026-04-24*
+*最后更新: 2026-04-30*
 
 ---
 
@@ -1511,3 +1565,94 @@
 **Expected Result**:
 - 关闭确认态并回到当前拍摄步骤
 - 不调用 `wx.saveImageToPhotosAlbum`
+
+---
+
+## v1.3.5 每辆车行驶证资料补充用例
+
+- 本版本将行驶证资料从独立单证模块调整为每辆车照片列表末尾的车辆级资料。
+- 旧缓存车辆缺少 `documents` / `documentSelections` 时必须自动补默认值，避免预览页白屏。
+- 完成采集时先确认是否需要添加三者车，再统一判断行驶证是否齐全。
+
+### TC-061: 标的车和三者车行驶证数据互不串车 [P]
+
+**Priority**: Critical
+**Type**: Edge Case
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:driving-license, @feature:multi-vehicle, @component:preview
+
+**Preconditions**:
+- 预览页存在标的车和三者车
+
+**Steps**:
+1. 为标的车上传行驶证正页
+2. 为三者车上传电子行驶证
+3. 分别查看两辆车的 `documents[]`
+
+**Expected Result**:
+- 标的车只包含自己的正页记录
+- 三者车只包含自己的电子行驶证记录
+- 两辆车的完成状态按各自 `documentSelections` 独立计算
+
+### TC-062: 行驶证风险提示不强制拦截提交 [P]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [P]
+**Suite**: Smoke
+**Tags**: @feature:submit, @feature:driving-license, @component:preview
+
+**Preconditions**:
+- 至少一辆车行驶证未完成
+
+**Steps**:
+1. 点击 `完成采集`
+2. 在三者车确认弹窗点击 `是，继续提交`
+3. 在行驶证风险提示点击 `确认提交`
+
+**Expected Result**:
+- 风险提示只弹一次
+- 点击 `确认提交` 后继续原完成流程
+- 不要求用户必须补齐行驶证
+
+### TC-063: 三者车确认弹窗点击空白只关闭弹窗 [P]
+
+**Priority**: High
+**Type**: Edge Case
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:submit, @feature:multi-vehicle, @component:confirm-modal
+
+**Preconditions**:
+- 用户在预览页
+- 三者车确认弹窗已显示
+
+**Steps**:
+1. 点击弹窗外部遮罩空白区域
+
+**Expected Result**:
+- 弹窗关闭并停留预览页
+- 不触发添加三者车流程
+- 不触发继续提交流程
+
+### TC-064: 拍照页背景与初始化页、预览页一致 [P]
+
+**Priority**: Medium
+**Type**: UI
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:camera, @component:camera, @feature:ui
+
+**Preconditions**:
+- 小程序横屏打开
+
+**Steps**:
+1. 查看初始化页背景
+2. 进入拍照页查看背景
+3. 进入预览页查看背景
+
+**Expected Result**:
+- 三个页面都使用浅灰绿色背景
+- 拍照页右上角有淡绿色装饰层
+- 相机预览、按钮和提示文案不被背景装饰遮挡

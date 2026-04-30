@@ -1,6 +1,7 @@
 const constants = require('./constants')
+const vehicleDocuments = require('./documents')
 
-const CACHE_SCHEMA_VERSION = 1
+const CACHE_SCHEMA_VERSION = 2
 
 const WORKFLOW_STATES = [
   'IDLE',
@@ -85,7 +86,9 @@ function createVehicle(index = 0) {
     type: getVehicleType(index),
     licensePlate: buildPendingPhotoSlot(),
     vinCode: buildPendingPhotoSlot(),
-    damages: []
+    damages: [],
+    documents: [],
+    documentSelections: vehicleDocuments.getDefaultDocumentSelections()
   }
 }
 
@@ -404,9 +407,37 @@ function sanitizeVehicle(vehicle, index, tracker) {
       .map((item) => sanitizeAttachment(item, tracker, 'vehicle_damage_invalid'))
       .filter(Boolean)
     : []
+  const documents = Array.isArray(vehicle.documents)
+    ? vehicle.documents
+      .map((item) => {
+        const normalized = vehicleDocuments.normalizeVehicleDocument(item)
+
+        if (!normalized) {
+          markIssue(tracker, 'vehicle_document_invalid')
+        }
+
+        return normalized
+      })
+      .filter(Boolean)
+    : []
 
   if (!Array.isArray(vehicle.damages)) {
     markIssue(tracker, 'vehicle_damages_invalid')
+  }
+
+  if (!Array.isArray(vehicle.documents)) {
+    markIssue(tracker, 'vehicle_documents_missing')
+  }
+
+  const documentSelections = vehicleDocuments.normalizeDocumentSelections(vehicle.documentSelections)
+
+  if (!isPlainObject(vehicle.documentSelections)) {
+    markIssue(tracker, 'vehicle_document_selections_missing')
+  } else if (
+    vehicle.documentSelections[vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE]
+    !== documentSelections[vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE]
+  ) {
+    markIssue(tracker, 'vehicle_document_selections_invalid')
   }
 
   if (!isNonEmptyString(vehicle.id)) {
@@ -423,7 +454,9 @@ function sanitizeVehicle(vehicle, index, tracker) {
     type: isNonEmptyString(vehicle.type) ? vehicle.type : getVehicleType(index),
     licensePlate: sanitizeCaptureSlot(vehicle.licensePlate, tracker, 'vehicle_license_invalid'),
     vinCode: sanitizeCaptureSlot(vehicle.vinCode, tracker, 'vehicle_vin_invalid'),
-    damages
+    damages,
+    documents,
+    documentSelections
   }
 }
 
@@ -765,6 +798,19 @@ function validateCache(cache) {
 
   if (Array.isArray(cache.vehicles) && cache.vehicles.some((vehicle) => !isPlainObject(vehicle))) {
     issues.push('vehicles_invalid')
+  }
+
+  if (Array.isArray(cache.vehicles) && cache.vehicles.some((vehicle) => (
+    isPlainObject(vehicle) && !Array.isArray(vehicle.documents)
+  ))) {
+    issues.push('vehicle_documents_invalid')
+  }
+
+  if (Array.isArray(cache.vehicles) && cache.vehicles.some((vehicle) => (
+    isPlainObject(vehicle)
+    && !isPlainObject(vehicle.documentSelections)
+  ))) {
+    issues.push('vehicle_document_selections_invalid')
   }
 
   if (!Array.isArray(cache.documents)) {

@@ -1,4 +1,5 @@
 const constants = require('./constants')
+const vehicleDocuments = require('./documents')
 
 const ACTIONABLE_QUALITY_REASONS = {
   blur: true,
@@ -104,6 +105,25 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
     })
   })
 
+  vehicleDocuments.getVehicleDocuments(vehicle).forEach((document, documentIndex) => {
+    if (!hasStoredAttachment(document)) {
+      return
+    }
+
+    photoEntries.push({
+      id: `${vehicleIndex}-vehicleDocument-${document.docType}-${document.docSide}`,
+      url: document.compressedPath,
+      vehicle: vehicleIndex,
+      type: 'vehicleDocument',
+      damage: null,
+      documentIndex,
+      docType: document.docType,
+      docSide: document.docSide,
+      label: `${vehicle.type} - ${document.label || '单证资料'}`,
+      captureMode: document.sourceType || 'manual'
+    })
+  })
+
   return photoEntries
 }
 
@@ -144,6 +164,7 @@ function getVehicleSummary(cache) {
     const hasLicensePlate = isCompletedPhoto(vehicle.licensePlate)
     const hasVinCode = isCompletedPhoto(vehicle.vinCode)
     const damageCount = Array.isArray(vehicle.damages) ? vehicle.damages.length : 0
+    const vehicleDocumentCount = vehicleDocuments.getVehicleDocuments(vehicle).filter(hasStoredAttachment).length
     const completedPhotoCount = (hasLicensePlate ? 1 : 0) + (hasVinCode ? 1 : 0) + damageCount
     const isStarted = completedPhotoCount > 0
     const isCoreComplete = hasLicensePlate && hasVinCode && damageCount > 0
@@ -158,6 +179,8 @@ function getVehicleSummary(cache) {
       hasLicensePlate,
       hasVinCode,
       damageCount,
+      vehicleDocumentCount,
+      isDrivingLicenseComplete: vehicleDocuments.isDrivingLicenseComplete(vehicle),
       completedPhotoCount,
       isStarted,
       isCoreComplete,
@@ -184,14 +207,16 @@ function getVehicleSummary(cache) {
       result.vinCode += 1
     }
     result.damage += vehicle.damageCount
+    result.document += vehicle.vehicleDocumentCount
     return result
   }, {
     licensePlate: 0,
     vinCode: 0,
-    damage: 0
+    damage: 0,
+    document: 0
   })
 
-  photoCounts.total = photoCounts.licensePlate + photoCounts.vinCode + photoCounts.damage
+  photoCounts.total = photoCounts.licensePlate + photoCounts.vinCode + photoCounts.damage + photoCounts.document
 
   return {
     vehicles,
@@ -321,6 +346,22 @@ function collectQualityPhotoRecords(cache) {
         photoIndex: damageIndex,
         label: `${vehicleType} - 车损${damageIndex + 1}`,
         photo: damage
+      })
+    })
+
+    vehicleDocuments.getVehicleDocuments(vehicle).forEach((document, documentIndex) => {
+      if (!hasStoredAttachment(document)) {
+        return
+      }
+
+      seqNo += 1
+      records.push({
+        seqNo,
+        vehicleIndex,
+        photoType: 'vehicleDocument',
+        photoIndex: documentIndex,
+        label: `${vehicleType} - ${document.label || '单证资料'}`,
+        photo: document
       })
     })
   })
@@ -512,7 +553,7 @@ function getCacheSummary(cache) {
 
   const photoCounts = {
     ...vehicleSummary.photoCounts,
-    document: documentSummary.count
+    document: (vehicleSummary.photoCounts.document || 0) + documentSummary.count
   }
   photoCounts.total = photoCounts.licensePlate + photoCounts.vinCode + photoCounts.damage + photoCounts.document
 

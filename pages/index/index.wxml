@@ -25,7 +25,7 @@
           <view class="index-badge">
             <text class="index-text">1</text>
           </view>
-          <text class="notice-text">拍摄前，请提前准备好所有事故车辆的行驶证、驾驶员身份证、驾驶证</text>
+          <text class="notice-text">拍摄前，请提前准备好所有事故车辆的行驶证（支持12123电子版）</text>
         </view>
 
         <view class="notice-item">

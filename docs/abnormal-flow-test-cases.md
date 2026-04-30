@@ -372,3 +372,58 @@
 
 **关联模块**：`utils/album.js`
 **备注**：对应 `__tests__/album.test.js`
+
+---
+
+## v1.3.5 行驶证资料异常链路补充
+
+### TC-AF-020: 旧缓存车辆缺少行驶证字段时不白屏 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：旧缓存车辆对象没有 `documents` 或 `documentSelections`
+**操作步骤**：
+1. 调用缓存迁移与恢复逻辑
+2. 进入预览页构建车辆照片列表
+
+**预期结果**：
+- 每辆车自动补齐 `documents: []`
+- 每辆车自动补齐 `documentSelections.driving_license = 'physical'`
+- 预览页显示"上传行驶证"入口，不白屏
+
+**关联模块**：`utils/storage-schema.js`、`utils/documents.js`、`pages/preview/preview.js`
+**备注**：对应 `__tests__/vehicle-documents.test.js`
+
+---
+
+### TC-AF-021: 行驶证上传替换不会重复堆积 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：当前车辆已有 `driving_license/front_page` 图片
+**操作步骤**：
+1. 再次上传同一车辆的行驶证正页
+2. 检查当前车辆 `documents[]`
+
+**预期结果**：
+- 原正页记录被新记录替换
+- 当前车辆不会出现两个 `front_page`
+- 其他车辆 `documents[]` 不变
+
+**关联模块**：`utils/storage.js`、`utils/documents.js`
+**备注**：对应 `__tests__/vehicle-documents.test.js`
+
+---
+
+### TC-AF-022: 三者车确认弹窗遮罩点击不触发业务动作 [P]
+
+**自动化 / 手工**：自动化
+**前置条件**：预览页三者车确认弹窗已显示
+**操作步骤**：
+1. 点击弹窗遮罩空白区域
+
+**预期结果**：
+- 弹窗关闭
+- 不进入三者车拍照流程
+- 不进入完成提交流程
+
+**关联模块**：`components/confirm-modal`、`pages/preview/preview.js`
+**备注**：对应 `__tests__/preview-driving-license.test.js`

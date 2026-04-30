@@ -11,16 +11,18 @@ const MAX_QUALITY = 80
  * @param {string} tempFilePath 临时文件路径
  * @returns {Promise<{tempFilePath: string, fileSize: number}>}
  */
-function compressImage(tempFilePath) {
+function compressImage(tempFilePath, options = {}) {
+  const maxFileSize = Number.isFinite(options.maxFileSize) ? options.maxFileSize : MAX_FILE_SIZE
+
   return new Promise((resolve, reject) => {
-    doCompress(tempFilePath, MAX_QUALITY, resolve, reject)
+    doCompress(tempFilePath, MAX_QUALITY, maxFileSize, resolve, reject)
   })
 }
 
 /**
  * 递归压缩
  */
-function doCompress(tempFilePath, quality, resolve, reject) {
+function doCompress(tempFilePath, quality, maxFileSize, resolve, reject) {
   wx.compressImage({
     src: tempFilePath,
     quality: quality,
@@ -31,7 +33,7 @@ function doCompress(tempFilePath, quality, resolve, reject) {
         success: (fileInfo) => {
           console.log(`压缩后大小: ${fileInfo.size}B, 质量: ${quality}%`)
           
-          if (fileInfo.size <= MAX_FILE_SIZE) {
+          if (fileInfo.size <= maxFileSize) {
             // 压缩成功
             resolve({
               tempFilePath: tempFilePath,        // 原始路径（仅供参考，不建议使用）
@@ -40,7 +42,7 @@ function doCompress(tempFilePath, quality, resolve, reject) {
             })
           } else if (quality > MIN_QUALITY) {
             // 继续压缩
-            doCompress(tempFilePath, quality - 10, resolve, reject)
+            doCompress(tempFilePath, quality - 10, maxFileSize, resolve, reject)
           } else {
             // 已达最低质量，返回当前结果
             resolve({

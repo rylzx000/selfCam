@@ -31,6 +31,10 @@ Component({
       this.triggerEvent('cancel')
     },
 
+    onMaskTap() {
+      this.triggerEvent('masktap')
+    },
+
     stopPropagation() {
       // 阻止事件冒泡
     }

@@ -1,4 +1,5 @@
 const schema = require('./storage-schema')
+const vehicleDocuments = require('./documents')
 
 const STORAGE_KEY = 'car_damage_photos_cache'
 
@@ -305,6 +306,108 @@ function deleteDocument(index) {
   return true
 }
 
+function setVehicleDocumentSelection(vehicleIndex, docType, selection) {
+  const cache = loadCache()
+  const vehicle = cache && cache.vehicles && cache.vehicles[vehicleIndex]
+
+  if (!vehicle) {
+    logStorage('warn', 'set_vehicle_document_selection_vehicle_missing', {
+      vehicleIndex,
+      docType
+    })
+    return false
+  }
+
+  vehicle.documentSelections = vehicleDocuments.normalizeDocumentSelections(vehicle.documentSelections)
+
+  if (
+    docType === vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE
+    && (selection === vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL || selection === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC)
+  ) {
+    vehicle.documentSelections[docType] = selection
+    saveCache(cache)
+    return true
+  }
+
+  logStorage('warn', 'set_vehicle_document_selection_invalid', {
+    vehicleIndex,
+    docType,
+    selection
+  })
+  return false
+}
+
+function saveVehicleDocument(vehicleIndex, documentRecord) {
+  const cache = loadCache()
+  const vehicle = cache && cache.vehicles && cache.vehicles[vehicleIndex]
+
+  if (!vehicle) {
+    logStorage('warn', 'save_vehicle_document_vehicle_missing', {
+      vehicleIndex,
+      docType: documentRecord && documentRecord.docType,
+      docSide: documentRecord && documentRecord.docSide
+    })
+    return null
+  }
+
+  vehicle.documents = Array.isArray(vehicle.documents) ? vehicle.documents : []
+  vehicle.documentSelections = vehicleDocuments.normalizeDocumentSelections(vehicle.documentSelections)
+
+  const existingIndex = vehicle.documents.findIndex((document) => (
+    document.docType === documentRecord.docType && document.docSide === documentRecord.docSide
+  ))
+  const existingDocument = existingIndex >= 0 ? vehicle.documents[existingIndex] : null
+  const normalizedDocument = vehicleDocuments.normalizeVehicleDocument(
+    documentRecord,
+    existingDocument,
+    Date.now()
+  )
+
+  if (!normalizedDocument) {
+    logStorage('warn', 'save_vehicle_document_invalid', {
+      vehicleIndex,
+      docType: documentRecord && documentRecord.docType,
+      docSide: documentRecord && documentRecord.docSide
+    })
+    return null
+  }
+
+  if (existingIndex >= 0) {
+    vehicle.documents.splice(existingIndex, 1, normalizedDocument)
+  } else {
+    vehicle.documents.push(normalizedDocument)
+  }
+
+  saveCache(cache)
+  return normalizedDocument
+}
+
+function deleteVehicleDocument(vehicleIndex, docType, docSide) {
+  const cache = loadCache()
+  const vehicle = cache && cache.vehicles && cache.vehicles[vehicleIndex]
+
+  if (!vehicle || !Array.isArray(vehicle.documents)) {
+    logStorage('warn', 'delete_vehicle_document_vehicle_missing', {
+      vehicleIndex,
+      docType,
+      docSide
+    })
+    return false
+  }
+
+  const nextDocuments = vehicle.documents.filter((document) => !(
+    document.docType === docType && document.docSide === docSide
+  ))
+
+  if (nextDocuments.length === vehicle.documents.length) {
+    return false
+  }
+
+  vehicle.documents = nextDocuments
+  saveCache(cache)
+  return true
+}
+
 function deleteVehicle(vehicleIndex) {
   const cache = loadCache()
 
@@ -355,5 +458,8 @@ module.exports = {
   isRetakeMode,
   deletePhoto,
   deleteDocument,
+  setVehicleDocumentSelection,
+  saveVehicleDocument,
+  deleteVehicleDocument,
   deleteVehicle
 }

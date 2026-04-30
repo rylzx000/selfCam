@@ -1,5 +1,5 @@
 <!--确认弹框组件-->
-<view class="modal-mask" wx:if="{{visible}}" bindtap="onCancel">
+<view class="modal-mask" wx:if="{{visible}}" bindtap="onMaskTap">
   <view class="modal-container" catchtap="stopPropagation">
     <!-- 图片预览区 -->
     <view class="modal-image-wrapper" wx:if="{{image}}">

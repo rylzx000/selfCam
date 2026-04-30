@@ -1,4 +1,6 @@
 <view class="container">
+  <view class="page-glow"></view>
+
   <view class="info-area">
     <view class="vehicle-info">
       <text class="vehicle-label">当前车辆</text>

@@ -2,8 +2,26 @@ const storage = require('../../utils/storage')
 const cacheSelectors = require('../../utils/cache-selectors')
 const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
+const vehicleDocuments = require('../../utils/documents')
+const album = require('../../utils/album')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+
+const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
+const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
+
+function buildDrivingLicensePreview(vehicle, index) {
+  return {
+    ...vehicle,
+    previewName: index === 0 ? '您的车' : `其他出险车辆 ${index}`,
+    previewTag: index === 0 ? '标的车' : '三者车',
+    drivingLicensePreview: vehicleDocuments.buildDrivingLicensePreview(vehicle)
+  }
+}
+
+function getDrivingLicenseLabel(docSide) {
+  return vehicleDocuments.DRIVING_LICENSE_LABELS[docSide] || '行驶证资料'
+}
 
 Page({
   data: {
@@ -29,6 +47,10 @@ Page({
     modalType: '',
     scrollToView: '',
     highlightDocument: false,
+    showDrivingLicensePanel: false,
+    drivingLicenseMode: 'physical',
+    activeDrivingLicenseVehicleIndex: null,
+    activeDrivingLicenseSlots: [],
     workflowState: workflow.STATES.IDLE
   },
 
@@ -72,19 +94,249 @@ Page({
       return
     }
 
+    const vehicles = summary.vehicles.map(buildDrivingLicensePreview)
+    const activeVehicle = vehicles[this.data.activeDrivingLicenseVehicleIndex]
+    const drivingLicenseMode = activeVehicle
+      ? vehicleDocuments.getDrivingLicenseSelection(activeVehicle)
+      : this.data.drivingLicenseMode
+
     this.setData({
-      vehicles: summary.vehicles,
+      vehicles,
       documents: summary.documents,
       allPhotos: summary.allPhotos,
       totalPhotoCount: summary.totalPhotos,
       progress: summary.progress,
-      canAddThirdVehicle: summary.canAddThirdVehicle
+      canAddThirdVehicle: summary.canAddThirdVehicle,
+      drivingLicenseMode,
+      activeDrivingLicenseSlots: activeVehicle
+        ? vehicleDocuments.buildDrivingLicenseSlots(activeVehicle, drivingLicenseMode)
+        : []
+    })
+  },
+
+  onOpenDrivingLicensePanel(e) {
+    const { vehicle } = e.currentTarget.dataset
+    const activeVehicle = this.data.vehicles[vehicle]
+    const drivingLicenseMode = activeVehicle
+      ? vehicleDocuments.getDrivingLicenseSelection(activeVehicle)
+      : vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
+
+    this.setData({
+      showDrivingLicensePanel: true,
+      drivingLicenseMode,
+      activeDrivingLicenseVehicleIndex: vehicle,
+      activeDrivingLicenseSlots: activeVehicle
+        ? vehicleDocuments.buildDrivingLicenseSlots(activeVehicle, drivingLicenseMode)
+        : []
+    })
+  },
+
+  onCloseDrivingLicensePanel() {
+    this.setData({
+      showDrivingLicensePanel: false,
+      activeDrivingLicenseVehicleIndex: null,
+      activeDrivingLicenseSlots: []
+    })
+  },
+
+  onSwitchDrivingLicenseMode() {
+    const nextMode = this.data.drivingLicenseMode === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+      ? vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
+      : vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+
+    if (this.data.activeDrivingLicenseVehicleIndex !== null) {
+      storage.setVehicleDocumentSelection(
+        this.data.activeDrivingLicenseVehicleIndex,
+        vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE,
+        nextMode
+      )
+    }
+
+    this.setData({
+      drivingLicenseMode: nextMode
+    })
+    this.loadData()
+  },
+
+  onTapDrivingLicenseSlot(e) {
+    const { side, uploaded } = e.currentTarget.dataset
+    const isUploaded = uploaded === true || uploaded === 'true'
+
+    if (isUploaded) {
+      return this.openDrivingLicenseDocumentActions(this.data.activeDrivingLicenseVehicleIndex, side)
+    }
+
+    return this.openDrivingLicenseSourceSheet(side)
+  },
+
+  onTapDrivingLicenseUpload(e) {
+    const { vehicle } = e.currentTarget.dataset
+    const activeVehicle = this.data.vehicles[vehicle]
+    const mode = activeVehicle
+      ? vehicleDocuments.getDrivingLicenseSelection(activeVehicle)
+      : vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
+    const targetSide = mode === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+      ? vehicleDocuments.DRIVING_LICENSE_SIDES.ELECTRONIC
+      : vehicleDocuments.DRIVING_LICENSE_SIDES.FRONT_PAGE
+
+    this.setData({
+      showDrivingLicensePanel: true,
+      drivingLicenseMode: mode,
+      activeDrivingLicenseVehicleIndex: vehicle,
+      activeDrivingLicenseSlots: activeVehicle
+        ? vehicleDocuments.buildDrivingLicenseSlots(activeVehicle, mode)
+        : []
+    })
+
+    return this.openDrivingLicenseSourceSheet(targetSide)
+  },
+
+  onOpenDrivingLicenseDocumentActions(e) {
+    const { vehicle, side } = e.currentTarget.dataset
+    return this.openDrivingLicenseDocumentActions(vehicle, side)
+  },
+
+  openDrivingLicenseDocumentActions(vehicleIndex, docSide) {
+    return new Promise((resolve) => {
+      wx.showActionSheet({
+        itemList: ['查看', '重新上传', '删除'],
+        success: async (res) => {
+          if (res.tapIndex === 0) {
+            this.previewDrivingLicenseDocument(vehicleIndex, docSide)
+          } else if (res.tapIndex === 1) {
+            this.setData({ activeDrivingLicenseVehicleIndex: vehicleIndex })
+            await this.openDrivingLicenseSourceSheet(docSide)
+          } else if (res.tapIndex === 2) {
+            this.confirmDeleteDrivingLicenseDocument(vehicleIndex, docSide)
+          }
+          resolve()
+        },
+        fail: () => resolve()
+      })
+    })
+  },
+
+  previewDrivingLicenseDocument(vehicleIndex, docSide) {
+    const vehicle = this.data.vehicles[vehicleIndex]
+    const current = vehicleDocuments.getDrivingLicenseDocumentBySide(vehicle, docSide)
+
+    if (!current) return
+
+    const urls = vehicleDocuments.getVehicleDocuments(vehicle)
+      .filter((document) => document.docType === vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE)
+      .map((document) => document.compressedPath)
+
+    wx.previewImage({
+      urls,
+      current: current.compressedPath
+    })
+  },
+
+  confirmDeleteDrivingLicenseDocument(vehicleIndex, docSide) {
+    wx.showModal({
+      title: '',
+      content: `确定删除${getDrivingLicenseLabel(docSide)}吗？`,
+      confirmText: '删除',
+      confirmColor: '#D32F2F',
+      success: (res) => {
+        if (res.confirm) {
+          storage.deleteVehicleDocument(
+            vehicleIndex,
+            vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE,
+            docSide
+          )
+          this.loadData()
+        }
+      }
+    })
+  },
+
+  openDrivingLicenseSourceSheet(docSide) {
+    return new Promise((resolve) => {
+      wx.showActionSheet({
+        itemList: ['拍照', '从手机相册选择'],
+        success: async (res) => {
+          if (res.tapIndex === 0) {
+            await this.chooseDrivingLicenseImage(docSide, 'camera')
+          } else if (res.tapIndex === 1) {
+            await this.chooseDrivingLicenseImage(docSide, 'album')
+          }
+          resolve()
+        },
+        fail: () => resolve()
+      })
+    })
+  },
+
+  chooseDrivingLicenseImage(docSide, sourceType) {
+    return new Promise((resolve) => {
+      wx.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sourceType: [sourceType],
+        success: async (res) => {
+          const file = res.tempFiles && res.tempFiles[0]
+          if (!file || !file.tempFilePath) {
+            resolve()
+            return
+          }
+
+          wx.showLoading({ title: '处理中...' })
+          let savedDocument = null
+
+          try {
+            const photo = await compress.compressImage(file.tempFilePath, {
+              maxFileSize: DRIVING_LICENSE_MAX_FILE_SIZE
+            })
+            const timestamp = Date.now()
+
+            savedDocument = storage.saveVehicleDocument(this.data.activeDrivingLicenseVehicleIndex, {
+              docType: vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE,
+              docSide,
+              label: getDrivingLicenseLabel(docSide),
+              sourceType,
+              tempFilePath: file.tempFilePath,
+              compressedPath: photo.compressedPath,
+              size: file.size,
+              compressedSize: photo.fileSize,
+              createdAt: timestamp,
+              updatedAt: timestamp
+            })
+
+            if (!savedDocument) {
+              throw new Error('SAVE_VEHICLE_DOCUMENT_FAILED')
+            }
+
+            workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
+              page: 'preview',
+              pageAction: 'driving_license_saved'
+            })
+
+            this.loadData()
+            wx.hideLoading()
+
+            if (sourceType === 'camera') {
+              await album.saveConfirmedPhotoToAlbum(savedDocument)
+            }
+          } catch (err) {
+            wx.hideLoading()
+            wx.showToast({ title: '处理失败', icon: 'none' })
+          }
+
+          resolve(savedDocument)
+        },
+        fail: () => resolve()
+      })
     })
   },
 
   onPreview(e) {
-    const { vehicle, type, damage } = e.currentTarget.dataset
-    const targetId = damage !== undefined ? `${vehicle}-${type}-${damage}` : `${vehicle}-${type}`
+    const { vehicle, type, damage, docType, docSide } = e.currentTarget.dataset
+    const targetId = type === 'vehicleDocument'
+      ? `${vehicle}-vehicleDocument-${docType}-${docSide}`
+      : damage !== undefined
+        ? `${vehicle}-${type}-${damage}`
+        : `${vehicle}-${type}`
     const index = this.data.allPhotos.findIndex((photo) => photo.id === targetId)
 
     if (index >= 0) {
@@ -157,6 +409,15 @@ Page({
     const photo = this.data.currentPhoto
     if (!photo) return
 
+    if (photo.type === 'vehicleDocument') {
+      this.setData({
+        showPreview: false,
+        activeDrivingLicenseVehicleIndex: photo.vehicle
+      })
+      this.openDrivingLicenseSourceSheet(photo.docSide)
+      return
+    }
+
     const cache = storage.loadCache()
     if (!cache) {
       this.isLeaving = true
@@ -186,6 +447,23 @@ Page({
     const photo = this.data.currentPhoto
     if (!photo) return
 
+    if (photo.type === 'vehicleDocument') {
+      wx.showModal({
+        title: '',
+        content: `确定删除${getDrivingLicenseLabel(photo.docSide)}吗？`,
+        confirmText: '删除',
+        confirmColor: '#D32F2F',
+        success: (res) => {
+          if (res.confirm) {
+            storage.deleteVehicleDocument(photo.vehicle, photo.docType, photo.docSide)
+            this.setData({ showPreview: false })
+            this.loadData()
+          }
+        }
+      })
+      return
+    }
+
     wx.showModal({
       title: '',
       content: '确定删除该照片吗？',
@@ -205,7 +483,6 @@ Page({
 
   onSubmit() {
     const cache = storage.loadCache()
-    const vehicleSummary = cacheSelectors.getVehicleSummary(cache)
 
     if (!cache) {
       this.isLeaving = true
@@ -213,58 +490,72 @@ Page({
       return
     }
 
+    this.startSubmitFlow(cache)
+  },
+
+  startSubmitFlow(cache = storage.loadCache()) {
+    if (!cache) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    const vehicleSummary = cacheSelectors.getVehicleSummary(cache)
+
     if (vehicleSummary.canAddThirdVehicle) {
       this.setData({
         showModal: true,
-        modalContent: '是否还有其他三者车？',
-        modalConfirmText: '是',
-        modalCancelText: '否，下一步',
+        modalContent: '确认所有车辆损伤均已拍摄，无需增加其他三者车？',
+        modalConfirmText: '是，继续提交',
+        modalCancelText: '否，添加其他三者车',
         modalType: 'thirdVehicle'
       })
     } else {
-      this.askDocument()
+      this.checkDrivingLicenseBeforeSubmit(cache)
     }
   },
 
-  askDocument() {
-    this.setData({
-      showModal: true,
-      modalContent: '是否还有单证资料需要提交？如事故证明、银行卡等？',
-      modalConfirmText: '是',
-      modalCancelText: '否，提交',
-      modalType: 'document'
-    })
+  checkDrivingLicenseBeforeSubmit(cache = storage.loadCache()) {
+    if (!cache) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    if (vehicleDocuments.hasIncompleteDrivingLicenseVehicles(cache.vehicles)) {
+      this.setData({
+        showModal: true,
+        modalContent: DRIVING_LICENSE_RISK_TIP,
+        modalConfirmText: '确认提交',
+        modalCancelText: '返回补充',
+        modalType: 'drivingLicenseRisk'
+      })
+      return
+    }
+
+    this.submitComplete()
   },
 
   onModalConfirm() {
+    const modalType = this.data.modalType
     this.setData({ showModal: false })
-    if (this.data.modalType === 'thirdVehicle') {
-      this.addThirdVehicle()
-    } else if (this.data.modalType === 'document') {
-      this.scrollToDocument()
+    if (modalType === 'drivingLicenseRisk') {
+      this.submitComplete()
+    } else if (modalType === 'thirdVehicle') {
+      this.checkDrivingLicenseBeforeSubmit()
     }
   },
 
   onModalCancel() {
+    const modalType = this.data.modalType
     this.setData({ showModal: false })
-    if (this.data.modalType === 'thirdVehicle') {
-      setTimeout(() => {
-        this.askDocument()
-      }, 150)
-    } else if (this.data.modalType === 'document') {
-      this.submitComplete()
+    if (modalType === 'thirdVehicle') {
+      this.addThirdVehicle()
     }
   },
 
-  scrollToDocument() {
-    this.setData({
-      scrollToView: 'document-section',
-      highlightDocument: true
-    })
-
-    setTimeout(() => {
-      this.setData({ highlightDocument: false })
-    }, 3000)
+  onModalMaskTap() {
+    this.setData({ showModal: false })
   },
 
   submitComplete() {

@@ -1,5 +1,17 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.3.5 本次新增测试目标
+
+- 覆盖每辆车行驶证资料的旧缓存兼容、实体/电子完成态、上传替换、删除和串车隔离。
+- 覆盖预览页完成采集弹窗顺序：先确认是否添加三者车，再统一提示行驶证未完成风险。
+- 覆盖行驶证上传来源差异：拍照来源尝试保存到手机相册，相册来源不重复保存。
+- 覆盖通用确认弹窗遮罩点击只关闭弹窗，不触发取消按钮业务动作。
+
+## v1.3.5 新增测试文件
+
+- `__tests__/vehicle-documents.test.js`
+- `__tests__/preview-driving-license.test.js`
+
 ## 本次新增测试的目标
 
 - 补齐 `workflow-state`、`storage-schema`、`storage`、`cache-selectors` 的异常链路与恢复边界测试。
@@ -182,8 +194,11 @@ $env:E2E_TIMEOUT_MS="90000"
 
 本轮已在本机运行：
 
-- `npm test -- --runInBand`：13 个测试套件、102 个用例通过。
-- `npm run test:automator`：1 个测试套件、12 个页面自动化用例通过。
+- `node --check pages\preview\preview.js`：通过。
+- `node --check components\confirm-modal\confirm-modal.js`：通过。
+- `git diff --check`：通过。
+- `npm test -- --runInBand`：18 个测试套件、130 个用例通过。
+- 本轮未重新运行 `npm run test:automator`；页面自动化仍按下方命令在微信开发者工具环境验证。
 
 ## 哪些场景仍建议手工验证
 
@@ -207,6 +222,23 @@ $env:E2E_TIMEOUT_MS="90000"
 - 页面自动化失败
   - 先确认微信开发者工具是否已启动并开启服务端口
   - 再确认 `e2e` 脚本中的 CLI 路径与项目路径是否可用
+
+---
+
+## v1.3.5 新增测试覆盖
+
+本版本新增和调整的 Jest 用例集中在以下文件：
+
+- `__tests__/vehicle-documents.test.js`：覆盖旧缓存兼容、实体/电子完成态、模式切换不删图、上传替换、删除后完成态重算、拍照/相册来源差异。
+- `__tests__/preview-driving-license.test.js`：覆盖预览页每辆车行驶证数据写入、提交弹窗顺序、风险提示、继续完成、标的车和三者车数据隔离、遮罩点击关闭。
+
+本轮执行：
+
+```powershell
+npm test -- --runInBand
+```
+
+结果：18 个测试套件、130 个用例通过。
 
 ---
 

@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.4（`package.json`）
+> 代码基线：v1.3.5（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-28
+> 最后更新：2026-04-30
 
 ---
 
@@ -40,7 +40,9 @@ selfCam/
 │  └─ confirm-modal/  # 通用确认弹窗
 ├─ utils/
 │  ├─ storage.js
+│  ├─ storage-schema.js
 │  ├─ compress.js
+│  ├─ documents.js
 │  ├─ permission.js
 │  ├─ album.js
 │  ├─ constants.js
@@ -93,11 +95,11 @@ selfCam/
 
 核心职责：
 
-- 汇总并展示所有车辆照片与单证
+- 汇总并展示所有车辆照片与每辆车行驶证资料
 - 支持重拍、删除、补拍、补充车损
 - 支持添加三者车
-- 集成单证资料上传
-- 完成提交前的二次询问
+- 集成车辆级行驶证资料上传、替换、删除和模式切换
+- 完成提交前先确认三者车，再提示行驶证风险
 
 ### 4. `pages/document`
 
@@ -191,9 +193,47 @@ const STORAGE_KEY = 'car_damage_photos_cache'
   type: index === 0 ? '标的车' : `三者车${index}`,
   licensePlate: { status: 'pending' },
   vinCode: { status: 'pending' },
-  damages: []
+  damages: [],
+  documents: [],
+  documentSelections: {
+    driving_license: 'physical'
+  }
 }
 ```
+
+### 车辆级单证结构
+
+`v1.3.5` 在每辆车对象上增加通用单证结构，当前用于行驶证，后续可扩展驾驶证、身份证、银行卡等类型：
+
+```js
+{
+  id: 'document_1713777777777_xxx',
+  docType: 'driving_license',
+  docSide: 'front_page' | 'back_page' | 'electronic',
+  label: '行驶证正页' | '行驶证副页' | '电子行驶证',
+  sourceType: 'camera' | 'album',
+  tempFilePath: 'wxfile://tmp_license.jpg',
+  compressedPath: 'wxfile://tmp_license_compressed.jpg',
+  size: 456789,
+  compressedSize: 380000,
+  createdAt: 1713777777777,
+  updatedAt: 1713777777777
+}
+```
+
+车辆级选择方式：
+
+```js
+vehicle.documentSelections = {
+  driving_license: 'physical' | 'electronic'
+}
+```
+
+兼容规则：
+
+- 旧缓存车辆没有 `documents` 时补空数组。
+- 旧缓存车辆没有 `documentSelections` 时补 `{ driving_license: 'physical' }`。
+- schema v2 修复不改变旧车牌、VIN、车损数据。
 
 ### 照片元信息
 
@@ -548,6 +588,8 @@ SEEK -> HOLD -> SHOOT
 
 `pages/preview/preview.js` 会把车辆照片和单证统一拼装为 `allPhotos`，供全屏预览使用。
 
+车辆级行驶证会作为 `type = 'vehicleDocument'` 的照片项追加到对应车辆照片列表后，复用全屏预览、重拍和删除入口。
+
 ### 2. 重拍逻辑
 
 重拍时写入：
@@ -563,6 +605,8 @@ retakeMode = {
 
 拍照完成后按原位置替换。
 
+行驶证重新上传不进入拍照页主状态机，而是在预览页内调用 `wx.chooseMedia` 重新选择当前 `docType + docSide`，再通过 `storage.saveVehicleDocument()` 替换旧记录。
+
 ### 3. 进度点逻辑
 
 当前底部进度点并不是按“至少 1 张车损”计算完成，而是按：
@@ -571,6 +615,33 @@ retakeMode = {
 - 三者车：同样要求车损数量达到 `MAX_DAMAGES`
 
 这与 `storage.checkVehicleComplete()` 的“至少 1 张车损即完整”存在差异，是当前实现现状。
+
+### 4. 行驶证完成态
+
+行驶证完成态由 `utils/documents.js` 统一判断：
+
+- `documentSelections.driving_license === 'physical'`：必须同时存在 `front_page` 和 `back_page`。
+- `documentSelections.driving_license === 'electronic'`：必须存在 `electronic`。
+- 切换实体/电子模式只更新 `documentSelections`，不删除 `documents[]` 中已上传图片。
+
+### 5. 提交前弹窗顺序
+
+`pages/preview/preview.js` 的提交顺序：
+
+```text
+onSubmit()
+  -> startSubmitFlow()
+  -> 若可添加三者车，先显示 thirdVehicle 弹窗
+  -> 用户点击“是，继续提交”后 checkDrivingLicenseBeforeSubmit()
+  -> 若有车辆行驶证未完成，显示 drivingLicenseRisk 弹窗
+  -> 用户点击“确认提交”后 submitComplete()
+```
+
+`confirm-modal` 从 `v1.3.5` 起区分三种事件：
+
+- `confirm`：右侧主按钮
+- `cancel`：左侧按钮
+- `masktap`：点击空白遮罩，只关闭弹窗
 
 ---
 
@@ -605,12 +676,12 @@ retakeMode = {
 - 车损流程为稳定判定流，不是远近搜索流
 - 车牌与车损箭头都为两整组静态帧切换，不是覆盖层复杂动画
 - 车牌检测间隔已单独降频到 `800ms`，并过滤重复 `setData`，优先保证移动镜头时的预览流畅度
-- 单证主入口在预览页底部，不是独立页面
+- 行驶证主入口在预览页每辆车照片列表末尾，不是独立页面
 
 ### 2. 仍需关注的实现差异
 
 - 预览页进度点的“完成”定义与实际允许提交条件不完全一致
-- `document` 页面仍保留在路由中，但不是主流程入口
+- `document` 页面和全局 `documents` 数组仍保留兼容，但不是当前行驶证主入口
 - AI 模型地址与调试上传地址后续如需接正式静态资源或在线配置，应继续统一扩展到 `env-config`，不要回退到模块内硬编码
 
 ---
@@ -656,3 +727,33 @@ retakeMode = {
 - `startCaptureFlow()` 保留原缓存初始化和 `/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
 - `pages/camera/camera.js` 在 `onConfirmPhoto()` 中 fire-and-forget 调用 `album.saveConfirmedPhotoToAlbum(pendingPhoto)`，失败只写日志，不改变缓存推进逻辑。
 - `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。
+
+---
+
+## v1.3.5 行驶证资料技术补充
+
+### 模块职责
+
+- `utils/documents.js`：行驶证类型常量、默认选择模式、旧数据归一化、完成态判断、面板槽位和预览项构建。
+- `utils/storage-schema.js`：schema v2 迁移与修复，保证旧缓存车辆补齐 `documents` 和 `documentSelections`。
+- `utils/storage.js`：提供 `setVehicleDocumentSelection()`、`saveVehicleDocument()`、`deleteVehicleDocument()`。
+- `utils/cache-selectors.js`：将车辆级行驶证纳入 `photoEntries`、`allPhotos`、`documentPhotoCount` 和质量汇总。
+- `pages/preview/preview.js`：负责行驶证面板、上传来源选择、压缩、保存相册、替换、删除、预览和提交风险提示。
+
+### 上传链路
+
+```text
+点击行驶证上传位
+  -> wx.showActionSheet(['拍照', '从手机相册选择'])
+  -> wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType })
+  -> compress.compressImage(tempFilePath, { maxFileSize: 400 * 1024 })
+  -> storage.saveVehicleDocument(vehicleIndex, documentRecord)
+  -> camera 来源尝试 album.saveConfirmedPhotoToAlbum(savedDocument)
+  -> loadData() 刷新预览页
+```
+
+### 替换与删除
+
+- 保存时按 `docType + docSide` 查找旧记录，存在则替换，不存在则追加。
+- 删除时按 `docType + docSide` 移除记录并同步缓存。
+- 删除或替换后由 `utils/documents.js` 重新计算当前车辆行驶证完成态。
