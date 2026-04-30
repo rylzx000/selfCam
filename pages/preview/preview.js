@@ -314,13 +314,19 @@ Page({
 
             this.loadData()
             wx.hideLoading()
-
-            if (sourceType === 'camera') {
-              await album.saveConfirmedPhotoToAlbum(savedDocument)
-            }
           } catch (err) {
             wx.hideLoading()
             wx.showToast({ title: '处理失败', icon: 'none' })
+            resolve(null)
+            return
+          }
+
+          if (sourceType === 'camera') {
+            try {
+              await album.saveConfirmedPhotoToAlbum(savedDocument)
+            } catch (err) {
+              console.warn('[preview] save_driving_license_album_failed', err)
+            }
           }
 
           resolve(savedDocument)

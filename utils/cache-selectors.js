@@ -119,8 +119,7 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
       documentIndex,
       docType: document.docType,
       docSide: document.docSide,
-      label: `${vehicle.type} - ${document.label || '单证资料'}`,
-      captureMode: document.sourceType || 'manual'
+      label: `${vehicle.type} - ${document.label || '单证资料'}`
     })
   })
 
@@ -349,21 +348,7 @@ function collectQualityPhotoRecords(cache) {
       })
     })
 
-    vehicleDocuments.getVehicleDocuments(vehicle).forEach((document, documentIndex) => {
-      if (!hasStoredAttachment(document)) {
-        return
-      }
-
-      seqNo += 1
-      records.push({
-        seqNo,
-        vehicleIndex,
-        photoType: 'vehicleDocument',
-        photoIndex: documentIndex,
-        label: `${vehicleType} - ${document.label || '单证资料'}`,
-        photo: document
-      })
-    })
+    // 车辆级单证只参与照片清单和统计，不进入照片质量检测/重拍建议。
   })
 
   getDocuments(cache).forEach((document, documentIndex) => {

@@ -76,6 +76,22 @@ describe('vehicle document cache support', () => {
     expect(storage.validateCache(cache).valid).toBe(true)
   })
 
+  test('keeps generic document type and side constants available for future document kinds', () => {
+    expect(documents.DOCUMENT_TYPES).toEqual(expect.objectContaining({
+      DRIVING_LICENSE: 'driving_license',
+      DRIVER_LICENSE: 'driver_license',
+      ID_CARD: 'id_card',
+      BANK_CARD: 'bank_card'
+    }))
+    expect(documents.DOCUMENT_SIDES).toEqual(expect.objectContaining({
+      FRONT_PAGE: 'front_page',
+      BACK_PAGE: 'back_page',
+      FRONT: 'front',
+      BACK: 'back',
+      ELECTRONIC: 'electronic'
+    }))
+  })
+
   test('requires front page and back page in physical driving license mode', () => {
     const vehicle = storage.createVehicle(0)
 

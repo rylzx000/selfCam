@@ -98,6 +98,7 @@ function createCache() {
   return {
     schemaVersion: CACHE_SCHEMA_VERSION,
     vehicles: [],
+    // 兼容旧根级单证缓存；新的车辆行驶证资料以 vehicle.documents 为准，后续上传按车辆组装 documents。
     documents: [],
     currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
     currentVehicleIndex: 0,

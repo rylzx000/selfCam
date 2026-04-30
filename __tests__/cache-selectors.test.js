@@ -2,6 +2,7 @@ describe('cache selectors', () => {
   let storage
   let selectors
   let constants
+  let documents
 
   function createQuality(overrides = {}) {
     return {
@@ -44,6 +45,7 @@ describe('cache selectors', () => {
     storage = require('../utils/storage')
     selectors = require('../utils/cache-selectors')
     constants = require('../utils/constants')
+    documents = require('../utils/documents')
   })
 
   test('builds cache summary with shared counts and preview progress', () => {
@@ -152,5 +154,39 @@ describe('cache selectors', () => {
     }))
     expect(qualitySummary.riskPhotos).toEqual([])
     expect(summary.qualitySummary).toEqual(qualitySummary)
+  })
+
+  test('keeps vehicle documents in photo list without preview mode or quality risk participation', () => {
+    const cache = storage.initCache()
+    const vehicle = createCompletedVehicle(0, 1)
+    vehicle.documents = [
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.FRONT_PAGE,
+        label: '行驶证正页',
+        sourceType: 'camera',
+        compressedPath: '/license-front.jpg',
+        quality: createQuality({
+          level: 'warn',
+          suggestRetake: true,
+          reasons: ['blur']
+        })
+      }
+    ]
+    cache.vehicles.push(vehicle)
+
+    const summary = selectors.getCacheSummary(cache)
+    const vehicleDocumentEntry = summary.allPhotos.find((photo) => photo.type === 'vehicleDocument')
+
+    expect(summary.documentPhotoCount).toBe(1)
+    expect(vehicleDocumentEntry).toEqual(expect.objectContaining({
+      type: 'vehicleDocument',
+      docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+      docSide: documents.DOCUMENT_SIDES.FRONT_PAGE,
+      url: '/license-front.jpg'
+    }))
+    expect(vehicleDocumentEntry.captureMode).toBeUndefined()
+    expect(summary.qualitySummary.totalPhotos).toBe(3)
+    expect(summary.qualitySummary.riskPhotos).toEqual([])
   })
 })

@@ -1,11 +1,22 @@
 const DOCUMENT_TYPES = {
-  DRIVING_LICENSE: 'driving_license'
+  DRIVING_LICENSE: 'driving_license',
+  DRIVER_LICENSE: 'driver_license',
+  ID_CARD: 'id_card',
+  BANK_CARD: 'bank_card'
+}
+
+const DOCUMENT_SIDES = {
+  FRONT_PAGE: 'front_page',
+  BACK_PAGE: 'back_page',
+  FRONT: 'front',
+  BACK: 'back',
+  ELECTRONIC: 'electronic'
 }
 
 const DRIVING_LICENSE_SIDES = {
-  FRONT_PAGE: 'front_page',
-  BACK_PAGE: 'back_page',
-  ELECTRONIC: 'electronic'
+  FRONT_PAGE: DOCUMENT_SIDES.FRONT_PAGE,
+  BACK_PAGE: DOCUMENT_SIDES.BACK_PAGE,
+  ELECTRONIC: DOCUMENT_SIDES.ELECTRONIC
 }
 
 const DOCUMENT_SELECTIONS = {
@@ -208,6 +219,7 @@ function hasIncompleteDrivingLicenseVehicles(vehicles) {
 
 module.exports = {
   DOCUMENT_TYPES,
+  DOCUMENT_SIDES,
   DRIVING_LICENSE_SIDES,
   DOCUMENT_SELECTIONS,
   DRIVING_LICENSE_LABELS,

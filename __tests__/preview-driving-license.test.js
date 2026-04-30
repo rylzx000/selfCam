@@ -185,6 +185,39 @@ describe('preview page driving license flow', () => {
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
+  test('keeps uploaded document when saving camera source to album fails', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    album.saveConfirmedPhotoToAlbum.mockRejectedValueOnce(new Error('album save failed'))
+    actionSheetTapIndexes = [0]
+    const page = loadPreviewPageWithVehicles(1)
+
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: { vehicle: 0 }
+      }
+    })
+
+    await page.onTapDrivingLicenseSlot({
+      currentTarget: {
+        dataset: {
+          side: documents.DRIVING_LICENSE_SIDES.FRONT_PAGE,
+          uploaded: false
+        }
+      }
+    })
+
+    const vehicle = storage.loadCache().vehicles[0]
+    expect(vehicle.documents).toHaveLength(1)
+    expect(vehicle.documents[0].compressedPath).toBe('/tmp/license.jpg.compressed')
+    expect(global.wx.showToast).not.toHaveBeenCalledWith({ title: '处理失败', icon: 'none' })
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[preview] save_driving_license_album_failed',
+      expect.any(Error)
+    )
+
+    warnSpy.mockRestore()
+  })
+
   test('shows one risk prompt when any vehicle driving license is incomplete', () => {
     const page = loadPreviewPageWithVehicles(3)
 
@@ -279,6 +312,7 @@ describe('preview page driving license flow', () => {
       docSide: documents.DRIVING_LICENSE_SIDES.FRONT_PAGE,
       url: '/tmp/front-compressed.jpg'
     }))
+    expect(page.data.currentPhoto.captureMode).toBeUndefined()
   })
 
   test('deletes driving license from fullscreen preview footer', () => {
