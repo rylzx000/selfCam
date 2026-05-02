@@ -3,7 +3,7 @@
   <view class="page-glow"></view>
 
   <!-- 左上角品牌标识 -->
-  <view class="brand">
+  <view class="brand" bindtap="onBrandTap">
     <image class="brand-logo" src="/assets/logo.png" mode="aspectFit"></image>
   </view>
 

@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.5（`package.json`）
+> 代码基线：v1.3.6（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-30
+> 最后更新：2026-05-02
 
 ---
 
@@ -18,7 +18,7 @@
 | 图片压缩 | `wx.compressImage` | 拍照后压缩到较小体积 |
 | 本地存储 | `wx.setStorageSync` | 保存拍摄过程缓存 |
 | AI 推理 | `wx.createInferenceSession` + ONNX | 车牌 / 车损检测 |
-| AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 避免主包体积过大 |
+| AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 按业务环境和模型 URL 隔离缓存 |
 
 ---
 
@@ -75,6 +75,7 @@ selfCam/
 ### 1. `pages/index`
 
 - 展示横屏单屏首页品牌 logo、拍摄须知和开始入口
+- 非正式版 logo 区域承载隐藏业务环境切换入口
 - 初始化第一辆车
 - 清空或重建拍摄缓存
 - 点击 `开始采集` 后跳转到 `pages/camera`
@@ -381,8 +382,10 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 说明：
 
 - 模型不随主包直接打包
-- 本地模型文件统一写入 `USER_DATA_PATH`
-- `develop` 允许使用本地模型地址，`trial / release` 默认不开放本地模型 host
+- 本地模型文件统一写入 `USER_DATA_PATH`，文件名包含模型类型、业务环境和模型 URL hash
+- `utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
+- 当前 `sit.modelHost` 为 `https://onlineclaimsit.chinalife-p.com.cn/video/model`
+- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
 - 推理能力依赖 `wx.createInferenceSession`
 - 若推理不可用，则自动降级为手动拍照
 
@@ -418,9 +421,13 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 ### 4. 环境配置收口
 
-- 新增 `utils/env-config.js` 作为统一环境配置入口
-- 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`
-- 支持 `develop / trial / release` 三种环境，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
+- `utils/env-config.js` 作为统一环境配置入口
+- 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`，并作为 `wxEnvVersion`
+- 支持 `develop / trial / release` 三种微信运行版本，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
+- 新增业务环境 `appEnv: dev / sit / pilot / prod`
+- 默认映射：`develop -> dev`、`trial -> sit`、`release -> prod`
+- `develop / trial` 允许通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境；`release` 强制 `prod`
+- 首页隐藏入口负责写入或清除 `SELF_CAM_APP_ENV`，切换后通过 `wx.reLaunch` 重新进入首页
 - `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
 - `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断
 

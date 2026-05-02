@@ -2,14 +2,16 @@
 
 ## 1. 设计目标
 
-本次新增 `utils/env-config.js`，把微信小程序端的环境识别、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
+本次新增并持续扩展 `utils/env-config.js`，把微信小程序端的环境识别、业务环境、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
 
 - `envVersion` 判断散落在多个模块，后续维护成本高
 - `ai-config`、`runtime-logger`、`quality-config` 各自维护环境策略，容易出现不一致
 - 生产环境的调试上传、开发面板、mock 默认值缺少统一约束
 - Jest 或非小程序运行时下读取 `wx.getAccountInfoSync()` 容易报错
+- 业务环境与微信运行版本耦合，无法在 `develop / trial` 下切换 SIT、pilot 等业务后端
+- AI 模型缓存文件名固定，切换模型地址后可能复用旧环境模型文件
 
-本次改动只做端上统一配置层，不改业务主流程，不接后端接口，不删除现有能力。
+本次改动只做端上统一配置层和隐藏切换入口，不改拍照主流程，不删除现有能力。
 
 ## 2. 为什么要做环境配置收口
 
@@ -24,7 +26,7 @@
 
 ## 3. 环境识别策略
 
-统一入口：
+微信运行版本统一入口：
 
 - `wx.getAccountInfoSync().miniProgram.envVersion`
 
@@ -42,6 +44,25 @@
 - 读取到未知环境值时，降级为 `develop`
 
 这样 Jest、Node 侧工具和异常场景都不会因为环境读取失败而阻断业务流程。
+
+业务环境统一入口：
+
+- 默认按微信运行版本映射：`develop -> dev`、`trial -> sit`、`release -> prod`
+- `develop / trial` 允许读取本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境
+- `release` 正式版强制 `prod`，不允许本地缓存覆盖
+
+支持业务环境：
+
+- `dev`
+- `sit`
+- `pilot`
+- `prod`
+
+可切换范围：
+
+- `develop`：`dev / sit / pilot`
+- `trial`：`sit / pilot`
+- `release`：不可切换，固定 `prod`
 
 ## 4. develop / trial / release 默认策略
 
@@ -77,6 +98,11 @@
 `utils/env-config.js` 当前提供以下统一方法：
 
 - `getEnvVersion()`
+- `getAppEnv()`
+- `getAvailableAppEnvs()`
+- `canSwitchAppEnv()`
+- `saveAppEnvOverride()`
+- `clearAppEnvOverride()`
 - `isDevelop()`
 - `isTrial()`
 - `isRelease()`
@@ -89,8 +115,67 @@
 
 - `getRuntimeFlags()` 负责给应用层提供统一的环境能力开关
 - `getDebugConfig()` 负责给调试日志、开发面板、AI 调试信息提供默认策略
-- `getAiConfig()` 负责统一模型路径、模型地址和“是否允许本地模型地址”
+- `getAiConfig()` 负责统一业务环境、模型路径、模型地址和模型缓存隔离 key
 - `getQualityConfigSourcePolicy()` 负责给 `quality-config-loader` 提供默认 source 策略
+
+## 5.1 业务环境模型地址
+
+`BUSINESS_ENV_ENDPOINTS` 由 `env-config` 统一维护：
+
+```js
+{
+  dev: {
+    modelHost: 'http://192.168.100.100:8000'
+  },
+  sit: {
+    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
+  },
+  pilot: {
+    modelHost: ''
+  },
+  prod: {
+    modelHost: ''
+  }
+}
+```
+
+`getAiConfig()` 返回：
+
+- `wxEnvVersion`
+- `appEnv`
+- `modelHost`
+- `plateModelUrl = modelHost + '/plate.onnx'`
+- `damageModelUrl = modelHost + '/damage.onnx'`
+- `plateModelPath`
+- `damageModelPath`
+- `plateModelCacheKey`
+- `damageModelCacheKey`
+
+非 `dev` 业务环境禁止使用以下模型地址：
+
+- `http`
+- `localhost`
+- `127.0.0.1`
+- 局域网 IP：`10.*`、`172.16.* - 172.31.*`、`192.168.*`
+
+## 5.2 模型缓存隔离
+
+模型下载仍写入 `wx.env.USER_DATA_PATH`，但文件名不再固定为 `plate.onnx` / `damage.onnx`。
+
+当前策略：
+
+- 文件名包含模型类型、`appEnv` 和模型 URL hash
+- `plateModelCacheKey` / `damageModelCacheKey` 同样包含 `appEnv` 与 URL hash
+- 切换业务环境后，相机页会基于新的模型路径重新检查当前环境模型是否已下载
+
+示例：
+
+```text
+plate-sit-<urlHash>.onnx
+damage-pilot-<urlHash>.onnx
+```
+
+这样 SIT 与 pilot 不会复用同一个本地模型缓存文件。
 
 ## 6. 各类开关说明
 
@@ -167,3 +252,5 @@
 - 配置模块读取失败时必须安全降级，不能阻断拍照主流程
 - 页面文件不要再直接判断 `envVersion`
 - 新增环境开关时，优先加到 `env-config`，不要继续分散到各个模块
+- 业务环境切换只允许作为隐藏入口，不新增普通用户可见的设置入口
+- `release` 必须强制 `prod`，不能被本地缓存覆盖

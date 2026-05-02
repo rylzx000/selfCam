@@ -1,0 +1,1316 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index ec8cb9a..c057fed 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,25 @@
+
+ ---
+
++## [v1.3.6] - 2026-05-02
++
++### 新增
++
++- 新增业务环境 `appEnv`，在微信运行版本 `develop / trial / release` 之外支持 `dev / sit / pilot / prod`，默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`。
++- 首页 logo 区域新增隐藏环境切换入口，非正式版连续点击 7 次后可选择允许的业务环境或清除本地环境选择。
++- AI 模型缓存文件按业务环境和模型地址 hash 隔离，避免 SIT、pilot 等环境复用同一个 `plate.onnx` / `damage.onnx`。
++
++### 变更
++
++- `utils/env-config.js` 统一维护业务环境模型地址，`ai-config.js` 不再写死模型地址。
++- `release` 正式版强制 `prod`，忽略本地 `SELF_CAM_APP_ENV` 覆盖。
++- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
++- `package.json` 与 `package-lock.json` 版本号提升到 `1.3.6`。
++
++### 验证
++
++- `npm test -- --runInBand`：18 个测试套件、145 个用例通过。
++
+ ## [v1.3.5] - 2026-04-30
+
+ ### 新增
+@@ -303,6 +322,7 @@
+
+ | 版本 | 日期 | 类型 | 说明 |
+ | --- | --- | --- | --- |
++| v1.3.6 | 2026-05-02 | 业务环境切换版 | 新增 appEnv、隐藏环境切换入口、模型地址安全校验与模型缓存隔离 |
+ | v1.3.5 | 2026-04-30 | 行驶证资料版 | 每辆车行驶证上传、缓存兼容、提交风险提示与预览页交互补齐 |
+ | v1.3.4 | 2026-04-29 | 权限瘦身版 | 权限申请与相册保存瘦身，保留失败轻提示和开始采集防重复点击 |
+ | v1.3.3 | 2026-04-28 | 测试增强版 | 补齐微信开发者工具 miniprogram-automator + Jest 自动化测试入口，覆盖当前首批回归与破坏性测试场景 |
+diff --git a/PRDS/PRD.md b/PRDS/PRD.md
+index 1c3aa57..51e2af5 100644
+--- a/PRDS/PRD.md
++++ b/PRDS/PRD.md
+@@ -1,9 +1,9 @@
+ # 产品需求文档（PRD）
+
+ > 项目名称：车辆损失辅助拍照工具
+-> 代码基线：v1.3.5（`package.json`）
++> 代码基线：v1.3.6（`package.json`）
+ > 文档状态：已按当前实现对齐
+-> 最后更新：2026-04-30
++> 最后更新：2026-05-02
+
+ ---
+
+@@ -18,6 +18,7 @@
+ ### 功能1：开始页
+
+ - 进入小程序后展示左上角品牌 logo `/assets/logo.png`
++- 非正式版在品牌 logo 区域保留隐藏环境切换入口，连续点击 7 次后可选择允许的业务环境或清除本地环境选择；正式版不启用该入口
+ - 展示标题 `车辆损失照片采集工具` 与副标题 `请按照提示完成车辆信息、车损照片及单证资料采集`
+ - 展示 `拍摄须知` 卡片，提示用户提前准备所有事故车辆的行驶证（支持 12123 电子版），并按引导依次采集车牌号、VIN码和车损部位
+ - 首页在横屏下固定为单屏展示，不出现上下滚动
+@@ -183,6 +184,20 @@
+   - 6 组静态箭头
+   - 两整组蓝白配色帧交替切换
+   - 由 JS 定时切帧，避免 `camera + cover-view` 层中的复杂 CSS 动画不稳定
++
++### 功能13：业务环境与模型配置
++
++- 保留微信运行版本 `wxEnvVersion: develop / trial / release`
++- 新增业务环境 `appEnv: dev / sit / pilot / prod`
++- 默认映射：
++  - `develop -> dev`
++  - `trial -> sit`
++  - `release -> prod`
++- `release` 正式版强制 `prod`，不允许通过本地缓存覆盖
++- `develop / trial` 允许通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境
++- 环境切换后提示用户环境已切换，并重新进入首页
++- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
++- 模型缓存必须按 `appEnv` 或模型 URL 隔离，避免不同业务环境复用同一份 `plate.onnx` / `damage.onnx`
+ - 车损距离箭头当前实现为：
+   - 复用同一套静态箭头与切帧逻辑
+   - 已识别到车损且 `areaRatio < 0.5` 时提示 `请靠近一点`
+@@ -319,6 +334,7 @@
+ - 每辆车行驶证资料按当前模式判断完成；实体模式最多正页/副页 2 张，电子模式 1 张
+ - 车辆照片压缩目标为 300KB 以下；行驶证上传压缩目标约 400KB
+ - AI 模型首次使用需要从远程地址下载到本地
++- AI 模型缓存文件按业务环境和模型 URL hash 隔离
+ - AI 不可用时必须允许手动拍照继续流程
+
+ ---
+@@ -332,6 +348,7 @@
+ - 车损 AI 检测会在缓存数据落定、相机 `initdone`、以及 VIN 确认切换到车损后重新尝试启动；已有检测循环会先停止，避免重复启动。
+ - v1.3.3 补齐微信开发者工具页面自动化测试，覆盖首页冒烟、VIN 提示、确认态文案、预览页添加图片异常兜底、车损 AI 启动时机和首批破坏性场景；该补充不改变产品主流程。
+ - v1.3.5 将行驶证资料从独立单证模块前移到每辆车照片列表末尾；旧的全局 `documents` 数组仍保留用于历史单证/备用页兼容，车辆级行驶证使用 `vehicle.documents[]`。
++- v1.3.6 新增业务环境 `appEnv`、隐藏环境切换入口、模型地址安全校验与模型缓存隔离；不改变普通用户可见首页文案和拍照主流程。
+
+ ---
+
+diff --git a/PRDS/UI.md b/PRDS/UI.md
+index 0c912a8..5d551bf 100644
+--- a/PRDS/UI.md
++++ b/PRDS/UI.md
+@@ -1,9 +1,9 @@
+ # UI 设计文档
+
+ > 项目名称：车辆损失辅助拍照工具
+-> 代码基线：v1.3.5（`package.json`）
++> 代码基线：v1.3.6（`package.json`）
+ > 文档状态：已按当前实现对齐
+-> 最后更新：2026-04-30
++> 最后更新：2026-05-02
+
+ ---
+
+@@ -40,6 +40,7 @@
+ - 中部：标题 `车辆损失照片采集工具` 与副标题 `请按照提示完成车辆信息、车损照片及单证资料采集`
+ - 中部下方：`拍摄须知` 卡片，包含 3 条采集说明
+ - 底部：`开始采集` 按钮与权限提示
++- 隐藏交互：非正式版连续点击左上角品牌 logo 7 次后弹出环境选择；正式版不响应该入口
+
+ #### 拍摄须知文案
+
+@@ -52,6 +53,7 @@
+ - 首页固定横屏一屏，不引入上下滚动
+ - 通过品牌 logo、标题层级和须知卡片提升信任感与可读性
+ - 入口简单，降低首次使用成本
++- 环境切换入口不新增可见说明，不改变首页可见文案和布局
+
+ ### 2. 拍照页
+
+@@ -367,6 +369,12 @@
+ - `开始采集`
+ - `ⓘ 开始采集后将使用摄像头拍摄照片，确认后的照片将尝试保存至手机相册。`
+
++### 隐藏环境切换
++
++- `清除环境选择`
++- `环境切换`
++- `环境已切换，将重新进入首页`
++
+ ### 拍照页
+
+ - `将车牌号放入框内`
+diff --git a/PRDS/tech.md b/PRDS/tech.md
+index 4518f96..d744be7 100644
+--- a/PRDS/tech.md
++++ b/PRDS/tech.md
+@@ -1,9 +1,9 @@
+ # 技术架构文档
+
+ > 项目名称：车辆损失辅助拍照工具
+-> 代码基线：v1.3.5（`package.json`）
++> 代码基线：v1.3.6（`package.json`）
+ > 文档状态：已按当前实现对齐
+-> 最后更新：2026-04-30
++> 最后更新：2026-05-02
+
+ ---
+
+@@ -18,7 +18,7 @@
+ | 图片压缩 | `wx.compressImage` | 拍照后压缩到较小体积 |
+ | 本地存储 | `wx.setStorageSync` | 保存拍摄过程缓存 |
+ | AI 推理 | `wx.createInferenceSession` + ONNX | 车牌 / 车损检测 |
+-| AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 避免主包体积过大 |
++| AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 按业务环境和模型 URL 隔离缓存 |
+
+ ---
+
+@@ -75,6 +75,7 @@ selfCam/
+ ### 1. `pages/index`
+
+ - 展示横屏单屏首页品牌 logo、拍摄须知和开始入口
++- 非正式版 logo 区域承载隐藏业务环境切换入口
+ - 初始化第一辆车
+ - 清空或重建拍摄缓存
+ - 点击 `开始采集` 后跳转到 `pages/camera`
+@@ -381,8 +382,10 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
+ 说明：
+
+ - 模型不随主包直接打包
+-- 本地模型文件统一写入 `USER_DATA_PATH`
+-- `develop` 允许使用本地模型地址，`trial / release` 默认不开放本地模型 host
++- 本地模型文件统一写入 `USER_DATA_PATH`，文件名包含模型类型、业务环境和模型 URL hash
++- `utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
++- 当前 `sit.modelHost` 为 `https://onlineclaimsit.chinalife-p.com.cn/video/model`
++- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
+ - 推理能力依赖 `wx.createInferenceSession`
+ - 若推理不可用，则自动降级为手动拍照
+
+@@ -418,9 +421,13 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
+
+ ### 4. 环境配置收口
+
+-- 新增 `utils/env-config.js` 作为统一环境配置入口
+-- 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`
+-- 支持 `develop / trial / release` 三种环境，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
++- `utils/env-config.js` 作为统一环境配置入口
++- 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`，并作为 `wxEnvVersion`
++- 支持 `develop / trial / release` 三种微信运行版本，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
++- 新增业务环境 `appEnv: dev / sit / pilot / prod`
++- 默认映射：`develop -> dev`、`trial -> sit`、`release -> prod`
++- `develop / trial` 允许通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境；`release` 强制 `prod`
++- 首页隐藏入口负责写入或清除 `SELF_CAM_APP_ENV`，切换后通过 `wx.reLaunch` 重新进入首页
+ - `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
+ - `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断
+
+diff --git a/VERSION.md b/VERSION.md
+index 8c71416..e8c9840 100644
+--- a/VERSION.md
++++ b/VERSION.md
+@@ -2,51 +2,45 @@
+
+ ## 当前版本
+
+-**版本号**: v1.3.5
+-**发布日期**: 2026-04-30
++**版本号**: v1.3.6
++**发布日期**: 2026-05-02
+ **状态**: 已封板（本地）
+
+ ---
+
+ ## 版本概述
+
+-`v1.3.5` 是基于 `v1.3.4` 的预览页行驶证资料上传版本。重点实现每辆车独立上传行驶证资料、实体/电子行驶证模式切换、缓存兼容、删除/替换/预览、完成前风险提示，并统一初始化页、拍照页和预览页的浅灰绿色背景。
++`v1.3.6` 是基于 `v1.3.5` 的业务环境切换版本。重点实现微信运行版本与业务环境拆分、隐藏环境切换入口、SIT 模型地址接入、非开发环境模型地址安全校验，以及按业务环境和模型 URL 隔离 AI 模型缓存。
+
+ ### 本版本重点
+
+-- 每辆车增加通用 `documents[]` 与 `documentSelections` 单证结构，行驶证不再写死为单独字段。
+-- 预览页每辆车照片列表顺序调整为 `车牌 -> VIN -> 车损 -> 行驶证资料`。
+-- 支持实体行驶证正页/副页、电子行驶证单张上传，来源支持拍照和相册。
+-- 行驶证图片支持真实缩略图展示、全屏查看、删除和重新上传替换。
+-- 完成采集时先确认是否还需添加三者车，再对未完成行驶证车辆弹一次风险提示。
+-- 初始化页提示文案更新为提前准备所有事故车辆行驶证，支持 12123 电子版。
+-- 拍照页背景统一为初始化页和预览页同款浅灰绿色底色与右上淡绿色装饰。
+-- 通用确认弹窗的遮罩点击只关闭弹窗，不再触发取消按钮业务动作。
++- 保留微信运行版本 `wxEnvVersion: develop / trial / release`，新增业务环境 `appEnv: dev / sit / pilot / prod`。
++- 默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`，正式版强制 `prod`。
++- `develop / trial` 支持通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境，正式版忽略覆盖。
++- `BUSINESS_ENV_ENDPOINTS.sit.modelHost` 指向 `https://onlineclaimsit.chinalife-p.com.cn/video/model`。
++- 首页 logo 区域增加隐藏 7 连击入口，可选择允许环境或清除环境选择；正式版不显示切换入口。
++- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
++- 车牌和车损模型缓存文件名包含业务环境和模型 URL hash，切换环境后重新检查当前环境模型缓存。
+
+-## v1.3.5 变更摘要
++## v1.3.6 变更摘要
+
+-### 行驶证资料上传
++### 业务环境切换
+
+-- 新增 `utils/documents.js`，统一管理车辆级单证默认值、旧缓存兼容、行驶证完成态、上传槽位和预览数据。
+-- `utils/storage-schema.js` 升级到 schema v2，旧车辆缺少 `documents` 或 `documentSelections` 时自动补默认值。
+-- `utils/storage.js` 新增车辆级单证模式保存、图片写入替换和删除能力。
+-- `utils/cache-selectors.js` 将车辆级行驶证图片纳入预览页照片列表、完成页单证统计和质量汇总。
+-- `utils/compress.js` 支持按调用方传入 `maxFileSize`，行驶证上传目标约 400KB，原车辆照片默认策略不变。
++- `utils/env-config.js` 统一维护业务环境、默认映射、缓存覆盖、环境可选项和模型地址安全校验。
++- `utils/ai-config.js` 继续导出旧常量，但模型地址和本地路径统一从 `env-config` 读取。
++- `utils/plate-detector.js` 与 `utils/damage-detector.js` 的默认模型配置改走 `env-config.getAiConfig()`。
+
+-### 预览页交互
++### 首页隐藏入口
+
+-- 预览页删除独立单证模块展示，将行驶证资料放在每辆车照片列表末尾。
+-- 行驶证未完成时显示 `上传行驶证` 入口；完成后显示真实原图缩略图。
+-- 行驶证上传面板支持实体/电子切换，切换不删除已上传图片。
+-- 上传位已上传后可查看、重新上传或删除。
+-- 完成采集弹窗顺序调整为先确认是否添加三者车，再判断行驶证是否齐全。
+-- 行驶证风险提示文案调整为定损金额准确性风险，确认按钮为 `确认提交`。
++- 首页 logo 区域挂载隐藏点击入口，不新增可见文案，不改变首页布局。
++- 连续点击 7 次后弹出环境选择；`develop` 可选 `dev / sit / pilot`，`trial` 可选 `sit / pilot`。
++- 选择或清除环境后提示“环境已切换，将重新进入首页”，并 `wx.reLaunch` 到首页。
+
+ ### 测试与文档同步
+
+-- `package.json` 与 `package-lock.json` 版本号同步至 `1.3.5`。
+-- 新增 `vehicle-documents` 与 `preview-driving-license` 测试，覆盖旧缓存兼容、实体/电子完成态、上传替换删除、相册保存、风险提示和串车隔离。
+-- 本轮验证通过 `npm test -- --runInBand`。
++- `package.json` 与 `package-lock.json` 版本号同步至 `1.3.6`。
++- 补齐 `env-config` 单元测试，覆盖默认映射、本地覆盖、正式版强制 prod、SIT 地址、安全拦截和模型缓存隔离。
++- 本轮验证通过 `npm test -- --runInBand`，18 个测试套件、145 个用例通过。
+
+ ---
+
+@@ -54,6 +48,7 @@
+
+ | 版本 | 发布日期 | 状态 | 说明 |
+ | --- | --- | --- | --- |
++| v1.3.6 | 2026-05-02 | 已封板（本地） | 业务环境切换、SIT 模型地址、安全校验与模型缓存隔离 |
+ | v1.3.5 | 2026-04-30 | 已封板（本地） | 每辆车行驶证资料上传、缓存兼容、提交风险提示与三页背景统一 |
+ | v1.3.4 | 2026-04-29 | 已封板（本地） | 权限申请与相册保存瘦身，保留失败轻提示和开始采集防重复点击 |
+ | v1.3.3 | 2026-04-28 | 已封板（本地） | 补齐微信开发者工具 miniprogram-automator + Jest 自动化测试入口，覆盖首批回归与破坏性测试场景 |
+@@ -80,8 +75,8 @@ git fetch --tags
+ git checkout v1.3.4
+ ```
+
+-如果后续需要把 `v1.3.5` 作为正式标签发布，建议在本地提交后再创建对应 tag。
++如果后续需要把 `v1.3.6` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+
+ ---
+
+-*最后更新：2026-04-30*
++*最后更新：2026-05-02*
+diff --git a/__tests__/env-config.test.js b/__tests__/env-config.test.js
+index 2d38c06..68cf233 100644
+--- a/__tests__/env-config.test.js
++++ b/__tests__/env-config.test.js
+@@ -5,6 +5,12 @@ describe('env-config', () => {
+   }
+
+   function mockWxEnv(envVersion, extra = {}) {
++    const storageData = extra.storage || {}
++    const wxExtra = {
++      ...extra
++    }
++    delete wxExtra.storage
++
+     global.wx = {
+       env: {
+         USER_DATA_PATH: '/user-data'
+@@ -14,7 +20,14 @@ describe('env-config', () => {
+           envVersion
+         }
+       })),
+-      ...extra
++      getStorageSync: jest.fn((key) => storageData[key]),
++      setStorageSync: jest.fn((key, value) => {
++        storageData[key] = value
++      }),
++      removeStorageSync: jest.fn((key) => {
++        delete storageData[key]
++      }),
++      ...wxExtra
+     }
+   }
+
+@@ -32,7 +45,9 @@ describe('env-config', () => {
+     expect(envConfig.isRelease()).toBe(false)
+
+     expect(envConfig.getRuntimeFlags()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'develop',
+       envVersion: 'develop',
++      appEnv: 'dev',
+       allowMock: true,
+       allowDebug: true,
+       allowLocalModelHost: true,
+@@ -41,21 +56,30 @@ describe('env-config', () => {
+     }))
+
+     expect(envConfig.getDebugConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'develop',
+       envVersion: 'develop',
++      appEnv: 'dev',
+       enabled: true,
+       showAIPanel: true,
+       uploadEnabled: true
+     }))
+
+     expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'develop',
+       envVersion: 'develop',
++      appEnv: 'dev',
+       allowLocalModelHost: true,
+-      plateModelPath: '/user-data/plate.onnx',
+-      damageModelPath: '/user-data/damage.onnx'
++      modelHost: 'http://192.168.100.100:8000',
++      plateModelPath: expect.stringMatching(/^\/user-data\/plate-dev-[a-z0-9]+\.onnx$/),
++      damageModelPath: expect.stringMatching(/^\/user-data\/damage-dev-[a-z0-9]+\.onnx$/),
++      plateModelUrl: 'http://192.168.100.100:8000/plate.onnx',
++      damageModelUrl: 'http://192.168.100.100:8000/damage.onnx'
+     }))
+
+     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'develop',
+       envVersion: 'develop',
++      appEnv: 'dev',
+       defaultSourceType: 'mock',
+       allowMockAsDefault: true,
+       fallbackToDefaultOnMissingRemote: false
+@@ -72,7 +96,9 @@ describe('env-config', () => {
+     expect(envConfig.isRelease()).toBe(false)
+
+     expect(envConfig.getRuntimeFlags()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'trial',
+       envVersion: 'trial',
++      appEnv: 'sit',
+       allowMock: true,
+       allowControlledDebug: true,
+       allowDebug: false,
+@@ -82,15 +108,28 @@ describe('env-config', () => {
+     }))
+
+     expect(envConfig.getDebugConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'trial',
+       envVersion: 'trial',
++      appEnv: 'sit',
+       enabled: false,
+       showAIPanel: false,
+       uploadEnabled: false,
+       uploadUrl: ''
+     }))
+
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'trial',
++      envVersion: 'trial',
++      appEnv: 'sit',
++      modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
++      plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
++      damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
++    }))
++
+     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'trial',
+       envVersion: 'trial',
++      appEnv: 'sit',
+       defaultSourceType: 'mock',
+       allowMockAsDefault: true,
+       fallbackToDefaultOnMissingRemote: false
+@@ -107,7 +146,9 @@ describe('env-config', () => {
+     expect(envConfig.isRelease()).toBe(true)
+
+     expect(envConfig.getRuntimeFlags()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
+       envVersion: 'release',
++      appEnv: 'prod',
+       allowMock: false,
+       allowDebug: false,
+       allowLocalModelHost: false,
+@@ -116,7 +157,9 @@ describe('env-config', () => {
+     }))
+
+     expect(envConfig.getDebugConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
+       envVersion: 'release',
++      appEnv: 'prod',
+       enabled: false,
+       showAIPanel: false,
+       uploadEnabled: false,
+@@ -124,14 +167,18 @@ describe('env-config', () => {
+     }))
+
+     expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
+       envVersion: 'release',
++      appEnv: 'prod',
+       allowLocalModelHost: false,
+       plateModelUrl: '',
+       damageModelUrl: ''
+     }))
+
+     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
+       envVersion: 'release',
++      appEnv: 'prod',
+       defaultSourceType: 'remote',
+       allowMockAsDefault: false,
+       requireConfiguredRemoteInRelease: true,
+@@ -155,6 +202,7 @@ describe('env-config', () => {
+     expect(envConfig.isDevelop()).toBe(true)
+     expect(envConfig.getRuntimeFlags()).toEqual(expect.objectContaining({
+       envVersion: 'develop',
++      appEnv: 'dev',
+       allowMock: true,
+       allowDebug: true
+     }))
+@@ -175,4 +223,121 @@ describe('env-config', () => {
+     expect(() => envConfig.getQualityConfigSourcePolicy()).not.toThrow()
+     expect(envConfig.getEnvVersion()).toBe('develop')
+   })
++
++  test('develop defaults appEnv to dev', () => {
++    mockWxEnv('develop')
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAppEnv()).toBe('dev')
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'develop',
++      appEnv: 'dev'
++    }))
++  })
++
++  test('trial defaults appEnv to sit', () => {
++    mockWxEnv('trial')
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAppEnv()).toBe('sit')
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'trial',
++      appEnv: 'sit'
++    }))
++  })
++
++  test('release forces appEnv to prod', () => {
++    mockWxEnv('release')
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAppEnv()).toBe('prod')
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
++      appEnv: 'prod'
++    }))
++  })
++
++  test.each(['sit', 'pilot'])('trial local override %s is valid', (appEnv) => {
++    mockWxEnv('trial', {
++      storage: {
++        SELF_CAM_APP_ENV: appEnv
++      }
++    })
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAppEnv()).toBe(appEnv)
++    expect(envConfig.getAiConfig().appEnv).toBe(appEnv)
++  })
++
++  test('release ignores local appEnv override', () => {
++    mockWxEnv('release', {
++      storage: {
++        SELF_CAM_APP_ENV: 'pilot'
++      }
++    })
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAppEnv()).toBe('prod')
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      wxEnvVersion: 'release',
++      appEnv: 'prod',
++      modelHost: ''
++    }))
++  })
++
++  test('sit model urls use the configured endpoint', () => {
++    mockWxEnv('trial')
++    const envConfig = loadEnvConfig()
++
++    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
++      appEnv: 'sit',
++      modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
++      plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
++      damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
++    }))
++  })
++
++  test.each([
++    ['http host', 'http://example.com/video/model'],
++    ['localhost host', 'https://localhost:8000/video/model'],
++    ['127 host', 'https://127.0.0.1:8000/video/model'],
++    ['lan host', 'https://192.168.1.3:8000/video/model']
++  ])('non-dev appEnv rejects unsafe model host: %s', (caseName, modelHost) => {
++    mockWxEnv('trial')
++    const envConfig = loadEnvConfig()
++
++    const aiConfig = envConfig.getAiConfig({
++      envVersion: 'trial',
++      appEnv: 'sit',
++      businessEnvEndpoints: {
++        sit: {
++          modelHost
++        }
++      }
++    })
++
++    expect(aiConfig.modelHost).toBe('')
++    expect(aiConfig.plateModelUrl).toBe('')
++    expect(aiConfig.damageModelUrl).toBe('')
++  })
++
++  test('model cache key and path are isolated by appEnv or url', () => {
++    mockWxEnv('trial')
++    const envConfig = loadEnvConfig()
++
++    const sitConfig = envConfig.getAiConfig({
++      envVersion: 'trial',
++      appEnv: 'sit'
++    })
++    const pilotConfig = envConfig.getAiConfig({
++      envVersion: 'trial',
++      appEnv: 'pilot'
++    })
++
++    expect(sitConfig.plateModelCacheKey).not.toBe(pilotConfig.plateModelCacheKey)
++    expect(sitConfig.damageModelCacheKey).not.toBe(pilotConfig.damageModelCacheKey)
++    expect(sitConfig.plateModelPath).toMatch(/^\/user-data\/plate-sit-[a-z0-9]+\.onnx$/)
++    expect(pilotConfig.plateModelPath).toMatch(/^\/user-data\/plate-pilot-[a-z0-9]+\.onnx$/)
++    expect(sitConfig.damageModelPath).not.toBe(pilotConfig.damageModelPath)
++  })
+ })
+diff --git a/docs/env-config-design.md b/docs/env-config-design.md
+index 4641875..840051f 100644
+--- a/docs/env-config-design.md
++++ b/docs/env-config-design.md
+@@ -2,14 +2,16 @@
+
+ ## 1. 设计目标
+
+-本次新增 `utils/env-config.js`，把微信小程序端的环境识别、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
++本次新增并持续扩展 `utils/env-config.js`，把微信小程序端的环境识别、业务环境、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
+
+ - `envVersion` 判断散落在多个模块，后续维护成本高
+ - `ai-config`、`runtime-logger`、`quality-config` 各自维护环境策略，容易出现不一致
+ - 生产环境的调试上传、开发面板、mock 默认值缺少统一约束
+ - Jest 或非小程序运行时下读取 `wx.getAccountInfoSync()` 容易报错
++- 业务环境与微信运行版本耦合，无法在 `develop / trial` 下切换 SIT、pilot 等业务后端
++- AI 模型缓存文件名固定，切换模型地址后可能复用旧环境模型文件
+
+-本次改动只做端上统一配置层，不改业务主流程，不接后端接口，不删除现有能力。
++本次改动只做端上统一配置层和隐藏切换入口，不改拍照主流程，不删除现有能力。
+
+ ## 2. 为什么要做环境配置收口
+
+@@ -24,7 +26,7 @@
+
+ ## 3. 环境识别策略
+
+-统一入口：
++微信运行版本统一入口：
+
+ - `wx.getAccountInfoSync().miniProgram.envVersion`
+
+@@ -43,6 +45,25 @@
+
+ 这样 Jest、Node 侧工具和异常场景都不会因为环境读取失败而阻断业务流程。
+
++业务环境统一入口：
++
++- 默认按微信运行版本映射：`develop -> dev`、`trial -> sit`、`release -> prod`
++- `develop / trial` 允许读取本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境
++- `release` 正式版强制 `prod`，不允许本地缓存覆盖
++
++支持业务环境：
++
++- `dev`
++- `sit`
++- `pilot`
++- `prod`
++
++可切换范围：
++
++- `develop`：`dev / sit / pilot`
++- `trial`：`sit / pilot`
++- `release`：不可切换，固定 `prod`
++
+ ## 4. develop / trial / release 默认策略
+
+ ### develop
+@@ -77,6 +98,11 @@
+ `utils/env-config.js` 当前提供以下统一方法：
+
+ - `getEnvVersion()`
++- `getAppEnv()`
++- `getAvailableAppEnvs()`
++- `canSwitchAppEnv()`
++- `saveAppEnvOverride()`
++- `clearAppEnvOverride()`
+ - `isDevelop()`
+ - `isTrial()`
+ - `isRelease()`
+@@ -89,9 +115,68 @@
+
+ - `getRuntimeFlags()` 负责给应用层提供统一的环境能力开关
+ - `getDebugConfig()` 负责给调试日志、开发面板、AI 调试信息提供默认策略
+-- `getAiConfig()` 负责统一模型路径、模型地址和“是否允许本地模型地址”
++- `getAiConfig()` 负责统一业务环境、模型路径、模型地址和模型缓存隔离 key
+ - `getQualityConfigSourcePolicy()` 负责给 `quality-config-loader` 提供默认 source 策略
+
++## 5.1 业务环境模型地址
++
++`BUSINESS_ENV_ENDPOINTS` 由 `env-config` 统一维护：
++
++```js
++{
++  dev: {
++    modelHost: 'http://192.168.100.100:8000'
++  },
++  sit: {
++    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
++  },
++  pilot: {
++    modelHost: ''
++  },
++  prod: {
++    modelHost: ''
++  }
++}
++```
++
++`getAiConfig()` 返回：
++
++- `wxEnvVersion`
++- `appEnv`
++- `modelHost`
++- `plateModelUrl = modelHost + '/plate.onnx'`
++- `damageModelUrl = modelHost + '/damage.onnx'`
++- `plateModelPath`
++- `damageModelPath`
++- `plateModelCacheKey`
++- `damageModelCacheKey`
++
++非 `dev` 业务环境禁止使用以下模型地址：
++
++- `http`
++- `localhost`
++- `127.0.0.1`
++- 局域网 IP：`10.*`、`172.16.* - 172.31.*`、`192.168.*`
++
++## 5.2 模型缓存隔离
++
++模型下载仍写入 `wx.env.USER_DATA_PATH`，但文件名不再固定为 `plate.onnx` / `damage.onnx`。
++
++当前策略：
++
++- 文件名包含模型类型、`appEnv` 和模型 URL hash
++- `plateModelCacheKey` / `damageModelCacheKey` 同样包含 `appEnv` 与 URL hash
++- 切换业务环境后，相机页会基于新的模型路径重新检查当前环境模型是否已下载
++
++示例：
++
++```text
++plate-sit-<urlHash>.onnx
++damage-pilot-<urlHash>.onnx
++```
++
++这样 SIT 与 pilot 不会复用同一个本地模型缓存文件。
++
+ ## 6. 各类开关说明
+
+ 当前统一收口的开关主要包括：
+@@ -167,3 +252,5 @@
+ - 配置模块读取失败时必须安全降级，不能阻断拍照主流程
+ - 页面文件不要再直接判断 `envVersion`
+ - 新增环境开关时，优先加到 `env-config`，不要继续分散到各个模块
++- 业务环境切换只允许作为隐藏入口，不新增普通用户可见的设置入口
++- `release` 必须强制 `prod`，不能被本地缓存覆盖
+diff --git a/package-lock.json b/package-lock.json
+index c8a50e3..ddd4ebf 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "selfcam-miniprogram",
+-  "version": "1.3.5",
++  "version": "1.3.6",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "selfcam-miniprogram",
+-      "version": "1.3.5",
++      "version": "1.3.6",
+       "license": "ISC",
+       "devDependencies": {
+         "jest": "^29.7.0",
+diff --git a/package.json b/package.json
+index b3382a9..2bb21f6 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "selfcam-miniprogram",
+-  "version": "1.3.5",
++  "version": "1.3.6",
+   "description": "车辆定损拍摄小程序",
+   "scripts": {
+     "test": "jest",
+diff --git a/pages/index/index.js b/pages/index/index.js
+index 587599a..acdb65d 100644
+--- a/pages/index/index.js
++++ b/pages/index/index.js
+@@ -1,18 +1,118 @@
+ const storage = require('../../utils/storage')
+ const constants = require('../../utils/constants')
+ const permission = require('../../utils/permission')
++const envConfig = require('../../utils/env-config')
++
++const APP_ENV_SWITCH_TAP_COUNT = 7
++const APP_ENV_SWITCH_RESET_MS = 1200
++const INDEX_PAGE_URL = '/pages/index/index'
+
+ Page({
+   data: {
+
+   },
+   isStartingCapture: false,
++  appEnvTapCount: 0,
++  appEnvTapTimer: null,
+
+   onLoad() {
+     console.log('[index] onLoad')
+     storage.clearCache()
+   },
+
++  onUnload() {
++    this.resetAppEnvTapCount()
++  },
++
++  onBrandTap() {
++    if (!envConfig.canSwitchAppEnv()) {
++      return
++    }
++
++    this.appEnvTapCount += 1
++
++    if (this.appEnvTapTimer) {
++      clearTimeout(this.appEnvTapTimer)
++    }
++
++    if (this.appEnvTapCount < APP_ENV_SWITCH_TAP_COUNT) {
++      this.appEnvTapTimer = setTimeout(() => {
++        this.resetAppEnvTapCount()
++      }, APP_ENV_SWITCH_RESET_MS)
++      return
++    }
++
++    this.resetAppEnvTapCount()
++    this.showAppEnvSelector()
++  },
++
++  resetAppEnvTapCount() {
++    this.appEnvTapCount = 0
++
++    if (this.appEnvTapTimer) {
++      clearTimeout(this.appEnvTapTimer)
++      this.appEnvTapTimer = null
++    }
++  },
++
++  showAppEnvSelector() {
++    const appEnvs = envConfig.getAvailableAppEnvs()
++
++    if (!appEnvs.length || typeof wx === 'undefined' || typeof wx.showActionSheet !== 'function') {
++      return
++    }
++
++    const clearLabel = '\u6e05\u9664\u73af\u5883\u9009\u62e9'
++
++    wx.showActionSheet({
++      itemList: appEnvs.concat(clearLabel),
++      success: (res) => {
++        if (!res || typeof res.tapIndex !== 'number') {
++          return
++        }
++
++        if (res.tapIndex === appEnvs.length) {
++          this.clearAppEnvSelection()
++          return
++        }
++
++        this.saveAppEnvSelection(appEnvs[res.tapIndex])
++      }
++    })
++  },
++
++  saveAppEnvSelection(appEnv) {
++    if (!envConfig.saveAppEnvOverride(appEnv)) {
++      return
++    }
++
++    this.notifyAppEnvChanged()
++  },
++
++  clearAppEnvSelection() {
++    envConfig.clearAppEnvOverride()
++    this.notifyAppEnvChanged()
++  },
++
++  notifyAppEnvChanged() {
++    const relaunch = () => {
++      wx.reLaunch({ url: INDEX_PAGE_URL })
++    }
++
++    if (typeof wx.showModal === 'function') {
++      wx.showModal({
++        title: '\u73af\u5883\u5207\u6362',
++        content: '\u73af\u5883\u5df2\u5207\u6362\uff0c\u5c06\u91cd\u65b0\u8fdb\u5165\u9996\u9875',
++        showCancel: false,
++        success: relaunch,
++        fail: relaunch
++      })
++      return
++    }
++
++    relaunch()
++  },
++
+   async onStart() {
+     if (this.isStartingCapture) {
+       console.warn('[index] start ignored: capture flow already starting')
+diff --git a/pages/index/index.wxml b/pages/index/index.wxml
+index 80a9007..13b3da0 100644
+--- a/pages/index/index.wxml
++++ b/pages/index/index.wxml
+@@ -3,7 +3,7 @@
+   <view class="page-glow"></view>
+
+   <!-- 左上角品牌标识 -->
+-  <view class="brand">
++  <view class="brand" bindtap="onBrandTap">
+     <image class="brand-logo" src="/assets/logo.png" mode="aspectFit"></image>
+   </view>
+
+diff --git a/utils/damage-detector.js b/utils/damage-detector.js
+index 11a14e3..1c9e3d2 100644
+--- a/utils/damage-detector.js
++++ b/utils/damage-detector.js
+@@ -1,10 +1,12 @@
+ const fs = wx.getFileSystemManager()
+ const YOLOProcessUtils = require('./yolo-process-utils')
++const envConfig = require('./env-config')
+
+ class DamageDetector {
+   constructor(options = {}) {
+-    this.modelUrl = options.modelUrl
+-    this.modelPath = options.modelPath || `${wx.env.USER_DATA_PATH}/damage.onnx`
++    const aiConfig = options.aiConfig || envConfig.getAiConfig()
++    this.modelUrl = options.modelUrl || aiConfig.damageModelUrl
++    this.modelPath = options.modelPath || aiConfig.damageModelPath
+     this.scoreThreshold = options.scoreThreshold || 0.2
+     this.iouThreshold = options.iouThreshold || 0.1
+     this.targetSize = options.targetSize || 640
+diff --git a/utils/env-config.js b/utils/env-config.js
+index 0803ff9..1073572 100644
+--- a/utils/env-config.js
++++ b/utils/env-config.js
+@@ -1,4 +1,6 @@
+ const DEFAULT_ENV_VERSION = 'develop'
++const DEFAULT_WX_ENV_VERSION = DEFAULT_ENV_VERSION
++const APP_ENV_STORAGE_KEY = 'SELF_CAM_APP_ENV'
+
+ const SUPPORTED_ENV_VERSIONS = {
+   develop: 'develop',
+@@ -6,6 +8,31 @@ const SUPPORTED_ENV_VERSIONS = {
+   release: 'release'
+ }
+
++const SUPPORTED_APP_ENVS = {
++  dev: 'dev',
++  sit: 'sit',
++  pilot: 'pilot',
++  prod: 'prod'
++}
++
++const DEFAULT_APP_ENV_BY_WX_ENV_VERSION = {
++  develop: 'dev',
++  trial: 'sit',
++  release: 'prod'
++}
++
++const APP_ENV_OVERRIDES_BY_WX_ENV_VERSION = {
++  develop: ['dev', 'sit', 'pilot'],
++  trial: ['sit', 'pilot'],
++  release: []
++}
++
++const APP_ENV_ALLOWLIST_BY_WX_ENV_VERSION = {
++  develop: ['dev', 'sit', 'pilot'],
++  trial: ['sit', 'pilot'],
++  release: ['prod']
++}
++
+ const ENV_POLICY_MAP = {
+   develop: {
+     allowMock: true,
+@@ -45,14 +72,17 @@ const ENV_POLICY_MAP = {
+   }
+ }
+
+-const AI_ENDPOINTS_BY_ENV = {
+-  develop: {
++const BUSINESS_ENV_ENDPOINTS = {
++  dev: {
+     modelHost: 'http://192.168.100.100:8000'
+   },
+-  trial: {
++  sit: {
++    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
++  },
++  pilot: {
+     modelHost: ''
+   },
+-  release: {
++  prod: {
+     modelHost: ''
+   }
+ }
+@@ -75,6 +105,11 @@ function sanitizeEnvVersion(value, fallback = DEFAULT_ENV_VERSION) {
+   return SUPPORTED_ENV_VERSIONS[normalized] || fallback
+ }
+
++function sanitizeAppEnv(value, fallback = '') {
++  const normalized = sanitizeString(value, '', 32).toLowerCase()
++  return SUPPORTED_APP_ENVS[normalized] || fallback
++}
++
+ function getWx(options = {}) {
+   if (options.wx && typeof options.wx === 'object') {
+     return options.wx
+@@ -88,6 +123,10 @@ function getWx(options = {}) {
+ }
+
+ function getEnvVersion(options = {}) {
++  if (typeof options.wxEnvVersion === 'string' && options.wxEnvVersion.trim()) {
++    return sanitizeEnvVersion(options.wxEnvVersion)
++  }
++
+   if (typeof options.envVersion === 'string' && options.envVersion.trim()) {
+     return sanitizeEnvVersion(options.envVersion)
+   }
+@@ -106,6 +145,91 @@ function getEnvVersion(options = {}) {
+   }
+ }
+
++function readStoredAppEnv(options = {}) {
++  const wxRef = getWx(options)
++
++  if (!wxRef || typeof wxRef.getStorageSync !== 'function') {
++    return ''
++  }
++
++  try {
++    return sanitizeAppEnv(wxRef.getStorageSync(APP_ENV_STORAGE_KEY), '')
++  } catch (error) {
++    return ''
++  }
++}
++
++function isAppEnvAllowedForWxEnv(appEnv, wxEnvVersion) {
++  const safeWxEnvVersion = sanitizeEnvVersion(wxEnvVersion)
++  const safeAppEnv = sanitizeAppEnv(appEnv, '')
++  const allowlist = APP_ENV_ALLOWLIST_BY_WX_ENV_VERSION[safeWxEnvVersion] || []
++  return !!safeAppEnv && allowlist.indexOf(safeAppEnv) >= 0
++}
++
++function getAppEnv(options = {}) {
++  const wxEnvVersion = getEnvVersion(options)
++  const defaultAppEnv = DEFAULT_APP_ENV_BY_WX_ENV_VERSION[wxEnvVersion] || 'dev'
++
++  if (wxEnvVersion === 'release') {
++    return 'prod'
++  }
++
++  const overrideAppEnv = Object.prototype.hasOwnProperty.call(options, 'appEnv')
++    ? sanitizeAppEnv(options.appEnv, '')
++    : readStoredAppEnv(options)
++
++  return isAppEnvAllowedForWxEnv(overrideAppEnv, wxEnvVersion)
++    ? overrideAppEnv
++    : defaultAppEnv
++}
++
++function canSwitchAppEnv(options = {}) {
++  return getEnvVersion(options) !== 'release'
++}
++
++function getAvailableAppEnvs(options = {}) {
++  const wxEnvVersion = getEnvVersion(options)
++  const itemList = APP_ENV_OVERRIDES_BY_WX_ENV_VERSION[wxEnvVersion] || []
++  return itemList.slice()
++}
++
++function saveAppEnvOverride(appEnv, options = {}) {
++  const wxEnvVersion = getEnvVersion(options)
++  const safeAppEnv = sanitizeAppEnv(appEnv, '')
++  const wxRef = getWx(options)
++  const switchableAppEnvs = APP_ENV_OVERRIDES_BY_WX_ENV_VERSION[wxEnvVersion] || []
++
++  if (!wxRef || typeof wxRef.setStorageSync !== 'function') {
++    return false
++  }
++
++  if (!safeAppEnv || switchableAppEnvs.indexOf(safeAppEnv) < 0) {
++    return false
++  }
++
++  try {
++    wxRef.setStorageSync(APP_ENV_STORAGE_KEY, safeAppEnv)
++    return true
++  } catch (error) {
++    return false
++  }
++}
++
++function clearAppEnvOverride(options = {}) {
++  const wxRef = getWx(options)
++
++  if (!wxRef || typeof wxRef.removeStorageSync !== 'function') {
++    return false
++  }
++
++  try {
++    wxRef.removeStorageSync(APP_ENV_STORAGE_KEY)
++    return true
++  } catch (error) {
++    return false
++  }
++}
++
+ function isDevelop(options = {}) {
+   return getEnvVersion(options) === 'develop'
+ }
+@@ -129,6 +253,101 @@ function joinUrl(baseUrl, path) {
+   return `${normalizedBaseUrl}${normalizedPath.charAt(0) === '/' ? normalizedPath : `/${normalizedPath}`}`
+ }
+
++function parseUrlHost(value) {
++  const normalizedValue = sanitizeString(value, '', 512)
++  const match = normalizedValue.match(/^([a-z][a-z0-9+.-]*):\/\/([^/?#]+)/i)
++
++  if (!match) {
++    return {
++      protocol: '',
++      hostname: ''
++    }
++  }
++
++  const hostPart = match[2].split('@').pop()
++  const hostname = hostPart
++    .replace(/^\[/, '')
++    .replace(/\]$/, '')
++    .split(':')[0]
++    .toLowerCase()
++
++  return {
++    protocol: `${match[1].toLowerCase()}:`,
++    hostname
++  }
++}
++
++function isLanIp(hostname) {
++  return /^10\./.test(hostname)
++    || /^192\.168\./.test(hostname)
++    || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
++    || /^169\.254\./.test(hostname)
++}
++
++function isUnsafeNonDevModelHost(modelHost) {
++  const normalizedModelHost = sanitizeString(modelHost, '')
++
++  if (!normalizedModelHost) {
++    return false
++  }
++
++  const parsed = parseUrlHost(normalizedModelHost)
++
++  if (!parsed.protocol || !parsed.hostname) {
++    return true
++  }
++
++  return parsed.protocol === 'http:'
++    || parsed.hostname === 'localhost'
++    || parsed.hostname === '127.0.0.1'
++    || /^127\./.test(parsed.hostname)
++    || isLanIp(parsed.hostname)
++}
++
++function isModelHostAllowed(appEnv, modelHost) {
++  const safeAppEnv = sanitizeAppEnv(appEnv, 'dev')
++
++  if (!modelHost) {
++    return true
++  }
++
++  return safeAppEnv === 'dev' || !isUnsafeNonDevModelHost(modelHost)
++}
++
++function resolveModelHost(appEnv, options = {}) {
++  const endpoints = options.businessEnvEndpoints || BUSINESS_ENV_ENDPOINTS
++  const envEndpoints = endpoints[sanitizeAppEnv(appEnv, 'dev')] || {}
++  const modelHost = sanitizeString(envEndpoints.modelHost, '')
++
++  return isModelHostAllowed(appEnv, modelHost) ? modelHost : ''
++}
++
++function hashString(value) {
++  const source = sanitizeString(value, '', 1024)
++  let hash = 2166136261
++
++  for (let i = 0; i < source.length; i++) {
++    hash ^= source.charCodeAt(i)
++    hash = Math.imul(hash, 16777619)
++  }
++
++  return (hash >>> 0).toString(36)
++}
++
++function buildModelCacheKey(modelName, appEnv, modelUrl) {
++  const safeModelName = sanitizeString(modelName, '', 32)
++  const safeAppEnv = sanitizeAppEnv(appEnv, 'dev')
++  const source = sanitizeString(modelUrl, '') || safeAppEnv
++  return `${safeModelName}:${safeAppEnv}:${hashString(source)}`
++}
++
++function buildModelCacheFileName(modelName, appEnv, modelUrl) {
++  const safeModelName = sanitizeString(modelName, '', 32)
++  const safeAppEnv = sanitizeAppEnv(appEnv, 'dev')
++  const source = sanitizeString(modelUrl, '') || safeAppEnv
++  return `${safeModelName}-${safeAppEnv}-${hashString(source)}.onnx`
++}
++
+ function getUserDataPath(options = {}) {
+   const wxRef = getWx(options)
+   return sanitizeString(wxRef?.env?.USER_DATA_PATH, '')
+@@ -154,11 +373,14 @@ function getPolicy(envVersion) {
+ }
+
+ function getRuntimeFlags(options = {}) {
+-  const envVersion = getEnvVersion(options)
+-  const policy = getPolicy(envVersion)
++  const wxEnvVersion = getEnvVersion(options)
++  const appEnv = getAppEnv({ ...options, envVersion: wxEnvVersion })
++  const policy = getPolicy(wxEnvVersion)
+
+   return {
+-    envVersion,
++    wxEnvVersion,
++    envVersion: wxEnvVersion,
++    appEnv,
+     allowMock: policy.allowMock,
+     allowTestConfig: policy.allowTestConfig,
+     allowLocalModelHost: policy.allowLocalModelHost,
+@@ -175,19 +397,26 @@ function getRuntimeFlags(options = {}) {
+
+ function getAiConfig(options = {}) {
+   const runtimeFlags = getRuntimeFlags(options)
+-  const envEndpoints = AI_ENDPOINTS_BY_ENV[runtimeFlags.envVersion] || AI_ENDPOINTS_BY_ENV[DEFAULT_ENV_VERSION]
+-  const modelHost = runtimeFlags.allowLocalModelHost
+-    ? sanitizeString(envEndpoints.modelHost, '')
+-    : ''
++  const wxEnvVersion = runtimeFlags.wxEnvVersion
++  const appEnv = runtimeFlags.appEnv
++  const modelHost = resolveModelHost(appEnv, options)
++  const plateModelUrl = joinUrl(modelHost, '/plate.onnx')
++  const damageModelUrl = joinUrl(modelHost, '/damage.onnx')
++  const plateModelCacheKey = buildModelCacheKey('plate', appEnv, plateModelUrl)
++  const damageModelCacheKey = buildModelCacheKey('damage', appEnv, damageModelUrl)
+
+   return {
+-    envVersion: runtimeFlags.envVersion,
++    wxEnvVersion,
++    envVersion: wxEnvVersion,
++    appEnv,
+     allowLocalModelHost: runtimeFlags.allowLocalModelHost,
+     modelHost,
+-    plateModelPath: buildUserDataPath('plate.onnx', options),
+-    damageModelPath: buildUserDataPath('damage.onnx', options),
+-    plateModelUrl: joinUrl(modelHost, '/plate.onnx'),
+-    damageModelUrl: joinUrl(modelHost, '/damage.onnx')
++    plateModelPath: buildUserDataPath(buildModelCacheFileName('plate', appEnv, plateModelUrl), options),
++    damageModelPath: buildUserDataPath(buildModelCacheFileName('damage', appEnv, damageModelUrl), options),
++    plateModelCacheKey,
++    damageModelCacheKey,
++    plateModelUrl,
++    damageModelUrl
+   }
+ }
+
+@@ -200,7 +429,9 @@ function getDebugConfig(options = {}) {
+   const uploadUrl = runtimeFlags.enableDebugUpload ? joinUrl(uploadHost, '/capture-log') : ''
+
+   return {
++    wxEnvVersion: runtimeFlags.wxEnvVersion,
+     envVersion: runtimeFlags.envVersion,
++    appEnv: runtimeFlags.appEnv,
+     enabled: runtimeFlags.allowDebug,
+     showDevPanel: runtimeFlags.showDevPanel,
+     showAIPanel: runtimeFlags.showAIDebugPanel,
+@@ -220,7 +451,9 @@ function getQualityConfigSourcePolicy(options = {}) {
+   const runtimeFlags = getRuntimeFlags(options)
+
+   return {
++    wxEnvVersion: runtimeFlags.wxEnvVersion,
+     envVersion: runtimeFlags.envVersion,
++    appEnv: runtimeFlags.appEnv,
+     defaultSourceType: runtimeFlags.qualityConfigDefaultSourceType,
+     allowMockAsDefault: runtimeFlags.allowMock,
+     allowTestConfig: runtimeFlags.allowTestConfig,
+@@ -232,8 +465,20 @@ function getQualityConfigSourcePolicy(options = {}) {
+
+ module.exports = {
+   DEFAULT_ENV_VERSION,
++  DEFAULT_WX_ENV_VERSION,
+   SUPPORTED_ENV_VERSIONS,
++  SUPPORTED_APP_ENVS,
++  APP_ENV_STORAGE_KEY,
++  DEFAULT_APP_ENV_BY_WX_ENV_VERSION,
++  BUSINESS_ENV_ENDPOINTS,
+   getEnvVersion,
++  getAppEnv,
++  getAvailableAppEnvs,
++  canSwitchAppEnv,
++  saveAppEnvOverride,
++  clearAppEnvOverride,
++  isModelHostAllowed,
++  buildModelCacheKey,
+   isDevelop,
+   isTrial,
+   isRelease,
+diff --git a/utils/plate-detector.js b/utils/plate-detector.js
+index 1689637..c29f0ef 100644
+--- a/utils/plate-detector.js
++++ b/utils/plate-detector.js
+@@ -1,10 +1,12 @@
+ const fs = wx.getFileSystemManager()
+ const YOLOProcessUtils = require('./yolo-process-utils')
++const envConfig = require('./env-config')
+
+ class PlateDetector {
+   constructor(options = {}) {
+-    this.modelUrl = options.modelUrl
+-    this.modelPath = options.modelPath || `${wx.env.USER_DATA_PATH}/plate.onnx`
++    const aiConfig = options.aiConfig || envConfig.getAiConfig()
++    this.modelUrl = options.modelUrl || aiConfig.plateModelUrl
++    this.modelPath = options.modelPath || aiConfig.plateModelPath
+     this.scoreThreshold = options.scoreThreshold || 0.7
+     this.iouThreshold = options.iouThreshold || 0.5
+     this.targetSize = options.targetSize || 640

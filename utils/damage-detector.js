@@ -1,10 +1,12 @@
 const fs = wx.getFileSystemManager()
 const YOLOProcessUtils = require('./yolo-process-utils')
+const envConfig = require('./env-config')
 
 class DamageDetector {
   constructor(options = {}) {
-    this.modelUrl = options.modelUrl
-    this.modelPath = options.modelPath || `${wx.env.USER_DATA_PATH}/damage.onnx`
+    const aiConfig = options.aiConfig || envConfig.getAiConfig()
+    this.modelUrl = options.modelUrl || aiConfig.damageModelUrl
+    this.modelPath = options.modelPath || aiConfig.damageModelPath
     this.scoreThreshold = options.scoreThreshold || 0.2
     this.iouThreshold = options.iouThreshold || 0.1
     this.targetSize = options.targetSize || 640

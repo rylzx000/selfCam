@@ -1,10 +1,12 @@
 const fs = wx.getFileSystemManager()
 const YOLOProcessUtils = require('./yolo-process-utils')
+const envConfig = require('./env-config')
 
 class PlateDetector {
   constructor(options = {}) {
-    this.modelUrl = options.modelUrl
-    this.modelPath = options.modelPath || `${wx.env.USER_DATA_PATH}/plate.onnx`
+    const aiConfig = options.aiConfig || envConfig.getAiConfig()
+    this.modelUrl = options.modelUrl || aiConfig.plateModelUrl
+    this.modelPath = options.modelPath || aiConfig.plateModelPath
     this.scoreThreshold = options.scoreThreshold || 0.7
     this.iouThreshold = options.iouThreshold || 0.5
     this.targetSize = options.targetSize || 640
