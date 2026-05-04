@@ -9,7 +9,7 @@ const INDEX_PAGE_URL = '/pages/index/index'
 
 Page({
   data: {
-
+    appEnvBadgeText: ''
   },
   isStartingCapture: false,
   appEnvTapCount: 0,
@@ -17,7 +17,12 @@ Page({
 
   onLoad() {
     console.log('[index] onLoad')
+    this.updateAppEnvBadge()
     storage.clearCache()
+  },
+
+  onShow() {
+    this.updateAppEnvBadge()
   },
 
   onUnload() {
@@ -52,6 +57,14 @@ Page({
     if (this.appEnvTapTimer) {
       clearTimeout(this.appEnvTapTimer)
       this.appEnvTapTimer = null
+    }
+  },
+
+  updateAppEnvBadge() {
+    const appEnvBadgeText = envConfig.getAppEnvBadgeText()
+
+    if (this.data.appEnvBadgeText !== appEnvBadgeText) {
+      this.setData({ appEnvBadgeText })
     }
   },
 

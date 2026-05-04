@@ -251,6 +251,7 @@ describe('env-config', () => {
     const envConfig = loadEnvConfig()
 
     expect(envConfig.getAppEnv()).toBe('prod')
+    expect(envConfig.getAppEnvBadgeText()).toBe('')
     expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
       wxEnvVersion: 'release',
       appEnv: 'prod'
@@ -295,6 +296,19 @@ describe('env-config', () => {
       plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
       damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
     }))
+  })
+
+  test('local switch to sit resolves the sit plate model url', () => {
+    mockWxEnv('develop', {
+      storage: {
+        SELF_CAM_APP_ENV: 'sit'
+      }
+    })
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAiConfig().plateModelUrl).toBe(
+      'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx'
+    )
   })
 
   test.each([

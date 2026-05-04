@@ -219,4 +219,6 @@
       </view>
     </view>
   </view>
+
+  <view wx:if="{{appEnvBadgeText}}" class="env-badge">{{appEnvBadgeText}}</view>
 </view>

@@ -33,6 +33,12 @@ const APP_ENV_ALLOWLIST_BY_WX_ENV_VERSION = {
   release: ['prod']
 }
 
+const APP_ENV_BADGE_TEXT = {
+  dev: '\u672c\u5730',
+  sit: 'sit',
+  pilot: '\u5b9e\u76d8'
+}
+
 const ENV_POLICY_MAP = {
   develop: {
     allowMock: true,
@@ -181,6 +187,10 @@ function getAppEnv(options = {}) {
   return isAppEnvAllowedForWxEnv(overrideAppEnv, wxEnvVersion)
     ? overrideAppEnv
     : defaultAppEnv
+}
+
+function getAppEnvBadgeText(options = {}) {
+  return APP_ENV_BADGE_TEXT[getAppEnv(options)] || ''
 }
 
 function canSwitchAppEnv(options = {}) {
@@ -473,6 +483,7 @@ module.exports = {
   BUSINESS_ENV_ENDPOINTS,
   getEnvVersion,
   getAppEnv,
+  getAppEnvBadgeText,
   getAvailableAppEnvs,
   canSwitchAppEnv,
   saveAppEnvOverride,

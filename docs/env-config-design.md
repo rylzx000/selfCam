@@ -100,6 +100,7 @@
 - `getEnvVersion()`
 - `getAppEnv()`
 - `getAvailableAppEnvs()`
+- `getAppEnvBadgeText()`
 - `canSwitchAppEnv()`
 - `saveAppEnvOverride()`
 - `clearAppEnvOverride()`
@@ -116,6 +117,7 @@
 - `getRuntimeFlags()` 负责给应用层提供统一的环境能力开关
 - `getDebugConfig()` 负责给调试日志、开发面板、AI 调试信息提供默认策略
 - `getAiConfig()` 负责统一业务环境、模型路径、模型地址和模型缓存隔离 key
+- `getAppEnvBadgeText()` 负责提供非生产环境右下角透明环境标识文案，`prod` 返回空字符串
 - `getQualityConfigSourcePolicy()` 负责给 `quality-config-loader` 提供默认 source 策略
 
 ## 5.1 业务环境模型地址
@@ -176,6 +178,8 @@ damage-pilot-<urlHash>.onnx
 ```
 
 这样 SIT 与 pilot 不会复用同一个本地模型缓存文件。
+
+拍照页创建 `PlateDetector` / `DamageDetector` 前必须实时调用 `envConfig.getAiConfig()`，通过 `options.aiConfig` 传给检测器。不要从 `ai-config.js` 引入模块加载期固化的 `PLATE_MODEL_URL`、`DAMAGE_MODEL_URL`、`PLATE_MODEL_PATH` 或 `DAMAGE_MODEL_PATH`。
 
 ## 6. 各类开关说明
 
@@ -254,3 +258,4 @@ damage-pilot-<urlHash>.onnx
 - 新增环境开关时，优先加到 `env-config`，不要继续分散到各个模块
 - 业务环境切换只允许作为隐藏入口，不新增普通用户可见的设置入口
 - `release` 必须强制 `prod`，不能被本地缓存覆盖
+- 非生产环境标识只用于调试确认，必须保持低权重、透明，不遮挡主流程操作

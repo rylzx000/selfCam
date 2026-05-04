@@ -6,6 +6,9 @@ describe('camera AI detection start timing', () => {
   let cacheSelectors
   let workflowPage
   let album
+  let envConfig
+  let PlateDetector
+  let DamageDetector
 
   function loadCameraPage() {
     jest.resetModules()
@@ -73,6 +76,29 @@ describe('camera AI detection start timing', () => {
     album = {
       saveConfirmedPhotoToAlbum: jest.fn(() => Promise.resolve({ saved: true }))
     }
+    envConfig = {
+      getDebugConfig: jest.fn(() => ({
+        showAIPanel: false
+      })),
+      getAiConfig: jest.fn(() => ({
+        wxEnvVersion: 'trial',
+        appEnv: 'sit',
+        plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+        damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx',
+        plateModelPath: '/user-data/plate-sit-test.onnx',
+        damageModelPath: '/user-data/damage-sit-test.onnx'
+      }))
+    }
+    PlateDetector = jest.fn(function PlateDetectorMock(options) {
+      this.options = options
+      this.isModelLoaded = jest.fn(() => true)
+      this.load = jest.fn(() => Promise.resolve(true))
+    })
+    DamageDetector = jest.fn(function DamageDetectorMock(options) {
+      this.options = options
+      this.isModelLoaded = jest.fn(() => true)
+      this.load = jest.fn(() => Promise.resolve(true))
+    })
 
     global.wx = {
       hideLoading: jest.fn(),
@@ -101,22 +127,14 @@ describe('camera AI detection start timing', () => {
       startSession: jest.fn(),
       endSession: jest.fn()
     }))
-    jest.doMock('../utils/env-config', () => ({
-      getDebugConfig: jest.fn(() => ({
-        showAIPanel: false
-      }))
-    }))
-    jest.doMock('../utils/plate-detector', () => jest.fn())
-    jest.doMock('../utils/damage-detector', () => jest.fn())
+    jest.doMock('../utils/env-config', () => envConfig)
+    jest.doMock('../utils/plate-detector', () => PlateDetector)
+    jest.doMock('../utils/damage-detector', () => DamageDetector)
     jest.doMock('../utils/frame-utils', () => ({
       PlateFrameUtils: jest.fn()
     }))
     jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
     jest.doMock('../utils/ai-config', () => ({
-      PLATE_MODEL_PATH: '',
-      DAMAGE_MODEL_PATH: '',
-      PLATE_MODEL_URL: '',
-      DAMAGE_MODEL_URL: '',
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3,
         DETECT_INTERVAL: 100,
@@ -135,9 +153,20 @@ describe('camera AI detection start timing', () => {
           detectInterval: 100,
           minConsecutiveFrames: 1,
           minAreaRatio: 0.1,
-          maxAreaRatio: 0.8
+          maxAreaRatio: 0.8,
+          scoreThreshold: 0.7,
+          iouThreshold: 0.5,
+          targetSize: 640,
+          inputName: 'input',
+          outputName: 'output'
         },
-        DAMAGE: {},
+        DAMAGE: {
+          scoreThreshold: 0.3,
+          iouThreshold: 0.2,
+          targetSize: 640,
+          inputName: 'images',
+          outputName: 'output0'
+        },
         DAMAGE_FLOW: {
           previewInterval: 100,
           phase: {
@@ -185,6 +214,7 @@ describe('camera AI detection start timing', () => {
         }
       },
       getDamagePhaseLabel: pageConfig.getDamagePhaseLabel,
+      logAiModelConfig: pageConfig.logAiModelConfig,
       resumeAIDetectionAfterStepReady: jest.fn(),
       resetAIState: jest.fn(),
       ...overrides
@@ -223,6 +253,56 @@ describe('camera AI detection start timing', () => {
 
     expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('test_damage_cache')
+  })
+
+  test('camera page does not reference frozen AI model URL constants', () => {
+    const fs = require('fs')
+    const cameraSource = fs.readFileSync(require.resolve('../pages/camera/camera'), 'utf8')
+
+    expect(cameraSource).not.toContain('PLATE_MODEL_URL')
+    expect(cameraSource).not.toContain('DAMAGE_MODEL_URL')
+  })
+
+  test('passes fresh aiConfig into detectors instead of frozen model url and path', async () => {
+    const instance = createPageInstance()
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.LICENSE_PLATE)
+
+      expect(envConfig.getAiConfig).toHaveBeenCalled()
+      expect(PlateDetector).toHaveBeenCalledWith(expect.objectContaining({
+        aiConfig: expect.objectContaining({
+          appEnv: 'sit',
+          plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx'
+        }),
+        scoreThreshold: 0.7,
+        iouThreshold: 0.5,
+        targetSize: 640,
+        inputName: 'input',
+        outputName: 'output'
+      }))
+      expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelUrl')
+      expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelPath')
+
+      await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.DAMAGE)
+
+      expect(DamageDetector).toHaveBeenCalledWith(expect.objectContaining({
+        aiConfig: expect.objectContaining({
+          appEnv: 'sit',
+          damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
+        }),
+        scoreThreshold: 0.3,
+        iouThreshold: 0.2,
+        targetSize: 640,
+        inputName: 'images',
+        outputName: 'output0'
+      }))
+      expect(DamageDetector.mock.calls[0][0]).not.toHaveProperty('modelUrl')
+      expect(DamageDetector.mock.calls[0][0]).not.toHaveProperty('modelPath')
+    } finally {
+      consoleLogSpy.mockRestore()
+    }
   })
 
   test('retries AI detection after VIN confirmation switches to damage step', () => {

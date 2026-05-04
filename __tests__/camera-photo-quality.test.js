@@ -86,10 +86,6 @@ describe('camera photo quality integration', () => {
     }))
     jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
     jest.doMock('../utils/ai-config', () => ({
-      PLATE_MODEL_PATH: '',
-      DAMAGE_MODEL_PATH: '',
-      PLATE_MODEL_URL: '',
-      DAMAGE_MODEL_URL: '',
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3
       }

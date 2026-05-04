@@ -9,7 +9,7 @@ const PlateDetector = require('../../utils/plate-detector')
 const DamageDetector = require('../../utils/damage-detector')
 const { PlateFrameUtils } = require('../../utils/frame-utils')
 const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine')
-const { PLATE_MODEL_PATH, DAMAGE_MODEL_PATH, PLATE_MODEL_URL, DAMAGE_MODEL_URL, AUTO_CAPTURE } = require('../../utils/ai-config')
+const { AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 const album = require('../../utils/album')
@@ -54,6 +54,7 @@ Page({
     damageFrameState: 'normal',
     damageAreaRatioText: '',
     damagePhaseLabel: '',
+    appEnvBadgeText: '',
     showDamageDebug: false,
     workflowState: workflow.STATES.IDLE
   },
@@ -74,6 +75,7 @@ Page({
 
   onLoad() {
     this.isLeaving = false
+    this.updateAppEnvBadge()
     runtimeLogger.startSession('camera', {
       page: 'camera',
       initialStep: this.data.currentStep
@@ -91,6 +93,7 @@ Page({
   },
 
   onShow() {
+    this.updateAppEnvBadge()
     runtimeLogger.info('camera', 'page_show', {
       isLeaving: this.isLeaving,
       currentStep: this.data.currentStep,
@@ -128,6 +131,23 @@ Page({
     return envConfig.getDebugConfig().showAIPanel
   },
 
+  updateAppEnvBadge() {
+    const appEnvBadgeText = envConfig.getAppEnvBadgeText()
+
+    if (this.data.appEnvBadgeText !== appEnvBadgeText) {
+      this.setData({ appEnvBadgeText })
+    }
+  },
+
+  logAiModelConfig(aiConfig) {
+    console.log('[AI:model:config]', {
+      wxEnvVersion: aiConfig.wxEnvVersion,
+      appEnv: aiConfig.appEnv,
+      plateModelUrl: aiConfig.plateModelUrl,
+      damageModelUrl: aiConfig.damageModelUrl
+    })
+  },
+
   getAIStatusByStep(step) {
     if (!this.data.aiAvailable || !this.data.aiEnabled) {
       return AUTO_CAPTURE.STATUS_TEXT.unavailable
@@ -149,9 +169,10 @@ Page({
     try {
       if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
         if (!this.plateDetector) {
+          const aiConfig = envConfig.getAiConfig()
+          this.logAiModelConfig(aiConfig)
           this.plateDetector = new PlateDetector({
-            modelUrl: PLATE_MODEL_URL,
-            modelPath: PLATE_MODEL_PATH,
+            aiConfig,
             scoreThreshold: AUTO_CAPTURE.PLATE.scoreThreshold,
             iouThreshold: AUTO_CAPTURE.PLATE.iouThreshold,
             targetSize: AUTO_CAPTURE.PLATE.targetSize,
@@ -170,9 +191,10 @@ Page({
         }
       } else if (step === constants.SHOOT_STEP.DAMAGE) {
         if (!this.damageDetector) {
+          const aiConfig = envConfig.getAiConfig()
+          this.logAiModelConfig(aiConfig)
           this.damageDetector = new DamageDetector({
-            modelUrl: DAMAGE_MODEL_URL,
-            modelPath: DAMAGE_MODEL_PATH,
+            aiConfig,
             scoreThreshold: AUTO_CAPTURE.DAMAGE.scoreThreshold,
             iouThreshold: AUTO_CAPTURE.DAMAGE.iouThreshold,
             targetSize: AUTO_CAPTURE.DAMAGE.targetSize,

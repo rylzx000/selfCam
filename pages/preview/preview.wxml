@@ -198,4 +198,6 @@
     bind:cancel="onModalCancel"
     bind:masktap="onModalMaskTap"
   />
+
+  <view wx:if="{{appEnvBadgeText}}" class="env-badge">{{appEnvBadgeText}}</view>
 </view>

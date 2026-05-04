@@ -19,6 +19,7 @@
 - `develop / trial` 支持通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境，正式版忽略覆盖。
 - `BUSINESS_ENV_ENDPOINTS.sit.modelHost` 指向 `https://onlineclaimsit.chinalife-p.com.cn/video/model`。
 - 首页 logo 区域增加隐藏 7 连击入口，可选择允许环境或清除环境选择；正式版不显示切换入口。
+- 首页、拍照页、预览页右下角显示透明环境标识，方便真机确认当前业务环境；生产环境不显示。
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
 - 车牌和车损模型缓存文件名包含业务环境和模型 URL hash，切换环境后重新检查当前环境模型缓存。
 
@@ -29,6 +30,7 @@
 - `utils/env-config.js` 统一维护业务环境、默认映射、缓存覆盖、环境可选项和模型地址安全校验。
 - `utils/ai-config.js` 继续导出旧常量，但模型地址和本地路径统一从 `env-config` 读取。
 - `utils/plate-detector.js` 与 `utils/damage-detector.js` 的默认模型配置改走 `env-config.getAiConfig()`。
+- `pages/camera/camera.js` 创建 AI 检测器前实时读取 `envConfig.getAiConfig()`，避免环境切换后继续使用模块加载期旧模型地址。
 
 ### 首页隐藏入口
 
@@ -39,8 +41,8 @@
 ### 测试与文档同步
 
 - `package.json` 与 `package-lock.json` 版本号同步至 `1.3.6`。
-- 补齐 `env-config` 单元测试，覆盖默认映射、本地覆盖、正式版强制 prod、SIT 地址、安全拦截和模型缓存隔离。
-- 本轮验证通过 `npm test -- --runInBand`，18 个测试套件、145 个用例通过。
+- 补齐 `env-config` 与相机页单元测试，覆盖默认映射、本地覆盖、正式版强制 prod、SIT 地址、安全拦截、模型缓存隔离和相机页实时 `aiConfig`。
+- 本轮验证通过 `npm test -- --runInBand`，18 个测试套件、148 个用例通过。
 
 ---
 

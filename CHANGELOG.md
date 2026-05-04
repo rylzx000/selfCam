@@ -17,11 +17,16 @@
 - `utils/env-config.js` 统一维护业务环境模型地址，`ai-config.js` 不再写死模型地址。
 - `release` 正式版强制 `prod`，忽略本地 `SELF_CAM_APP_ENV` 覆盖。
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
+- 首页、拍照页、预览页右下角增加透明环境标识，`dev / sit / pilot` 分别显示本地、sit、实盘，`prod` 不显示。
 - `package.json` 与 `package-lock.json` 版本号提升到 `1.3.6`。
+
+### 修复
+
+- 修复环境切换后拍照页仍复用 `ai-config.js` 模块加载期模型地址的问题；相机页创建检测器前改为实时读取 `envConfig.getAiConfig()` 并传入检测器。
 
 ### 验证
 
-- `npm test -- --runInBand`：18 个测试套件、145 个用例通过。
+- `npm test -- --runInBand`：18 个测试套件、148 个用例通过。
 
 ## [v1.3.5] - 2026-04-30
 

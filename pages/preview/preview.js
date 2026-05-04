@@ -6,6 +6,7 @@ const vehicleDocuments = require('../../utils/documents')
 const album = require('../../utils/album')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+const envConfig = require('../../utils/env-config')
 
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
@@ -51,6 +52,7 @@ Page({
     drivingLicenseMode: 'physical',
     activeDrivingLicenseVehicleIndex: null,
     activeDrivingLicenseSlots: [],
+    appEnvBadgeText: '',
     workflowState: workflow.STATES.IDLE
   },
 
@@ -58,6 +60,7 @@ Page({
 
   onLoad() {
     this.isLeaving = false
+    this.updateAppEnvBadge()
     if (storage.loadCacheForResume()) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
         page: 'preview'
@@ -68,6 +71,7 @@ Page({
 
   onShow() {
     this.isLeaving = false
+    this.updateAppEnvBadge()
 
     const cache = storage.loadCacheForResume()
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -82,6 +86,14 @@ Page({
       })
     }
     this.loadData()
+  },
+
+  updateAppEnvBadge() {
+    const appEnvBadgeText = envConfig.getAppEnvBadgeText()
+
+    if (this.data.appEnvBadgeText !== appEnvBadgeText) {
+      this.setData({ appEnvBadgeText })
+    }
   },
 
   loadData() {
