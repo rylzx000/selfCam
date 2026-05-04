@@ -373,7 +373,7 @@
 **Steps**:
 1. 观察顶部调试信息
 2. 将目标从未识别逐步移动到稳定可拍状态
-3. 观察 `phase / seen / hold / q / s / c / area`
+3. 观察 `phase / area / center / stable / hold`
 
 **Expected Result**:
 - 调试信息持续可见

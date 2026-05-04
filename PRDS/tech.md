@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.6（`package.json`）
+> 代码基线：v1.3.7（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-02
+> 最后更新：2026-05-04
 
 ---
 
@@ -419,7 +419,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 车牌检测间隔：`800ms`
 - 自动拍照冷却：`2500ms`
 - 车损预览轮询：`280ms`
-- 车损检测器按 `detectorEveryNFrames = 3` 降频执行
+- 车损 `SEEK` 阶段按 `detectorEveryNFrames = 3` 降频执行；进入 `HOLD / SHOOT` 后每帧执行检测，保证稳定后尽快拿到候选帧
 
 ### 4. 环境配置收口
 
@@ -538,19 +538,28 @@ SEEK -> HOLD -> SHOOT
 {
   seekMinDetectedFrames: 2,
   seekQualityThreshold: 0.22,
-  seekCenterThreshold: 0.34,
+  seekCenterThreshold: 0.42,
   minAreaRatio: 0.5,
   maxAreaRatio: 1,
   holdMinDwellMs: 240,
   holdStableFrames: 2,
   holdQualityThreshold: 0.28,
   holdStabilityThreshold: 0.42,
-  holdCenterThreshold: 0.26,
+  holdCenterThreshold: 0.34,
+  holdAreaGraceFrames: 2,
   lostGraceMs: 600,
   lostResetMs: 1200,
   lowQualityThreshold: 0.18
 }
 ```
+
+面积口径说明：
+
+- `imageAreaRatio = 检测框面积 / 整张图或整张 canvas 面积`
+- `captureAreaRatio = 检测框面积 / 车损取景框面积`
+- `areaRatio` 当前等同于 `imageAreaRatio`，下游 `DamagePhaseController / DamageMotionEstimator / DamageFrameScorer` 继续读取 `motion.areaRatio`
+- `minAreaRatio = 0.5`、`maxAreaRatio = 1` 仍表示“占车损取景框 50%～100%”的业务标准
+- 运行时会按 `captureBoxImageRatio = captureBoxArea / canvasArea` 换算 `effectiveMinAreaRatio / effectiveMaxAreaRatio`，供阶段判断和距离提示使用
 
 ### 5. 状态文案来源
 
@@ -568,6 +577,7 @@ SEEK -> HOLD -> SHOOT
 - 检测或跟踪状态健康
 - 当前阶段达到 `SHOOT`
 - `DamageFrameScorer` 能选出最佳候选帧
+- 首次识别到车损时，中心偏移直接使用当前值；HOLD 阶段短暂面积出界允许 2 帧缓冲
 
 只有 `phaseState.captureReady === true` 且存在最佳候选帧时，最终才会触发自动拍照。
 
@@ -575,20 +585,26 @@ SEEK -> HOLD -> SHOOT
 
 在车损步骤中，面积引导不再单独走旧版搜索流，而是附着在当前稳定流上：
 
-- 已识别到车损且 `areaRatio < minAreaRatio` 时：
+- 已识别到车损且 `imageAreaRatio < effectiveMinAreaRatio` 时：
   - `damageDistanceHint = 'forward'`
   - 底部状态文案切为 `请靠近一点`
-- 已识别到车损且 `areaRatio > maxAreaRatio` 时：
+- 已识别到车损且 `imageAreaRatio > effectiveMaxAreaRatio` 时：
   - `damageDistanceHint = 'backward'`
   - 底部状态文案切为 `请稍微远离`
 - 当面积重新回到阈值范围内时：
   - 清空 `damageDistanceHint`
   - 恢复 `DamagePhaseController` 产出的正常状态文案
 
-当前阈值来源仍是 `AUTO_CAPTURE.DAMAGE_FLOW.phase`：
+当前业务阈值来源仍是 `AUTO_CAPTURE.DAMAGE_FLOW.phase`：
 
 - `minAreaRatio = 0.5`
 - `maxAreaRatio = 1`
+
+实际判断使用换算后的整图比例阈值。例如当前 400x300 canvas、132x132 车损取景框下：
+
+- `captureBoxImageRatio = 132 * 132 / (400 * 300) = 0.1452`
+- `effectiveMinAreaRatio = 0.5 * 0.1452 = 0.0726`
+- `effectiveMaxAreaRatio = 1 * 0.1452 = 0.1452`
 
 ---
 

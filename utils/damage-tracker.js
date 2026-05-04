@@ -102,6 +102,8 @@ class DamageTracker {
         anchorStreak: this.anchorStreak,
         box: null,
         areaRatio: 0,
+        imageAreaRatio: 0,
+        captureAreaRatio: 0,
         scale: 0,
         centerOffset: 1,
         centerOffsetX: 1,
@@ -120,6 +122,8 @@ class DamageTracker {
       anchorStreak: this.anchorStreak,
       box: { ...this.trackBox },
       areaRatio: this.trackBox.areaRatio,
+      imageAreaRatio: this.trackBox.imageAreaRatio,
+      captureAreaRatio: this.trackBox.captureAreaRatio,
       scale: Math.sqrt(Math.max(this.trackBox.areaRatio, 0)),
       centerOffset: this.trackBox.centerOffset,
       centerOffsetX: this.trackBox.offsetX,
@@ -140,8 +144,11 @@ class DamageTracker {
     const left = centerX - width / 2
     const top = centerY - height / 2
     const area = Math.max(width * height, 0)
-    const captureArea = captureBox ? Math.max(captureBox.width * captureBox.height, 1) : 1
-    const areaRatio = area / captureArea
+    const canvasArea = Math.max(canvasWidth * canvasHeight, 1)
+    const captureArea = captureBox ? Math.max(captureBox.width * captureBox.height, 1) : canvasArea
+    const imageAreaRatio = area / canvasArea
+    const captureAreaRatio = area / captureArea
+    const areaRatio = imageAreaRatio
     const boxCenterX = captureBox ? captureBox.x + captureBox.width / 2 : canvasWidth / 2
     const boxCenterY = captureBox ? captureBox.y + captureBox.height / 2 : canvasHeight / 2
     const offsetX = captureBox ? Math.abs(centerX - boxCenterX) / Math.max(captureBox.width, 1) : 0
@@ -154,6 +161,8 @@ class DamageTracker {
       width,
       height,
       areaRatio,
+      imageAreaRatio,
+      captureAreaRatio,
       offsetX,
       offsetY,
       centerOffset: Math.sqrt(offsetX * offsetX + offsetY * offsetY),
@@ -170,6 +179,7 @@ class DamageTracker {
   predictBox(box, dtSeconds, canvasWidth, canvasHeight) {
     const nextAreaRatio = Math.max(0.0001, box.areaRatio + this.velocity.areaRatio * dtSeconds)
     const currentAreaRatio = Math.max(box.areaRatio, 0.0001)
+    const areaRatioScale = nextAreaRatio / currentAreaRatio
     const scaleFactor = Math.sqrt(nextAreaRatio / currentAreaRatio)
     const nextWidth = this.clamp(box.width * scaleFactor, 12, canvasWidth * 0.98)
     const nextHeight = this.clamp(box.height * scaleFactor, 12, canvasHeight * 0.98)
@@ -183,6 +193,8 @@ class DamageTracker {
       width: nextWidth,
       height: nextHeight,
       areaRatio: nextAreaRatio,
+      imageAreaRatio: nextAreaRatio,
+      captureAreaRatio: Math.max(0, (box.captureAreaRatio || 0) * areaRatioScale),
       x1: nextCenterX - nextWidth / 2,
       y1: nextCenterY - nextHeight / 2,
       x2: nextCenterX + nextWidth / 2,
@@ -198,6 +210,8 @@ class DamageTracker {
       width: this.mix(baseBox.width, anchorBox.width, alpha),
       height: this.mix(baseBox.height, anchorBox.height, alpha),
       areaRatio: this.mix(baseBox.areaRatio, anchorBox.areaRatio, alpha),
+      imageAreaRatio: this.mix(baseBox.imageAreaRatio || baseBox.areaRatio || 0, anchorBox.imageAreaRatio || anchorBox.areaRatio || 0, alpha),
+      captureAreaRatio: this.mix(baseBox.captureAreaRatio || 0, anchorBox.captureAreaRatio || 0, alpha),
       offsetX: this.mix(baseBox.offsetX || 0, anchorBox.offsetX || 0, alpha),
       offsetY: this.mix(baseBox.offsetY || 0, anchorBox.offsetY || 0, alpha),
       centerOffset: this.mix(baseBox.centerOffset || 0, anchorBox.centerOffset || 0, alpha),

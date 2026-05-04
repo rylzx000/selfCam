@@ -134,6 +134,14 @@ class DamageDetector {
     const best = restored[0]
     const centerX = Math.round((best.x1 + best.x2) / 2)
     const centerY = Math.round((best.y1 + best.y2) / 2)
+    const width = Math.round(best.x2 - best.x1)
+    const height = Math.round(best.y2 - best.y1)
+    const imageArea = originalWidth > 0 && originalHeight > 0
+      ? originalWidth * originalHeight
+      : 0
+    const imageAreaRatio = imageArea > 0
+      ? Math.max(width * height, 0) / imageArea
+      : 0
 
     return {
       confidence: `${(best.score * 100).toFixed(2)}%`,
@@ -141,10 +149,11 @@ class DamageDetector {
       y1: Math.round(best.y1),
       x2: Math.round(best.x2),
       y2: Math.round(best.y2),
-      width: Math.round(best.x2 - best.x1),
-      height: Math.round(best.y2 - best.y1),
+      width,
+      height,
       centerX,
       centerY,
+      imageAreaRatio,
       originalWidth,
       originalHeight
     }

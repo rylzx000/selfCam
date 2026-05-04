@@ -1,9 +1,9 @@
 # AI 自动拍照集成文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.5（`package.json`）
+> 代码基线：v1.3.7（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-04-30
+> 最后更新：2026-05-04
 
 ---
 
@@ -256,31 +256,39 @@ SEEK -> HOLD -> SHOOT
 AUTO_CAPTURE.DAMAGE_FLOW.phase = {
   seekMinDetectedFrames: 2,
   seekQualityThreshold: 0.22,
-  seekCenterThreshold: 0.34,
+  seekCenterThreshold: 0.42,
   minAreaRatio: 0.5,
   maxAreaRatio: 1,
   holdMinDwellMs: 240,
   holdStableFrames: 2,
   holdQualityThreshold: 0.28,
   holdStabilityThreshold: 0.42,
-  holdCenterThreshold: 0.26,
+  holdCenterThreshold: 0.34,
+  holdAreaGraceFrames: 2,
   lostGraceMs: 600,
   lostResetMs: 1200,
   lowQualityThreshold: 0.18
 }
 ```
 
+面积口径：
+
+- `imageAreaRatio = 检测框面积 / 整张图面积`
+- `captureAreaRatio = 检测框面积 / 车损取景框面积`
+- `areaRatio` 当前等同于 `imageAreaRatio`
+- `minAreaRatio / maxAreaRatio` 仍表示“占车损取景框 50%～100%”的业务标准，运行时会换算为整图比例阈值
+
 ### 5. 车损面积引导
 
 当前车损页不是旧版“远近搜索流”，但在已识别到车损后，仍会基于面积比例给出轻量方向提示：
 
-- `areaRatio < 0.5`
+- `imageAreaRatio < effectiveMinAreaRatio`
   - 显示向前静态箭头
   - 底部状态切为 `请靠近一点`
-- `areaRatio > 1.0`
+- `imageAreaRatio > effectiveMaxAreaRatio`
   - 显示向后静态箭头
   - 底部状态切为 `请稍微远离`
-- `0.5 <= areaRatio <= 1.0`
+- `effectiveMinAreaRatio <= imageAreaRatio <= effectiveMaxAreaRatio`
   - 收起箭头
   - 恢复 `SEEK / HOLD / SHOOT` 自身的状态文案
 
@@ -293,6 +301,8 @@ AUTO_CAPTURE.DAMAGE_FLOW.phase = {
 ### 6. 候选帧选择
 
 在 `HOLD` 或 `SHOOT` 阶段，只要有检测框和 `previewPath`，就会把候选帧送入 `DamageFrameScorer`。
+
+`HOLD / SHOOT` 阶段每帧运行车损检测，避免稳定后因降频检测迟迟没有候选帧。
 
 最终自动拍照成立条件：
 

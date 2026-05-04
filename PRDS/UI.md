@@ -1,9 +1,9 @@
 # UI 设计文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.6（`package.json`）
+> 代码基线：v1.3.7（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-02
+> 最后更新：2026-05-04
 
 ---
 
@@ -212,12 +212,10 @@
 仅非 `release` 环境显示：
 
 - `phase`
-- `seen`
-- `hold`
-- `track quality`
-- `stability`
-- `center offset`
-- `area`
+- `area`：当前车损框整图面积占比 / 当前有效范围
+- `center`：车损中心偏移
+- `stable`：稳定度
+- `hold`：HOLD 阶段连续稳定帧数
 
 正式用户态不默认暴露这组调试文本。
 

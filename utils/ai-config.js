@@ -71,14 +71,15 @@ const AUTO_CAPTURE = {
     phase: {
       seekMinDetectedFrames: 2,
       seekQualityThreshold: 0.22,
-      seekCenterThreshold: 0.34,
+      seekCenterThreshold: 0.42,
       minAreaRatio: 0.5,
       maxAreaRatio: 1,
       holdMinDwellMs: 240,
       holdStableFrames: 2,
       holdQualityThreshold: 0.28,
       holdStabilityThreshold: 0.42,
-      holdCenterThreshold: 0.26,
+      holdCenterThreshold: 0.34,
+      holdAreaGraceFrames: 2,
       lostGraceMs: 600,
       lostResetMs: 1200,
       lowQualityThreshold: 0.18

@@ -436,7 +436,11 @@ Page({
       return ''
     }
 
-    return `phase ${searchState.phase || 'SEEK'} | seen ${searchState.detectedFrames || 0} | hold ${searchState.holdStableCount || 0} | q ${(debug.trackQuality || 0).toFixed(2)} | s ${(debug.stability || 0).toFixed(2)} | c ${(debug.centerOffset || 0).toFixed(2)} | area ${((debug.areaRatio || 0) * 100).toFixed(1)}%`
+    const imageAreaRatio = Number.isFinite(debug.imageAreaRatio) ? debug.imageAreaRatio : (debug.areaRatio || 0)
+    const minAreaRatio = Number.isFinite(debug.effectiveMinAreaRatio) ? debug.effectiveMinAreaRatio : 0
+    const maxAreaRatio = Number.isFinite(debug.effectiveMaxAreaRatio) ? debug.effectiveMaxAreaRatio : 0
+
+    return `phase ${searchState.phase || 'SEEK'} | area ${(imageAreaRatio * 100).toFixed(1)}%/${(minAreaRatio * 100).toFixed(1)}-${(maxAreaRatio * 100).toFixed(1)}% | center ${(debug.centerOffset || 0).toFixed(2)} | stable ${(debug.stability || 0).toFixed(2)} | hold ${searchState.holdStableCount || 0}`
   },
 
   setDataIfChanged(updates = {}) {
@@ -589,9 +593,16 @@ Page({
       }
     }
 
-    const minAreaRatio = AUTO_CAPTURE.DAMAGE_FLOW.phase.minAreaRatio
-    const maxAreaRatio = AUTO_CAPTURE.DAMAGE_FLOW.phase.maxAreaRatio
-    const areaRatio = damageState.debug?.areaRatio || 0
+    const debug = damageState.debug || {}
+    const minAreaRatio = Number.isFinite(debug.effectiveMinAreaRatio)
+      ? debug.effectiveMinAreaRatio
+      : AUTO_CAPTURE.DAMAGE_FLOW.phase.minAreaRatio
+    const maxAreaRatio = Number.isFinite(debug.effectiveMaxAreaRatio)
+      ? debug.effectiveMaxAreaRatio
+      : AUTO_CAPTURE.DAMAGE_FLOW.phase.maxAreaRatio
+    const areaRatio = Number.isFinite(debug.imageAreaRatio)
+      ? debug.imageAreaRatio
+      : (debug.areaRatio || 0)
 
     if (areaRatio < minAreaRatio) {
       return {

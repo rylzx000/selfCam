@@ -31,7 +31,27 @@ class DamageAutoCaptureEngine {
 
   shouldRunDetector() {
     this.previewFrameCount += 1
+    if (this.phaseController.phase === 'HOLD' || this.phaseController.phase === 'SHOOT') {
+      return true
+    }
     return this.previewFrameCount === 1 || this.previewFrameCount % Math.max(this.config.detectorEveryNFrames, 1) === 0
+  }
+
+  getEffectiveAreaRatioRange(captureBox, canvasWidth, canvasHeight) {
+    const canvasArea = Math.max((canvasWidth || 0) * (canvasHeight || 0), 1)
+    const captureBoxArea = captureBox
+      ? Math.max((captureBox.width || 0) * (captureBox.height || 0), 0)
+      : canvasArea
+    const captureBoxImageRatio = captureBoxArea > 0 ? captureBoxArea / canvasArea : 1
+    const phaseConfig = this.config.phase || {}
+    const minAreaRatio = Number.isFinite(phaseConfig.minAreaRatio) ? phaseConfig.minAreaRatio : 0.5
+    const maxAreaRatio = Number.isFinite(phaseConfig.maxAreaRatio) ? phaseConfig.maxAreaRatio : 1
+
+    return {
+      captureBoxImageRatio,
+      effectiveMinAreaRatio: minAreaRatio * captureBoxImageRatio,
+      effectiveMaxAreaRatio: maxAreaRatio * captureBoxImageRatio
+    }
   }
 
   update(frame = {}) {
@@ -54,6 +74,11 @@ class DamageAutoCaptureEngine {
       timestamp
     })
     const motionState = this.motionEstimator.update(trackingState, timestamp)
+    const areaRatioRange = this.getEffectiveAreaRatioRange(captureBox, canvasWidth, canvasHeight)
+    this.phaseController.setAreaRatioRange(
+      areaRatioRange.effectiveMinAreaRatio,
+      areaRatioRange.effectiveMaxAreaRatio
+    )
     const phaseState = this.phaseController.update({
       motion: motionState,
       timestamp
@@ -90,7 +115,11 @@ class DamageAutoCaptureEngine {
         trackQuality: motionState.trackQuality || 0,
         stability: motionState.stability || 0,
         centerOffset: motionState.centerOffset || 0,
-        areaRatio: motionState.areaRatio || 0
+        areaRatio: motionState.areaRatio || 0,
+        imageAreaRatio: motionState.imageAreaRatio || motionState.areaRatio || 0,
+        captureAreaRatio: motionState.captureAreaRatio || 0,
+        effectiveMinAreaRatio: areaRatioRange.effectiveMinAreaRatio,
+        effectiveMaxAreaRatio: areaRatioRange.effectiveMaxAreaRatio
       },
       aiDetection: {
         detected: !!(detection || bestCandidate),

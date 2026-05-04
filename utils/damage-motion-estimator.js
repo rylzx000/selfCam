@@ -29,12 +29,18 @@ class DamageMotionEstimator {
       ? (trackState.centerOffset || 0)
       : Math.min(1, this.smoothedCenterOffset + dtSeconds * 0.3)
 
+    const hasTrackedHistory = this.history.some((item) => item.hasTrack)
     this.smoothedQuality = this.ema(this.smoothedQuality, rawQuality, this.config.qualityAlpha)
-    this.smoothedCenterOffset = this.ema(this.smoothedCenterOffset, rawCenterOffset, this.config.centerAlpha)
+    this.smoothedCenterOffset = hasTrack && !hasTrackedHistory
+      ? rawCenterOffset
+      : this.ema(this.smoothedCenterOffset, rawCenterOffset, this.config.centerAlpha)
     this.lastTimestamp = timestamp
+    const areaRatio = trackState.areaRatio || 0
+    const imageAreaRatio = trackState.imageAreaRatio || areaRatio
+    const captureAreaRatio = trackState.captureAreaRatio || 0
 
     this.pushHistory({
-      areaRatio: trackState.areaRatio || 0,
+      areaRatio,
       centerOffset: this.smoothedCenterOffset,
       trackQuality: this.smoothedQuality,
       hasTrack
@@ -45,7 +51,9 @@ class DamageMotionEstimator {
       trackQuality: this.smoothedQuality,
       centerOffset: this.smoothedCenterOffset,
       stability: this.computeStability(),
-      areaRatio: trackState.areaRatio || 0,
+      areaRatio,
+      imageAreaRatio,
+      captureAreaRatio,
       clipped: !!trackState.clipped,
       anchorAgeMs: trackState.anchorAgeMs || Number.MAX_SAFE_INTEGER,
       anchorStreak: trackState.anchorStreak || 0,

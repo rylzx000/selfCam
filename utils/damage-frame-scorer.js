@@ -31,13 +31,17 @@ class DamageFrameScorer {
     this.prune(timestamp)
 
     const confidenceScore = this.normalizeConfidence(detection.confidence)
-    const centerScore = this.scoreCenter(motion.centerOffset || 0)
+    const centerOffset = Number.isFinite(motion.centerOffset) ? motion.centerOffset : 1
+    const centerScore = this.scoreCenter(centerOffset)
     const stabilityScore = this.clamp(motion.stability || 0, 0, 1)
     const qualityScore = this.clamp(motion.trackQuality || 0, 0, 1)
     const exposureScore = this.scoreExposure(confidenceScore, qualityScore, track.clipped)
     const penalty = this.computePenalty({
       confidenceScore,
-      motion,
+      motion: {
+        ...motion,
+        centerOffset
+      },
       track
     })
 
