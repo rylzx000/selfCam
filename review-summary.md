@@ -21,8 +21,11 @@
 
 ## 本地验证
 
-- `node --check` 已覆盖 6 个新增 JS 文件，通过。
-- `npm run test:e2e:p0` 通过：5 个 P0 spec 通过，1 个非 P0 suite 跳过，12 个 P0 用例全部通过。
+- 远程 main clean checkout 验证目录：`D:\project\selfCam-clean-main-verify-20260505-140755`，HEAD=`3922394`。
+- 已确认 9 个目标 JS 文件不是一整行压缩格式，未发现 `const ... const ...` 连在同一行的问题。
+- `node --check` 已覆盖 6 个新增 JS 文件，全部通过。
+- `npm run test:e2e:p0` 已在 clean checkout 下执行，实际结果未通过：5 个 P0 spec 失败，1 个非 P0 suite 跳过，12 个 P0 用例失败，12 个非 P0 用例跳过。
+- 失败点在 `launchMiniProgram()` 阶段：`miniprogram-automator` 的 `MiniProgram.checkVersion` 读取到的开发者工具版本为 `undefined`，触发 `TypeError: Cannot read properties of undefined (reading 'split')`。这不是 JS 格式或语法错误。
 
 ## 仍需真机手测
 
