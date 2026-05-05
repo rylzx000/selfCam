@@ -27,6 +27,39 @@ const DAMAGE_DISTANCE_HINT_TEXT = {
 const VIN_GUIDE_TIP = '\u8bf7\u5bf9\u51c6\u524d\u6321\u98ce\u73bb\u7483\u5de6\u4e0b\u89d2VIN\u7801\uff0c\u62cd\u6e05\u5b8c\u6574\u5b57\u7b26'
 const CONFIRM_USE_TEXT = '\u786e\u8ba4\u4f7f\u7528'
 const RETAKE_TEXT = '\u91cd\u65b0\u62cd\u6444'
+const MAX_TOTAL_PHOTOS = (constants.LIMITS && constants.LIMITS.MAX_TOTAL_PHOTOS) || 50
+const TOTAL_PHOTO_LIMIT_TIP = `最多${MAX_TOTAL_PHOTOS}张，请先删除`
+
+function countStoredPhotos(cache) {
+  let total = 0
+  const vehicles = Array.isArray(cache && cache.vehicles) ? cache.vehicles : []
+  const documents = Array.isArray(cache && cache.documents) ? cache.documents : []
+
+  vehicles.forEach((vehicle) => {
+    if (vehicle.licensePlate && vehicle.licensePlate.compressedPath) total += 1
+    if (vehicle.vinCode && vehicle.vinCode.compressedPath) total += 1
+    if (Array.isArray(vehicle.damages)) total += vehicle.damages.filter((photo) => photo && photo.compressedPath).length
+    if (Array.isArray(vehicle.documents)) total += vehicle.documents.filter((photo) => photo && photo.compressedPath).length
+  })
+
+  total += documents.filter((photo) => photo && photo.compressedPath).length
+  return total
+}
+
+function isTotalPhotoLimitReached(cache) {
+  if (typeof cacheSelectors.getCacheSummary === 'function') {
+    return cacheSelectors.getCacheSummary(cache).totalPhotos >= MAX_TOTAL_PHOTOS
+  }
+
+  return countStoredPhotos(cache) >= MAX_TOTAL_PHOTOS
+}
+
+function showTotalPhotoLimitToast() {
+  wx.showToast({
+    title: TOTAL_PHOTO_LIMIT_TIP,
+    icon: 'none'
+  })
+}
 
 Page({
   data: {
@@ -1154,6 +1187,11 @@ Page({
     if (!cache || !pendingPhoto) return
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+
+    if (isTotalPhotoLimitReached(cache)) {
+      showTotalPhotoLimitToast()
+      return
+    }
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
     if (!currentVehicle) return

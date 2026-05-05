@@ -1,8 +1,23 @@
 const storage = require('../../utils/storage')
 const cacheSelectors = require('../../utils/cache-selectors')
+const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+
+const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
+
+function getRemainingTotalPhotoCount(cache) {
+  const summary = cacheSelectors.getCacheSummary(cache)
+  return Math.max(constants.LIMITS.MAX_TOTAL_PHOTOS - summary.totalPhotos, 0)
+}
+
+function showTotalPhotoLimitToast() {
+  wx.showToast({
+    title: TOTAL_PHOTO_LIMIT_TIP,
+    icon: 'none'
+  })
+}
 
 Page({
   data: {
@@ -61,6 +76,17 @@ Page({
   onTakePhoto() {
     this.setData({ showActionSheet: false })
 
+    const cacheBeforeChoose = storage.loadCache()
+    if (!cacheBeforeChoose) {
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    if (getRemainingTotalPhotoCount(cacheBeforeChoose) <= 0) {
+      showTotalPhotoLimitToast()
+      return
+    }
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -102,17 +128,28 @@ Page({
       return
     }
 
+    const remainingTotalCount = getRemainingTotalPhotoCount(cache)
+    if (remainingTotalCount <= 0) {
+      showTotalPhotoLimitToast()
+      return
+    }
+
     wx.chooseMedia({
-      count: documentSummary.remainingCount,
+      count: Math.min(documentSummary.remainingCount, remainingTotalCount),
       mediaType: ['image'],
       sourceType: ['album'],
       success: async (res) => {
         wx.showLoading({ title: '处理中...' })
         try {
+          let addedCount = 0
           for (const file of res.tempFiles) {
+            if (addedCount >= remainingTotalCount) {
+              break
+            }
             const photo = await compress.compressImage(file.tempFilePath)
             photo.source = 'album'
             cache.documents.push(photo)
+            addedCount += 1
           }
           storage.saveCache(cache)
 

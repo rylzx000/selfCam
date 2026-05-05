@@ -159,11 +159,18 @@ async function waitForCondition(check, timeoutMs = 3000, intervalMs = 100) {
   throw new Error(`等待条件超时: ${timeoutMs}ms`)
 }
 
-async function installWxMediaMocks(miniProgram, mode = 'success') {
+async function installWxMediaMocks(miniProgram, mode = 'success', mockOptions = {}) {
+  if (mode && typeof mode === 'object') {
+    mockOptions = mode
+    mode = mockOptions.mode || 'success'
+  }
+
   await miniProgram.evaluate(function (payload) {
     var mode = payload.mode
+    var mockOptions = payload.mockOptions || {}
     wx.__e2eMedia = {
       mode,
+      mockOptions,
       chooseMediaCalls: 0,
       compressImageCalls: 0,
       getFileInfoCalls: 0,
@@ -171,7 +178,30 @@ async function installWxMediaMocks(miniProgram, mode = 'success') {
       hideLoadingCalls: 0,
       loadingVisible: false,
       showActionSheetCalls: 0,
+      showModalCalls: 0,
+      modalContents: [],
+      saveAlbumCalls: 0,
       toastTitles: []
+    }
+
+    function buildMediaFiles(options) {
+      var requestedCount = Number(options && options.count)
+      var count = Number.isFinite(requestedCount) ? Math.max(requestedCount, 0) : 1
+      var explicitPaths = Array.isArray(mockOptions.mediaPaths) ? mockOptions.mediaPaths : []
+      var defaultMediaCount = count === 0 ? 0 : 1
+      var mediaCount = Number.isFinite(mockOptions.mediaCount) ? mockOptions.mediaCount : defaultMediaCount
+      var finalCount = explicitPaths.length ? explicitPaths.length : mediaCount
+      var files = []
+
+      for (var index = 0; index < finalCount; index += 1) {
+        var path = explicitPaths[index] || `wxfile://tmp/e2e-media-${wx.__e2eMedia.chooseMediaCalls}-${index}.jpg`
+        files.push({
+          tempFilePath: path,
+          size: 1024 + index
+        })
+      }
+
+      return files
     }
 
     wx.chooseMedia = function (options) {
@@ -180,7 +210,7 @@ async function installWxMediaMocks(miniProgram, mode = 'success') {
       setTimeout(function () {
         if (mode === 'success') {
           options.success && options.success({
-            tempFiles: [{ tempFilePath: 'wxfile://tmp/e2e-document.jpg', size: 1024 }]
+            tempFiles: buildMediaFiles(options)
           })
         } else if (mode === 'cancel') {
           options.fail && options.fail({ errMsg: 'chooseMedia:fail cancel' })
@@ -195,7 +225,10 @@ async function installWxMediaMocks(miniProgram, mode = 'success') {
       options = options || {}
       wx.__e2eMedia.compressImageCalls += 1
       setTimeout(function () {
-        options.success && options.success({ tempFilePath: 'wxfile://tmp/e2e-compressed.jpg' })
+        var compressedPath = mockOptions.uniqueCompressedPath
+          ? `wxfile://tmp/e2e-compressed-${wx.__e2eMedia.compressImageCalls}.jpg`
+          : 'wxfile://tmp/e2e-compressed.jpg'
+        options.success && options.success({ tempFilePath: compressedPath })
         options.complete && options.complete({})
       }, 0)
     }
@@ -227,10 +260,32 @@ async function installWxMediaMocks(miniProgram, mode = 'success') {
     wx.showActionSheet = function (options) {
       options = options || {}
       wx.__e2eMedia.showActionSheetCalls += 1
-      options.success && options.success({ tapIndex: 0 })
+      var tapIndex = Number.isInteger(mockOptions.actionSheetTapIndex)
+        ? mockOptions.actionSheetTapIndex
+        : 0
+      options.success && options.success({ tapIndex })
       options.complete && options.complete({})
     }
-  }, { mode })
+
+    wx.showModal = function (options) {
+      options = options || {}
+      wx.__e2eMedia.showModalCalls += 1
+      wx.__e2eMedia.modalContents.push(options.content || '')
+      var confirm = mockOptions.modalConfirm !== false
+      options.success && options.success({
+        confirm,
+        cancel: !confirm
+      })
+      options.complete && options.complete({})
+    }
+
+    wx.saveImageToPhotosAlbum = function (options) {
+      options = options || {}
+      wx.__e2eMedia.saveAlbumCalls += 1
+      options.success && options.success({})
+      options.complete && options.complete({})
+    }
+  }, { mode, mockOptions })
 }
 
 async function getWxMediaState(miniProgram) {
@@ -315,6 +370,20 @@ async function setCurrentPageFields(miniProgram, fields = {}) {
   }, { fields })
 }
 
+async function callCurrentPageMethodAsync(miniProgram, methodName, ...args) {
+  return miniProgram.evaluate(function (payload) {
+    const pages = getCurrentPages()
+    const page = pages[pages.length - 1]
+    if (!page || typeof page[payload.methodName] !== 'function') return false
+
+    setTimeout(function () {
+      page[payload.methodName].apply(page, payload.args || [])
+    }, 0)
+
+    return true
+  }, { methodName, args })
+}
+
 module.exports = {
   launchMiniProgram,
   closeMiniProgram,
@@ -329,5 +398,6 @@ module.exports = {
   getWxMediaState,
   patchCameraAiForE2E,
   getCameraAiState,
-  setCurrentPageFields
+  setCurrentPageFields,
+  callCurrentPageMethodAsync
 }

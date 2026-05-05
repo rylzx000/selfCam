@@ -6,6 +6,18 @@
 
 ## [v1.3.7] - 2026-05-04
 
+### 追加 - 2026-05-05
+
+- 新增总照片容量上限 `LIMITS.MAX_TOTAL_PHOTOS = 50`，在拍照确认、预览页补拍/上传、备用单证页上传入口统一拦截，达到上限时提示 `最多50张，请先删除`。
+- 扩充微信开发者工具 e2e P0 自动化，新增容量边界、删除后补拍、重拍替换、多车满图、提交一致性和恢复乱序场景。
+- 新增 `e2e/support/scenario-builder.js`，集中构造满图、多车、近 50 张容量场景，并提供图片路径收集和重复路径断言。
+- 新增 `test:e2e:capacity`、`test:e2e:chaos`、`test:e2e:p0`、`test:e2e:full` 脚本。
+
+### 追加验证 - 2026-05-05
+
+- `npm test -- --runInBand`：18 个测试套件、156 个用例通过。
+- `npm run test:e2e:p0`：5 个 e2e 测试文件、12 个 P0 用例通过。
+
 ### 变更
 
 - 车损 `areaRatio` 口径调整为检测框占整张图面积比例，并保留 `imageAreaRatio` 与 `captureAreaRatio` 便于调试和后续归档。

@@ -76,3 +76,30 @@ npm run test:automator:legacy
 - 车损模型真实加载、推理性能、自动拍照准确率。
 - 低端机横屏相机预览、cover-view 覆盖层渲染和卡顿。
 - 微信开发者工具无法完全模拟的相册取消/系统级异常。
+
+## 2026-05 P0 e2e 扩充
+
+新增范围：
+
+- `capacity-boundary.spec.js`：单车满图、50 张总容量上限、删除后容量释放。
+- `delete-retake-replenish.spec.js`：删除第一张/中间/最后/全部车损后补拍，校验顺序、索引、旧图清理和 cache。
+- `multi-vehicle-chaos.spec.js`：多车满图下删除 A 车、重拍 B 车，校验车辆间 damages/documents 不串车。
+- `submit-consistency.spec.js`：多车满图加单证补齐后完成页统计，以及删除/重拍后最终 cache/payload 不带旧图。
+- `recovery-chaos.spec.js`：删除/补拍/重拍后退出重进，校验页面统计与 cache 一致。
+
+新增运行命令：
+
+```powershell
+npm run test:e2e:capacity
+npm run test:e2e:chaos
+npm run test:e2e:p0
+npm run test:e2e:full
+```
+
+仍需真机手测：
+
+- 真实相机授权、拒绝授权、系统权限弹窗。
+- 真机拍照、相册选择、系统压缩耗时、大图内存压力。
+- 真实 50 张图片下的设备存储、预览滑动、删除确认和上传体验。
+- AI 模型真实加载、车损自动识别、自动拍照准确率。
+- 微信开发者工具无法完整模拟的系统级相册取消、权限异常和低端机横屏渲染。

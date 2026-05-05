@@ -151,6 +151,30 @@ npm run test:e2e
 npm run test:automator:smoke
 ```
 
+只跑新增容量边界：
+
+```powershell
+npm run test:e2e:capacity
+```
+
+只跑新增复杂操作/破坏性子集：
+
+```powershell
+npm run test:e2e:chaos
+```
+
+只跑本轮 P0 e2e：
+
+```powershell
+npm run test:e2e:p0
+```
+
+跑完整页面自动化：
+
+```powershell
+npm run test:e2e:full
+```
+
 旧版脚本仍保留为：
 
 ```powershell
@@ -197,8 +221,8 @@ $env:E2E_TIMEOUT_MS="90000"
 - `node --check pages\preview\preview.js`：通过。
 - `node --check components\confirm-modal\confirm-modal.js`：通过。
 - `git diff --check`：通过。
-- `npm test -- --runInBand`：18 个测试套件、130 个用例通过。
-- 本轮未重新运行 `npm run test:automator`；页面自动化仍按下方命令在微信开发者工具环境验证。
+- `npm test -- --runInBand`：18 个测试套件、156 个用例通过。
+- `npm run test:e2e:p0`：5 个 e2e 测试文件、12 个 P0 用例通过。
 
 ## 哪些场景仍建议手工验证
 

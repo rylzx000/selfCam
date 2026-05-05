@@ -10,6 +10,23 @@ const envConfig = require('../../utils/env-config')
 
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
+const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
+
+function getRemainingTotalPhotoCount(cache) {
+  const summary = cacheSelectors.getCacheSummary(cache)
+  return Math.max(constants.LIMITS.MAX_TOTAL_PHOTOS - summary.totalPhotos, 0)
+}
+
+function canAddNewPhoto(cache) {
+  return getRemainingTotalPhotoCount(cache) > 0
+}
+
+function showTotalPhotoLimitToast() {
+  wx.showToast({
+    title: TOTAL_PHOTO_LIMIT_TIP,
+    icon: 'none'
+  })
+}
 
 function buildDrivingLicensePreview(vehicle, index) {
   return {
@@ -282,6 +299,24 @@ Page({
 
   chooseDrivingLicenseImage(docSide, sourceType) {
     return new Promise((resolve) => {
+      const cacheBeforeChoose = storage.loadCache()
+
+      if (!cacheBeforeChoose) {
+        this.isLeaving = true
+        wx.redirectTo({ url: '/pages/index/index' })
+        resolve(null)
+        return
+      }
+
+      const activeVehicle = cacheBeforeChoose.vehicles[this.data.activeDrivingLicenseVehicleIndex]
+      const existingDocument = vehicleDocuments.getDrivingLicenseDocumentBySide(activeVehicle, docSide)
+
+      if (!existingDocument && !canAddNewPhoto(cacheBeforeChoose)) {
+        showTotalPhotoLimitToast()
+        resolve(null)
+        return
+      }
+
       wx.chooseMedia({
         count: 1,
         mediaType: ['image'],
@@ -412,6 +447,11 @@ Page({
     if (!cache) {
       this.isLeaving = true
       wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    if (!canAddNewPhoto(cache)) {
+      showTotalPhotoLimitToast()
       return
     }
 
@@ -650,6 +690,18 @@ Page({
   onTakePhoto() {
     this.setData({ showActionSheet: false })
 
+    const cacheBeforeChoose = storage.loadCache()
+    if (!cacheBeforeChoose) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    if (!canAddNewPhoto(cacheBeforeChoose)) {
+      showTotalPhotoLimitToast()
+      return
+    }
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -697,17 +749,28 @@ Page({
       return
     }
 
+    const remainingTotalCount = getRemainingTotalPhotoCount(cache)
+    if (remainingTotalCount <= 0) {
+      showTotalPhotoLimitToast()
+      return
+    }
+
     wx.chooseMedia({
-      count: documentSummary.remainingCount,
+      count: Math.min(documentSummary.remainingCount, remainingTotalCount),
       mediaType: ['image'],
       sourceType: ['album'],
       success: async (res) => {
         wx.showLoading({ title: '处理中...' })
         try {
+          let addedCount = 0
           for (const file of res.tempFiles) {
+            if (addedCount >= remainingTotalCount) {
+              break
+            }
             const photo = await compress.compressImage(file.tempFilePath)
             photo.source = 'album'
             cache.documents.push(photo)
+            addedCount += 1
           }
           storage.saveCache(cache)
           workflowPage.syncPageWorkflowState(this, workflow.STATES.DOCUMENTING, {

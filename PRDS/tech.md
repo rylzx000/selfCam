@@ -669,6 +669,22 @@ onSubmit()
 - `cancel`：左侧按钮
 - `masktap`：点击空白遮罩，只关闭弹窗
 
+### 6. 总照片容量上限
+
+总照片数通过 `cacheSelectors.getCacheSummary(cache).totalPhotos` 统计，范围包含：
+
+- 车辆车牌、VIN、车损照片。
+- 车辆级行驶证资料 `vehicle.documents[]`。
+- 兼容保留的根级 `documents[]`。
+
+`utils/constants.js` 维护 `LIMITS.MAX_TOTAL_PHOTOS = 50`。以下新增入口必须先检查容量：
+
+- 拍照页 `onConfirmPhoto()`。
+- 预览页 `onAddDamage()`、`chooseDrivingLicenseImage()`、`onTakePhoto()`、`onChooseAlbum()`。
+- 备用单证页 `onTakePhoto()`、`onChooseAlbum()`。
+
+达到上限时只显示 `最多50张，请先删除`，不写入 cache，不触发新增图片流程。删除任意照片后，容量即时释放。
+
 ---
 
 ## 十二、测试与自动化
@@ -685,6 +701,7 @@ onSubmit()
 - 预览页添加图片成功、取消、失败兜底
 - 车损 AI 在 `onCameraInitDone()` 后恢复检测且不重复启动循环
 - 连续确认/重拍、连续打开关闭添加图片弹层、快速步骤切换和损坏缓存恢复等破坏性场景
+- P0 容量边界、删除补拍、重拍替换、多车满图、提交一致性和恢复乱序场景
 
 自动化环境通过以下变量配置：
 
@@ -692,6 +709,15 @@ onSubmit()
 - `MINIPROGRAM_PROJECT_PATH`
 - `MINIPROGRAM_AUTOMATOR_PORT`
 - `E2E_TIMEOUT_MS`
+
+新增 e2e 命令：
+
+```powershell
+npm run test:e2e:capacity
+npm run test:e2e:chaos
+npm run test:e2e:p0
+npm run test:e2e:full
+```
 
 ## 十三、当前已知实现备注
 
