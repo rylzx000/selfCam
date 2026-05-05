@@ -22,7 +22,7 @@
 ## 本地验证
 
 - `node --check` 已覆盖 6 个新增 JS 文件，通过。
-- `npm run test:e2e:p0` 通过：5 个 spec，12 个 P0 用例全部通过。
+- `npm run test:e2e:p0` 通过：5 个 P0 spec 通过，1 个非 P0 suite 跳过，12 个 P0 用例全部通过。
 
 ## 仍需真机手测
 

@@ -96,6 +96,13 @@ npm run test:e2e:p0
 npm run test:e2e:full
 ```
 
+脚本范围：
+
+- `test:e2e:capacity`：只跑 `capacity-boundary`。
+- `test:e2e:chaos`：只跑 `delete-retake-replenish`、`multi-vehicle-chaos`、`recovery-chaos`。
+- `test:e2e:p0`：按用例名匹配 `P0`。
+- `test:e2e:full`：跑完整 e2e 套件。
+
 仍需真机手测：
 
 - 真实相机授权、拒绝授权、系统权限弹窗。

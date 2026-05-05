@@ -5,9 +5,9 @@
   "scripts": {
     "test": "jest",
     "test:e2e": "jest --config e2e/jest.config.js --runInBand",
-    "test:e2e:capacity": "jest --config e2e/jest.config.js --runInBand --testPathPattern=\"capacity-boundary\"",
-    "test:e2e:chaos": "jest --config e2e/jest.config.js --runInBand --testPathPattern=\"(delete-retake-replenish|multi-vehicle-chaos|recovery-chaos)\"",
-    "test:e2e:p0": "jest --config e2e/jest.config.js --runInBand --testPathPattern=\"(capacity-boundary|delete-retake-replenish|multi-vehicle-chaos|submit-consistency|recovery-chaos)\"",
+    "test:e2e:capacity": "jest --config e2e/jest.config.js --runInBand --testPathPattern=capacity-boundary",
+    "test:e2e:chaos": "jest --config e2e/jest.config.js --runInBand --testPathPattern=\"delete-retake-replenish|multi-vehicle-chaos|recovery-chaos\"",
+    "test:e2e:p0": "jest --config e2e/jest.config.js --runInBand --testNamePattern=\"P0\"",
     "test:e2e:full": "jest --config e2e/jest.config.js --runInBand",
     "test:automator": "jest --config e2e/jest.config.js --runInBand",
     "test:automator:legacy": "node e2e/run-tests.js",
