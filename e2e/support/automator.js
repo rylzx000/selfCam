@@ -384,6 +384,72 @@ async function callCurrentPageMethodAsync(miniProgram, methodName, ...args) {
   }, { methodName, args })
 }
 
+async function saveRetakenDamageForE2E(miniProgram, vehicleIndex, damageIndex, photo) {
+  return miniProgram.evaluate(function (payload) {
+    const raw = wx.getStorageSync(payload.key)
+    const cache = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const vehicle = cache && cache.vehicles && cache.vehicles[payload.vehicleIndex]
+
+    if (!vehicle || !Array.isArray(vehicle.damages) || !vehicle.damages[payload.damageIndex]) {
+      return false
+    }
+
+    vehicle.damages[payload.damageIndex] = payload.photo
+    cache.retakeMode = {
+      enabled: false,
+      vehicleIndex: null,
+      photoType: null,
+      damageIndex: null
+    }
+    cache.fromPreview = false
+    cache.updatedAt = new Date().toISOString()
+
+    wx.setStorageSync(payload.key, JSON.stringify(cache))
+    return true
+  }, {
+    key: STORAGE_KEY,
+    vehicleIndex,
+    damageIndex,
+    photo
+  })
+}
+
+async function appendDamageForE2E(miniProgram, vehicleIndex, photo) {
+  return miniProgram.evaluate(function (payload) {
+    const raw = wx.getStorageSync(payload.key)
+    const cache = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const vehicle = cache && cache.vehicles && cache.vehicles[payload.vehicleIndex]
+
+    if (!vehicle) {
+      return false
+    }
+
+    if (!Array.isArray(vehicle.damages)) {
+      vehicle.damages = []
+    }
+
+    vehicle.damages.push(payload.photo)
+    cache.currentVehicleIndex = payload.vehicleIndex
+    cache.currentStep = 'damage'
+    cache.currentDamageCount = vehicle.damages.length
+    cache.retakeMode = {
+      enabled: false,
+      vehicleIndex: null,
+      photoType: null,
+      damageIndex: null
+    }
+    cache.fromPreview = false
+    cache.updatedAt = new Date().toISOString()
+
+    wx.setStorageSync(payload.key, JSON.stringify(cache))
+    return true
+  }, {
+    key: STORAGE_KEY,
+    vehicleIndex,
+    photo
+  })
+}
+
 module.exports = {
   launchMiniProgram,
   closeMiniProgram,
@@ -399,5 +465,7 @@ module.exports = {
   patchCameraAiForE2E,
   getCameraAiState,
   setCurrentPageFields,
-  callCurrentPageMethodAsync
+  callCurrentPageMethodAsync,
+  saveRetakenDamageForE2E,
+  appendDamageForE2E
 }

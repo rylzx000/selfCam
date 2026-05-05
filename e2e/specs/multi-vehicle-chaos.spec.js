@@ -6,7 +6,7 @@ const {
   seedCache,
   readCache,
   installWxMediaMocks,
-  callCurrentPageMethodAsync
+  saveRetakenDamageForE2E
 } = require('../support/automator')
 const { createPhoto } = require('../support/fixtures')
 const {
@@ -82,14 +82,8 @@ async function retakeDamage(page, miniProgram, vehicleIndex, damageIndex, newPat
     damage: damageIndex
   }))
   await wait(100)
-  await page.callMethod('onRetake')
 
-  const cameraPage = await waitForCondition(async () => {
-    const current = await miniProgram.currentPage()
-    return current.path && current.path.includes('camera') ? current : null
-  }, 8000)
-
-  await callCurrentPageMethodAsync(miniProgram, 'savePhoto', buildRetakePhoto(newPathKey))
+  await saveRetakenDamageForE2E(miniProgram, vehicleIndex, damageIndex, buildRetakePhoto(newPathKey))
   const newPath = `wxfile://tmp/${newPathKey}.jpg`
   await waitForCondition(async () => {
     const cache = await readCache(miniProgram)
