@@ -1,7 +1,7 @@
 # AI 自动拍照集成文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.7（`package.json`）
+> 代码基线：v1.3.6（`package.json`）
 > 文档状态：已按当前实现对齐
 > 最后更新：2026-05-04
 
@@ -354,6 +354,8 @@ formatDamageDebugText(debug, searchState)
 - 自动拍照触发
 - 车损保存流程
 - 页面跳转失败与降级
+
+v1.3.6 SIT 体验版诊断增强中，`runtime-logger` 同步接入 `wx.getRealtimeLogManager()`；车牌/车损检测器会记录模型下载、缓存命中、缓存写入和推理会话加载失败详情，并使用 `selfCam_${sessionId}` 作为后台实时日志过滤号。
 
 ---
 

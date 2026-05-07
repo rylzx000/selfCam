@@ -1,6 +1,6 @@
 {
   "name": "selfcam-miniprogram",
-  "version": "1.3.7",
+  "version": "1.3.6",
   "description": "车辆定损拍摄小程序",
   "scripts": {
     "test": "jest",

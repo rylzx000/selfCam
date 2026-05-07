@@ -1,6 +1,30 @@
 const fs = wx.getFileSystemManager()
 const YOLOProcessUtils = require('./yolo-process-utils')
 const envConfig = require('./env-config')
+const realtimeLog = require('./realtime-log')
+
+const MODEL_NAME = 'plate'
+
+function getErrMsg(error) {
+  if (!error) {
+    return ''
+  }
+  return error.errMsg || error.message || String(error)
+}
+
+function createModelError(message, payload = {}) {
+  const error = new Error(message)
+  Object.assign(error, payload)
+  return error
+}
+
+function logModel(level, event, payload = {}) {
+  const logger = realtimeLog[level] || realtimeLog.info
+  logger('ai_model', event, {
+    modelName: MODEL_NAME,
+    ...payload
+  })
+}
 
 class PlateDetector {
   constructor(options = {}) {
@@ -32,45 +56,172 @@ class PlateDetector {
   }
 
   async downloadModel() {
+    logModel('info', 'download_start', {
+      modelUrl: this.modelUrl,
+      modelPath: this.modelPath
+    })
+
     try {
       fs.accessSync(this.modelPath)
       console.log('[AI:model:plate] cache hit', this.modelPath)
+      logModel('info', 'cache_hit', {
+        modelPath: this.modelPath
+      })
     } catch (error) {
       if (!this.modelUrl) {
-        throw new Error('Plate model URL is required when local cache is missing')
+        const modelError = createModelError('Plate model URL is required when local cache is missing', {
+          stage: 'download_config',
+          modelName: MODEL_NAME,
+          modelUrl: this.modelUrl,
+          modelPath: this.modelPath
+        })
+        logModel('error', 'download_failed', {
+          stage: modelError.stage,
+          modelUrl: modelError.modelUrl,
+          modelPath: modelError.modelPath,
+          errMsg: modelError.message
+        })
+        throw modelError
       }
 
       console.log('[AI:model:plate] cache miss, downloading from:', this.modelUrl)
 
       await new Promise((resolve, reject) => {
-        wx.downloadFile({
-          url: this.modelUrl,
-          success: (res) => {
-            if (res.statusCode === 200) {
-              fs.copyFileSync(res.tempFilePath, this.modelPath)
+        try {
+          wx.downloadFile({
+            url: this.modelUrl,
+            success: (res) => {
+              if (res.statusCode !== 200) {
+                const modelError = createModelError(`Download failed with status: ${res.statusCode}`, {
+                  stage: 'download_status',
+                  modelName: MODEL_NAME,
+                  statusCode: res.statusCode,
+                  modelUrl: this.modelUrl
+                })
+                logModel('error', 'download_status_failed', {
+                  stage: modelError.stage,
+                  statusCode: modelError.statusCode,
+                  modelUrl: modelError.modelUrl
+                })
+                reject(modelError)
+                return
+              }
+
+              try {
+                fs.copyFileSync(res.tempFilePath, this.modelPath)
+              } catch (copyError) {
+                const modelError = createModelError('Plate model cache copy failed', {
+                  stage: 'cache_copy',
+                  modelName: MODEL_NAME,
+                  modelUrl: this.modelUrl,
+                  modelPath: this.modelPath,
+                  tempFilePath: res.tempFilePath || '',
+                  errMsg: getErrMsg(copyError)
+                })
+                logModel('error', 'cache_copy_failed', {
+                  stage: modelError.stage,
+                  modelUrl: modelError.modelUrl,
+                  modelPath: modelError.modelPath,
+                  tempFilePath: modelError.tempFilePath,
+                  errMsg: modelError.errMsg
+                })
+                reject(modelError)
+                return
+              }
+
               console.log('[AI:model:plate] download success', this.modelPath)
+              logModel('info', 'download_success', {
+                statusCode: res.statusCode,
+                modelUrl: this.modelUrl,
+                modelPath: this.modelPath
+              })
               resolve()
-            } else {
-              reject(new Error(`Download failed with status: ${res.statusCode}`))
+            },
+            fail: (err) => {
+              const modelError = createModelError('Plate model download failed', {
+                stage: 'download',
+                modelName: MODEL_NAME,
+                modelUrl: this.modelUrl,
+                errMsg: getErrMsg(err)
+              })
+              logModel('error', 'download_failed', {
+                stage: modelError.stage,
+                modelUrl: modelError.modelUrl,
+                errMsg: modelError.errMsg
+              })
+              reject(modelError)
             }
-          },
-          fail: reject
-        })
+          })
+        } catch (downloadError) {
+          const modelError = createModelError('Plate model download failed', {
+            stage: 'download',
+            modelName: MODEL_NAME,
+            modelUrl: this.modelUrl,
+            errMsg: getErrMsg(downloadError)
+          })
+          logModel('error', 'download_failed', {
+            stage: modelError.stage,
+            modelUrl: modelError.modelUrl,
+            errMsg: modelError.errMsg
+          })
+          reject(modelError)
+        }
       })
     }
   }
 
   async loadSession() {
     console.log('[AI:model:plate] loadSession start', this.modelPath)
-    this.session = wx.createInferenceSession({
-      model: this.modelPath,
-      precisionLevel: 1
+    logModel('info', 'session_load_start', {
+      modelPath: this.modelPath
     })
 
-    await new Promise((resolve, reject) => {
-      this.session.onLoad(resolve)
-      this.session.onError(reject)
-    })
+    try {
+      this.session = wx.createInferenceSession({
+        model: this.modelPath,
+        precisionLevel: 1
+      })
+
+      await new Promise((resolve, reject) => {
+        this.session.onLoad(() => {
+          logModel('info', 'session_load_success', {
+            modelPath: this.modelPath
+          })
+          resolve()
+        })
+        this.session.onError((err) => {
+          const modelError = createModelError('Plate inference session load failed', {
+            stage: 'inference_session',
+            modelName: MODEL_NAME,
+            modelPath: this.modelPath,
+            errMsg: getErrMsg(err)
+          })
+          logModel('error', 'session_load_failed', {
+            stage: modelError.stage,
+            modelPath: modelError.modelPath,
+            errMsg: modelError.errMsg
+          })
+          reject(modelError)
+        })
+      })
+    } catch (error) {
+      if (error?.stage === 'inference_session') {
+        throw error
+      }
+
+      const modelError = createModelError('Plate inference session load failed', {
+        stage: 'inference_session',
+        modelName: MODEL_NAME,
+        modelPath: this.modelPath,
+        errMsg: getErrMsg(error)
+      })
+      logModel('error', 'session_load_failed', {
+        stage: modelError.stage,
+        modelPath: modelError.modelPath,
+        errMsg: modelError.errMsg
+      })
+      throw modelError
+    }
 
     console.log('[AI:model:plate] session loaded')
   }

@@ -76,8 +76,10 @@ describe('camera photo quality integration', () => {
     jest.doMock('../utils/runtime-logger', () => ({
       info: jest.fn(),
       warn: jest.fn(),
-      startSession: jest.fn(),
-      endSession: jest.fn()
+      error: jest.fn(),
+      startSession: jest.fn(() => 'test-session'),
+      endSession: jest.fn(),
+      getSessionId: jest.fn(() => 'test-session')
     }))
     jest.doMock('../utils/plate-detector', () => jest.fn())
     jest.doMock('../utils/damage-detector', () => jest.fn())

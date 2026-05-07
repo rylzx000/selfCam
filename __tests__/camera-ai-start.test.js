@@ -7,6 +7,7 @@ describe('camera AI detection start timing', () => {
   let workflowPage
   let album
   let envConfig
+  let runtimeLogger
   let PlateDetector
   let DamageDetector
 
@@ -89,6 +90,14 @@ describe('camera AI detection start timing', () => {
         damageModelPath: '/user-data/damage-sit-test.onnx'
       }))
     }
+    runtimeLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      startSession: jest.fn(() => 'test-session'),
+      endSession: jest.fn(),
+      getSessionId: jest.fn(() => 'test-session')
+    }
     PlateDetector = jest.fn(function PlateDetectorMock(options) {
       this.options = options
       this.isModelLoaded = jest.fn(() => true)
@@ -102,7 +111,15 @@ describe('camera AI detection start timing', () => {
 
     global.wx = {
       hideLoading: jest.fn(),
-      showToast: jest.fn()
+      showToast: jest.fn(),
+      getSystemInfoSync: jest.fn(() => ({
+        model: 'iPhone 15',
+        system: 'iOS 17.0',
+        platform: 'ios',
+        SDKVersion: '3.15.1',
+        version: '8.0.50',
+        brand: 'Apple'
+      }))
     }
     global.Page = jest.fn((config) => {
       pageConfig = config
@@ -120,13 +137,7 @@ describe('camera AI detection start timing', () => {
       buildQualityHintText: jest.fn(() => ''),
       analyzePhotoQuality: jest.fn()
     }))
-    jest.doMock('../utils/runtime-logger', () => ({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      startSession: jest.fn(),
-      endSession: jest.fn()
-    }))
+    jest.doMock('../utils/runtime-logger', () => runtimeLogger)
     jest.doMock('../utils/env-config', () => envConfig)
     jest.doMock('../utils/plate-detector', () => PlateDetector)
     jest.doMock('../utils/damage-detector', () => DamageDetector)
@@ -302,6 +313,51 @@ describe('camera AI detection start timing', () => {
       expect(DamageDetector.mock.calls[0][0]).not.toHaveProperty('modelPath')
     } finally {
       consoleLogSpy.mockRestore()
+    }
+  })
+
+  test('logs ai config and system info when detector init fails', async () => {
+    const detectorError = Object.assign(new Error('Download failed with status: 418'), {
+      stage: 'download_status',
+      modelName: 'plate',
+      statusCode: 418,
+      errMsg: 'blocked by WAF'
+    })
+    PlateDetector.mockImplementationOnce(function PlateDetectorMock(options) {
+      this.options = options
+      this.isModelLoaded = jest.fn(() => false)
+      this.load = jest.fn(() => Promise.reject(detectorError))
+    })
+    const instance = createPageInstance()
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const detector = await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.LICENSE_PLATE)
+
+      expect(detector).toBeNull()
+      expect(runtimeLogger.error).toHaveBeenCalledWith('ai', 'detector_init_failed', expect.objectContaining({
+        step: constants.SHOOT_STEP.LICENSE_PLATE,
+        feedbackId: 'selfCam_test-session',
+        appEnv: 'sit',
+        wxEnvVersion: 'trial',
+        plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+        damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx',
+        stage: 'download_status',
+        modelName: 'plate',
+        statusCode: 418,
+        message: 'Download failed with status: 418',
+        errMsg: 'blocked by WAF',
+        systemInfo: expect.objectContaining({
+          model: 'iPhone 15',
+          system: 'iOS 17.0',
+          platform: 'ios',
+          SDKVersion: '3.15.1',
+          version: '8.0.50'
+        })
+      }))
+      expect(instance.data.aiStatusText).toBe('unavailable')
+    } finally {
+      consoleErrorSpy.mockRestore()
     }
   })
 

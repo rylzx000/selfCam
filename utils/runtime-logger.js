@@ -1,4 +1,5 @@
 const envConfig = require('./env-config')
+const realtimeLog = require('./realtime-log')
 
 const LOG_STORAGE_KEY = 'selfcam_runtime_logs'
 const SESSION_STORAGE_KEY = 'selfcam_runtime_session'
@@ -140,6 +141,7 @@ function createSession(meta = {}) {
     meta: safeClone(meta)
   }
   writeStorageObject(SESSION_STORAGE_KEY, session)
+  realtimeLog.setFilterMsg(session.sessionId)
   return session
 }
 
@@ -151,6 +153,10 @@ function appendLocalLog(entry) {
   const logs = readLogs()
   logs.push(entry)
   writeLogs(logs)
+}
+
+function getSessionId() {
+  return getSession()?.sessionId || ''
 }
 
 function scheduleUpload() {
@@ -220,6 +226,21 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
 
   appendLocalLog(entry)
 
+  const realtimePayload = {
+    sessionId: session.sessionId,
+    scope,
+    event,
+    at: entry.at,
+    ...entry.payload
+  }
+  if (level === 'error') {
+    realtimeLog.error(scope, event, realtimePayload)
+  } else if (level === 'warn') {
+    realtimeLog.warn(scope, event, realtimePayload)
+  } else {
+    realtimeLog.info(scope, event, realtimePayload)
+  }
+
   if (shouldUpload()) {
     const loggerConfig = getLoggerConfig()
     pendingUploadQueue.push(entry)
@@ -235,6 +256,7 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
 function startSession(scope, meta = {}) {
   clearSession(false)
   const session = createSession(meta)
+  console.log('[runtime] realtime log filter', `selfCam_${session.sessionId}`)
   addLog('info', scope || 'runtime', 'session_start', meta)
   return session.sessionId
 }
@@ -289,5 +311,6 @@ module.exports = {
   warn,
   error,
   flush,
-  readLogs
+  readLogs,
+  getSessionId
 }

@@ -61,6 +61,33 @@ function showTotalPhotoLimitToast() {
   })
 }
 
+function getSystemInfoSnapshot() {
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
+      const info = wx.getSystemInfoSync() || {}
+      return {
+        model: info.model || '',
+        system: info.system || '',
+        platform: info.platform || '',
+        SDKVersion: info.SDKVersion || '',
+        version: info.version || '',
+        brand: info.brand || ''
+      }
+    }
+  } catch (error) {
+    // 系统信息读取失败不影响拍摄主流程
+  }
+
+  return {
+    model: '',
+    system: '',
+    platform: '',
+    SDKVersion: '',
+    version: '',
+    brand: ''
+  }
+}
+
 Page({
   data: {
     currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
@@ -109,12 +136,14 @@ Page({
   onLoad() {
     this.isLeaving = false
     this.updateAppEnvBadge()
-    runtimeLogger.startSession('camera', {
+    const sessionId = runtimeLogger.startSession('camera', {
       page: 'camera',
       initialStep: this.data.currentStep
     })
+    console.log('[selfCam:feedback]', `selfCam_${sessionId}`)
     this.setData({ showDamageDebug: this.shouldShowAIDebug() })
     runtimeLogger.info('camera', 'page_load', {
+      feedbackId: `selfCam_${sessionId}`,
       showDamageDebug: this.data.showDamageDebug
     })
     this.initAICapability()
@@ -250,9 +279,21 @@ Page({
       return step === constants.SHOOT_STEP.LICENSE_PLATE ? this.plateDetector : this.damageDetector
     } catch (error) {
       console.error('[AI] detector init failed:', error)
+      const aiConfig = envConfig.getAiConfig()
+      const systemInfo = getSystemInfoSnapshot()
       runtimeLogger.error('ai', 'detector_init_failed', {
         step,
-        message: error?.message || ''
+        feedbackId: `selfCam_${runtimeLogger.getSessionId()}`,
+        appEnv: aiConfig.appEnv,
+        wxEnvVersion: aiConfig.wxEnvVersion,
+        plateModelUrl: aiConfig.plateModelUrl,
+        damageModelUrl: aiConfig.damageModelUrl,
+        stage: error?.stage || '',
+        modelName: error?.modelName || '',
+        statusCode: error?.statusCode || '',
+        message: error?.message || '',
+        errMsg: error?.errMsg || '',
+        systemInfo
       })
       this.setData({
         aiReady: false,

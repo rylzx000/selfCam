@@ -39,6 +39,14 @@
 
 ## [v1.3.6] - 2026-05-02
 
+### 追加 - 2026-05-07
+
+- 接入微信小程序实时日志 `wx.getRealtimeLogManager()`，通过 `selfCam_${sessionId}` 过滤号定位业务人员真机问题。
+- `runtime-logger` 写入本地日志后同步上报实时日志，并自动带上 `appEnv`、`wxEnvVersion`、基础库和设备信息。
+- 车牌/车损模型加载链路补充下载开始、缓存命中、下载成功、下载失败、缓存写入失败、推理会话加载失败等事件。
+- 相机页 AI 初始化失败日志补充模型地址、环境、错误阶段和设备信息；业务用户端提示仍保持 `AI 不可用，请手动拍照`。
+- `package.json` 与 `package-lock.json` 版本号保持 `1.3.6`。
+
 ### 新增
 
 - 新增业务环境 `appEnv`，在微信运行版本 `develop / trial / release` 之外支持 `dev / sit / pilot / prod`，默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`。

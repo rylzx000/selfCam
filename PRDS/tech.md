@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.7（`package.json`）
+> 代码基线：v1.3.6（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-04
+> 最后更新：2026-05-07
 
 ---
 
@@ -19,6 +19,7 @@
 | 本地存储 | `wx.setStorageSync` | 保存拍摄过程缓存 |
 | AI 推理 | `wx.createInferenceSession` + ONNX | 车牌 / 车损检测 |
 | AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 按业务环境和模型 URL 隔离缓存 |
+| 实时日志 | `wx.getRealtimeLogManager()` | 上报 AI 模型下载、缓存写入、推理会话加载和初始化失败详情 |
 
 ---
 
@@ -61,7 +62,8 @@ selfCam/
 │  ├─ damage-motion-estimator.js
 │  ├─ damage-frame-scorer.js
 │  ├─ cache-selectors.js
-│  └─ runtime-logger.js
+│  ├─ runtime-logger.js
+│  └─ realtime-log.js
 ├─ PRDS/
 ├─ __tests__/        # 纯 Jest 单元/逻辑测试
 ├─ e2e/              # 微信开发者工具 miniprogram-automator + Jest 页面自动化
