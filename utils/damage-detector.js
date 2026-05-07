@@ -19,12 +19,56 @@ function createModelError(message, payload = {}) {
 }
 
 function logModel(level, event, payload = {}) {
+  const data = {
+    modelName: MODEL_NAME,
+    ...payload
+  }
+
   try {
+    if (level === 'info') {
+      if (event === 'cache_hit') {
+        runtimeLogger.info('ai_model', 'cache_hit', data)
+        return
+      }
+      if (event === 'download_start') {
+        runtimeLogger.info('ai_model', 'download_start', data)
+        return
+      }
+      if (event === 'download_success') {
+        runtimeLogger.info('ai_model', 'download_success', data)
+        return
+      }
+      if (event === 'session_load_start') {
+        runtimeLogger.info('ai_model', 'session_load_start', data)
+        return
+      }
+      if (event === 'session_load_success') {
+        runtimeLogger.info('ai_model', 'session_load_success', data)
+        return
+      }
+    }
+
+    if (level === 'error') {
+      if (event === 'download_status_failed') {
+        runtimeLogger.error('ai_model', 'download_status_failed', data)
+        return
+      }
+      if (event === 'download_failed') {
+        runtimeLogger.error('ai_model', 'download_failed', data)
+        return
+      }
+      if (event === 'cache_copy_failed') {
+        runtimeLogger.error('ai_model', 'cache_copy_failed', data)
+        return
+      }
+      if (event === 'session_load_failed') {
+        runtimeLogger.error('ai_model', 'session_load_failed', data)
+        return
+      }
+    }
+
     const logger = runtimeLogger[level] || runtimeLogger.info
-    logger('ai_model', event, {
-      modelName: MODEL_NAME,
-      ...payload
-    })
+    logger('ai_model', event, data)
   } catch (error) {
     // AI 日志失败不影响模型加载主流程
   }
@@ -100,12 +144,14 @@ class DamageDetector {
                   stage: 'download_status',
                   modelName: MODEL_NAME,
                   statusCode: res.statusCode,
-                  modelUrl: this.modelUrl
+                  modelUrl: this.modelUrl,
+                  errMsg: res.errMsg || ''
                 })
                 logModel('error', 'download_status_failed', {
                   stage: modelError.stage,
                   statusCode: modelError.statusCode,
-                  modelUrl: modelError.modelUrl
+                  modelUrl: modelError.modelUrl,
+                  errMsg: modelError.errMsg
                 })
                 reject(modelError)
                 return

@@ -358,7 +358,8 @@ describe('camera AI detection start timing', () => {
           system: 'iOS 17.0',
           platform: 'ios',
           SDKVersion: '3.15.1',
-          version: '8.0.50'
+          version: '8.0.50',
+          brand: 'Apple'
         })
       }))
       expect(instance.data.aiStatusText).toBe('unavailable')

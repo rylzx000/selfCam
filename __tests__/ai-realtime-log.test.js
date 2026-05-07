@@ -89,6 +89,17 @@ describe('AI realtime logging', () => {
     }
   })
 
+  test('runtimeLogger.getSessionId always returns a session id', () => {
+    setupRuntimeLoggerTest()
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const sessionId = runtimeLogger.getSessionId()
+
+    expect(sessionId).toEqual(expect.any(String))
+    expect(sessionId).not.toBe('')
+    expect(realtimeLog.setFilterMsg).toHaveBeenCalledWith(sessionId)
+  })
+
   function setupDetectorTest(fsMock, wxOverrides = {}) {
     global.wx = {
       getFileSystemManager: jest.fn(() => fsMock),
@@ -144,7 +155,41 @@ describe('AI realtime logging', () => {
     expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
       modelName: 'plate',
       stage: 'download_status',
-      statusCode: 418
+      statusCode: 418,
+      modelUrl: 'https://example.com/plate.onnx',
+      errMsg: ''
+    }))
+  })
+
+  test('plate detector throws stage/modelUrl/errMsg when downloadFile fails', async () => {
+    const fsMock = {
+      accessSync: jest.fn(() => {
+        throw new Error('cache missing')
+      }),
+      copyFileSync: jest.fn()
+    }
+    setupDetectorTest(fsMock, {
+      downloadFile: jest.fn(({ fail }) => fail({
+        errMsg: 'downloadFile:fail timeout'
+      }))
+    })
+    const PlateDetector = require('../utils/plate-detector')
+    const detector = new PlateDetector({
+      modelUrl: 'https://example.com/plate.onnx',
+      modelPath: '/tmp/plate.onnx'
+    })
+
+    await expect(detector.downloadModel()).rejects.toMatchObject({
+      stage: 'download',
+      modelName: 'plate',
+      modelUrl: 'https://example.com/plate.onnx',
+      errMsg: 'downloadFile:fail timeout'
+    })
+    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_failed', expect.objectContaining({
+      modelName: 'plate',
+      stage: 'download',
+      modelUrl: 'https://example.com/plate.onnx',
+      errMsg: 'downloadFile:fail timeout'
     }))
   })
 
@@ -177,6 +222,42 @@ describe('AI realtime logging', () => {
       stage: 'download',
       modelUrl: 'https://example.com/damage.onnx',
       errMsg: 'downloadFile:fail url not in domain list'
+    }))
+  })
+
+  test('damage detector throws stage/statusCode/modelName when download status is not 200', async () => {
+    const fsMock = {
+      accessSync: jest.fn(() => {
+        throw new Error('cache missing')
+      }),
+      copyFileSync: jest.fn()
+    }
+    setupDetectorTest(fsMock, {
+      downloadFile: jest.fn(({ success }) => success({
+        statusCode: 503,
+        errMsg: 'service unavailable',
+        tempFilePath: '/tmp/damage-download.onnx'
+      }))
+    })
+    const DamageDetector = require('../utils/damage-detector')
+    const detector = new DamageDetector({
+      modelUrl: 'https://example.com/damage.onnx',
+      modelPath: '/tmp/damage.onnx'
+    })
+
+    await expect(detector.downloadModel()).rejects.toMatchObject({
+      stage: 'download_status',
+      modelName: 'damage',
+      statusCode: 503,
+      modelUrl: 'https://example.com/damage.onnx',
+      errMsg: 'service unavailable'
+    })
+    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
+      modelName: 'damage',
+      stage: 'download_status',
+      statusCode: 503,
+      modelUrl: 'https://example.com/damage.onnx',
+      errMsg: 'service unavailable'
     }))
   })
 
@@ -213,6 +294,42 @@ describe('AI realtime logging', () => {
       modelName: 'plate',
       stage: 'inference_session',
       modelPath: '/tmp/plate.onnx'
+    }))
+  })
+
+  test('damage detector throws inference_session when session loading fails', async () => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    setupDetectorTest(fsMock, {
+      createInferenceSession: jest.fn(() => ({
+        onLoad: jest.fn(),
+        onError: jest.fn((callback) => callback({
+          errMsg: 'createInferenceSession:fail unsupported device'
+        }))
+      }))
+    })
+    const DamageDetector = require('../utils/damage-detector')
+    const detector = new DamageDetector({
+      modelUrl: 'https://example.com/damage.onnx',
+      modelPath: '/tmp/damage.onnx'
+    })
+
+    await expect(detector.loadSession()).rejects.toMatchObject({
+      stage: 'inference_session',
+      modelName: 'damage',
+      modelPath: '/tmp/damage.onnx',
+      errMsg: 'createInferenceSession:fail unsupported device'
+    })
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_start', expect.objectContaining({
+      modelName: 'damage',
+      modelPath: '/tmp/damage.onnx'
+    }))
+    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
+      modelName: 'damage',
+      stage: 'inference_session',
+      modelPath: '/tmp/damage.onnx'
     }))
   })
 })
