@@ -94,6 +94,8 @@ describe('camera AI detection start timing', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      forceWarn: jest.fn(),
+      forceError: jest.fn(),
       startSession: jest.fn(() => 'test-session'),
       endSession: jest.fn(),
       getSessionId: jest.fn(() => 'test-session')
@@ -226,6 +228,7 @@ describe('camera AI detection start timing', () => {
       },
       getDamagePhaseLabel: pageConfig.getDamagePhaseLabel,
       logAiModelConfig: pageConfig.logAiModelConfig,
+      reportAiUnavailable: pageConfig.reportAiUnavailable,
       resumeAIDetectionAfterStepReady: jest.fn(),
       resetAIState: jest.fn(),
       ...overrides
@@ -274,6 +277,21 @@ describe('camera AI detection start timing', () => {
     expect(cameraSource).not.toContain('DAMAGE_MODEL_URL')
   })
 
+  test('onShow sends forced realtime probe', () => {
+    const instance = createPageInstance({
+      updateAppEnvBadge: jest.fn(),
+      loadCacheData: jest.fn()
+    })
+
+    pageConfig.onShow.call(instance)
+
+    expect(runtimeLogger.forceWarn).toHaveBeenCalledWith('diagnostic', 'realtime_probe', expect.objectContaining({
+      probe: 'selfCam_realtime_probe',
+      page: 'pages/camera/camera',
+      at: expect.any(Number)
+    }))
+  })
+
   test('passes fresh aiConfig into detectors instead of frozen model url and path', async () => {
     const instance = createPageInstance()
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
@@ -296,6 +314,12 @@ describe('camera AI detection start timing', () => {
       expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelUrl')
       expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelPath')
       expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'model_config', expect.objectContaining({
+        appEnv: 'sit',
+        wxEnvVersion: 'trial',
+        plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+        damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
+      }))
+      expect(runtimeLogger.forceWarn).toHaveBeenCalledWith('ai', 'model_config_probe', expect.objectContaining({
         appEnv: 'sit',
         wxEnvVersion: 'trial',
         plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
@@ -362,10 +386,63 @@ describe('camera AI detection start timing', () => {
           brand: 'Apple'
         })
       }))
+      expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai', 'detector_init_failed', expect.objectContaining({
+        step: constants.SHOOT_STEP.LICENSE_PLATE,
+        feedbackId: 'selfCam_test-session',
+        stage: 'download_status',
+        modelName: 'plate',
+        statusCode: 418,
+        errMsg: 'blocked by WAF'
+      }))
+      expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai', 'ai_unavailable', expect.objectContaining({
+        reason: 'detector_init_failed',
+        feedbackId: 'selfCam_test-session',
+        appEnv: 'sit',
+        wxEnvVersion: 'trial',
+        plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+        damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx',
+        stage: 'download_status',
+        modelName: 'plate',
+        statusCode: 418,
+        message: 'Download failed with status: 418',
+        errMsg: 'blocked by WAF',
+        systemInfo: expect.objectContaining({
+          model: 'iPhone 15',
+          system: 'iOS 17.0',
+          platform: 'ios',
+          SDKVersion: '3.15.1',
+          version: '8.0.50',
+          brand: 'Apple'
+        })
+      }))
       expect(instance.data.aiStatusText).toBe('unavailable')
     } finally {
       consoleErrorSpy.mockRestore()
     }
+  })
+
+  test('reports AI unavailable when inference API is missing', () => {
+    const instance = createPageInstance()
+
+    pageConfig.initAICapability.call(instance)
+
+    expect(instance.data.aiAvailable).toBe(false)
+    expect(instance.data.aiStatusText).toBe('unavailable')
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai', 'ai_unavailable', expect.objectContaining({
+      reason: 'inference_api_unavailable',
+      feedbackId: 'selfCam_test-session',
+      appEnv: 'sit',
+      wxEnvVersion: 'trial',
+      plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+      damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx',
+      stage: 'inference_api',
+      message: 'wx.createInferenceSession is not available',
+      systemInfo: expect.objectContaining({
+        model: 'iPhone 15',
+        SDKVersion: '3.15.1',
+        brand: 'Apple'
+      })
+    }))
   })
 
   test('retries AI detection after VIN confirmation switches to damage step', () => {

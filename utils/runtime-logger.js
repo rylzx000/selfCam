@@ -260,6 +260,41 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
   return entry
 }
 
+function addForcedLog(level, scope, event, payload = {}, sessionMeta = null) {
+  const session = ensureSession(sessionMeta || {})
+  const timestamp = getNow()
+  const entry = {
+    id: `${timestamp}-${Math.random().toString(16).slice(2, 8)}`,
+    sessionId: session.sessionId,
+    level,
+    scope,
+    event,
+    timestamp,
+    at: getIsoTime(timestamp),
+    payload: safeClone(payload)
+  }
+
+  appendLocalLog(entry)
+
+  const realtimePayload = {
+    sessionId: session.sessionId,
+    at: entry.at,
+    ...entry.payload
+  }
+  syncRealtimeLog(level, scope, event, realtimePayload)
+
+  if (shouldUpload()) {
+    const loggerConfig = getLoggerConfig()
+    pendingUploadQueue.push(entry)
+    if (pendingUploadQueue.length > loggerConfig.maxPendingEntries) {
+      pendingUploadQueue = pendingUploadQueue.slice(-loggerConfig.maxPendingEntries)
+    }
+    scheduleUpload()
+  }
+
+  return entry
+}
+
 function startSession(scope, meta = {}) {
   clearSession(false)
   const session = createSession(meta)
@@ -308,6 +343,14 @@ function error(scope, event, payload = {}) {
   return addLog('error', scope, event, payload)
 }
 
+function forceWarn(scope, event, payload = {}) {
+  return addForcedLog('warn', scope, event, payload)
+}
+
+function forceError(scope, event, payload = {}) {
+  return addForcedLog('error', scope, event, payload)
+}
+
 module.exports = {
   LOG_STORAGE_KEY,
   SESSION_STORAGE_KEY,
@@ -317,6 +360,8 @@ module.exports = {
   info,
   warn,
   error,
+  forceWarn,
+  forceError,
   flush,
   readLogs,
   addLog,

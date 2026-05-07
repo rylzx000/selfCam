@@ -156,6 +156,11 @@ Page({
 
   onShow() {
     this.updateAppEnvBadge()
+    runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
+      probe: 'selfCam_realtime_probe',
+      page: 'pages/camera/camera',
+      at: Date.now()
+    })
     runtimeLogger.info('camera', 'page_show', {
       isLeaving: this.isLeaving,
       currentStep: this.data.currentStep,
@@ -210,6 +215,28 @@ Page({
     }
     console.log('[AI:model:config]', payload)
     runtimeLogger.info('ai', 'model_config', payload)
+    runtimeLogger.forceWarn('ai', 'model_config_probe', payload)
+  },
+
+  reportAiUnavailable(reason, extra = {}) {
+    const aiConfig = envConfig.getAiConfig()
+    const systemInfo = getSystemInfoSnapshot()
+    const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
+
+    runtimeLogger.forceError('ai', 'ai_unavailable', {
+      reason,
+      feedbackId: sessionId ? `selfCam_${sessionId}` : '',
+      appEnv: aiConfig.appEnv || '',
+      wxEnvVersion: aiConfig.wxEnvVersion || '',
+      plateModelUrl: aiConfig.plateModelUrl || '',
+      damageModelUrl: aiConfig.damageModelUrl || '',
+      stage: extra.stage || '',
+      modelName: extra.modelName || '',
+      statusCode: extra.statusCode || '',
+      message: extra.message || '',
+      errMsg: extra.errMsg || '',
+      systemInfo
+    })
   },
 
   getAIStatusByStep(step) {
@@ -282,9 +309,9 @@ Page({
     } catch (error) {
       console.error('[AI] detector init failed:', error)
       const aiConfig = envConfig.getAiConfig()
-      const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
+      const systemInfo = getSystemInfoSnapshot()
       const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
-      runtimeLogger.error('ai', 'detector_init_failed', {
+      const failurePayload = {
         step,
         feedbackId: sessionId ? `selfCam_${sessionId}` : '',
         appEnv: aiConfig.appEnv,
@@ -296,14 +323,16 @@ Page({
         statusCode: error?.statusCode || '',
         message: error?.message || '',
         errMsg: error?.errMsg || '',
-        systemInfo: {
-          model: systemInfo.model || '',
-          system: systemInfo.system || '',
-          platform: systemInfo.platform || '',
-          SDKVersion: systemInfo.SDKVersion || '',
-          version: systemInfo.version || '',
-          brand: systemInfo.brand || ''
-        }
+        systemInfo
+      }
+      runtimeLogger.error('ai', 'detector_init_failed', failurePayload)
+      runtimeLogger.forceError('ai', 'detector_init_failed', failurePayload)
+      this.reportAiUnavailable('detector_init_failed', {
+        stage: error?.stage || '',
+        modelName: error?.modelName || '',
+        statusCode: error?.statusCode || '',
+        message: error?.message || '',
+        errMsg: error?.errMsg || ''
       })
       this.setData({
         aiReady: false,
@@ -450,6 +479,11 @@ Page({
         finalReason: aiDetection?.finalReason || '',
         message: error?.message || ''
       })
+      this.reportAiUnavailable('manual_fallback', {
+        stage: 'auto_capture',
+        message: error?.message || '',
+        errMsg: error?.errMsg || ''
+      })
       this.setData({ aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback, aiLocked: false })
       wx.showToast({ title: '\u81ea\u52a8\u62cd\u7167\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u62cd\u7167', icon: 'none' })
       this.resumeAIDetection()
@@ -483,6 +517,12 @@ Page({
       aiStatusText: canUseInference ? AUTO_CAPTURE.STATUS_TEXT.loading : AUTO_CAPTURE.STATUS_TEXT.unavailable
     })
     runtimeLogger.info('ai', 'capability_ready', { canUseInference })
+    if (!canUseInference) {
+      this.reportAiUnavailable('inference_api_unavailable', {
+        stage: 'inference_api',
+        message: 'wx.createInferenceSession is not available'
+      })
+    }
   },
 
   destroyDetectors() {
@@ -864,6 +904,11 @@ Page({
         runtimeLogger.error('ai', 'detect_loop_error', {
           step,
           message: error?.message || ''
+        })
+        this.reportAiUnavailable('manual_fallback', {
+          stage: 'detect_loop',
+          message: error?.message || '',
+          errMsg: error?.errMsg || ''
         })
         if (isActiveRun()) {
           this.setDataIfChanged({ aiLocked: false, aiStatusText: AUTO_CAPTURE.STATUS_TEXT.fallback })

@@ -131,6 +131,20 @@ function log(level, scope, event, payload = {}) {
   }
 }
 
+function forceLog(level, scope, event, payload = {}) {
+  try {
+    const realtimeLogManager = getManager()
+    if (!realtimeLogManager || typeof realtimeLogManager[level] !== 'function') {
+      return false
+    }
+
+    realtimeLogManager[level]('selfCam', scope, event, buildPayload(payload))
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 function setFilterMsg(sessionId) {
   try {
     const realtimeLogManager = getManager()
@@ -155,6 +169,18 @@ module.exports = {
   },
   error(scope, event, payload = {}) {
     return log('error', scope, event, payload)
+  },
+  probe(scope, event, payload = {}) {
+    return forceLog('warn', scope, event, {
+      ...payload,
+      probe: 'selfCam_realtime_probe'
+    })
+  },
+  forceWarn(scope, event, payload = {}) {
+    return forceLog('warn', scope, event, payload)
+  },
+  forceError(scope, event, payload = {}) {
+    return forceLog('error', scope, event, payload)
   },
   getSystemInfo
 }

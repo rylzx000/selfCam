@@ -49,20 +49,21 @@ function logModel(level, event, payload = {}) {
     }
 
     if (level === 'error') {
+      const reportError = runtimeLogger.forceError || runtimeLogger.error
       if (event === 'download_status_failed') {
-        runtimeLogger.error('ai_model', 'download_status_failed', data)
+        reportError('ai_model', 'download_status_failed', data)
         return
       }
       if (event === 'download_failed') {
-        runtimeLogger.error('ai_model', 'download_failed', data)
+        reportError('ai_model', 'download_failed', data)
         return
       }
       if (event === 'cache_copy_failed') {
-        runtimeLogger.error('ai_model', 'cache_copy_failed', data)
+        reportError('ai_model', 'cache_copy_failed', data)
         return
       }
       if (event === 'session_load_failed') {
-        runtimeLogger.error('ai_model', 'session_load_failed', data)
+        reportError('ai_model', 'session_load_failed', data)
         return
       }
     }

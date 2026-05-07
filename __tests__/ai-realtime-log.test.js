@@ -8,12 +8,16 @@ describe('AI realtime logging', () => {
       setFilterMsg: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
-      error: jest.fn()
+      error: jest.fn(),
+      forceWarn: jest.fn(),
+      forceError: jest.fn()
     }
     runtimeLogger = {
       info: jest.fn(),
       warn: jest.fn(),
-      error: jest.fn()
+      error: jest.fn(),
+      forceWarn: jest.fn(),
+      forceError: jest.fn()
     }
   })
 
@@ -100,6 +104,72 @@ describe('AI realtime logging', () => {
     expect(realtimeLog.setFilterMsg).toHaveBeenCalledWith(sessionId)
   })
 
+  test('runtimeLogger.forceWarn forwards realtime log without level filtering', () => {
+    setupRuntimeLoggerTest()
+    jest.doMock('../utils/env-config', () => ({
+      getEnvVersion: jest.fn(() => 'trial'),
+      getDebugConfig: jest.fn(() => ({
+        runtimeLoggerLevel: 'silent',
+        uploadEnabled: false,
+        uploadUrl: '',
+        maxEntries: 20,
+        maxPendingEntries: 10,
+        batchSize: 10,
+        uploadThrottleMs: 100,
+        requestTimeoutMs: 1000
+      }))
+    }))
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const entry = runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
+      probe: 'selfCam_realtime_probe'
+    })
+
+    expect(entry).toEqual(expect.objectContaining({
+      sessionId: expect.any(String),
+      level: 'warn',
+      scope: 'diagnostic',
+      event: 'realtime_probe'
+    }))
+    expect(realtimeLog.warn).toHaveBeenCalledWith('diagnostic', 'realtime_probe', expect.objectContaining({
+      sessionId: entry.sessionId,
+      probe: 'selfCam_realtime_probe'
+    }))
+  })
+
+  test('runtimeLogger.forceError forwards realtime log without level filtering', () => {
+    setupRuntimeLoggerTest()
+    jest.doMock('../utils/env-config', () => ({
+      getEnvVersion: jest.fn(() => 'trial'),
+      getDebugConfig: jest.fn(() => ({
+        runtimeLoggerLevel: 'silent',
+        uploadEnabled: false,
+        uploadUrl: '',
+        maxEntries: 20,
+        maxPendingEntries: 10,
+        batchSize: 10,
+        uploadThrottleMs: 100,
+        requestTimeoutMs: 1000
+      }))
+    }))
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const entry = runtimeLogger.forceError('ai', 'ai_unavailable', {
+      reason: 'detector_init_failed'
+    })
+
+    expect(entry).toEqual(expect.objectContaining({
+      sessionId: expect.any(String),
+      level: 'error',
+      scope: 'ai',
+      event: 'ai_unavailable'
+    }))
+    expect(realtimeLog.error).toHaveBeenCalledWith('ai', 'ai_unavailable', expect.objectContaining({
+      sessionId: entry.sessionId,
+      reason: 'detector_init_failed'
+    }))
+  })
+
   function setupDetectorTest(fsMock, wxOverrides = {}) {
     global.wx = {
       getFileSystemManager: jest.fn(() => fsMock),
@@ -152,7 +222,7 @@ describe('AI realtime logging', () => {
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx'
     }))
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
       modelName: 'plate',
       stage: 'download_status',
       statusCode: 418,
@@ -185,7 +255,7 @@ describe('AI realtime logging', () => {
       modelUrl: 'https://example.com/plate.onnx',
       errMsg: 'downloadFile:fail timeout'
     })
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'download_failed', expect.objectContaining({
       modelName: 'plate',
       stage: 'download',
       modelUrl: 'https://example.com/plate.onnx',
@@ -217,7 +287,7 @@ describe('AI realtime logging', () => {
       modelUrl: 'https://example.com/damage.onnx',
       errMsg: 'downloadFile:fail url not in domain list'
     })
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'download_failed', expect.objectContaining({
       modelName: 'damage',
       stage: 'download',
       modelUrl: 'https://example.com/damage.onnx',
@@ -252,7 +322,7 @@ describe('AI realtime logging', () => {
       modelUrl: 'https://example.com/damage.onnx',
       errMsg: 'service unavailable'
     })
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'download_status_failed', expect.objectContaining({
       modelName: 'damage',
       stage: 'download_status',
       statusCode: 503,
@@ -290,7 +360,7 @@ describe('AI realtime logging', () => {
       modelName: 'plate',
       modelPath: '/tmp/plate.onnx'
     }))
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
       modelName: 'plate',
       stage: 'inference_session',
       modelPath: '/tmp/plate.onnx'
@@ -326,7 +396,7 @@ describe('AI realtime logging', () => {
       modelName: 'damage',
       modelPath: '/tmp/damage.onnx'
     }))
-    expect(runtimeLogger.error).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
       modelName: 'damage',
       stage: 'inference_session',
       modelPath: '/tmp/damage.onnx'
