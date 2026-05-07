@@ -295,6 +295,12 @@ describe('camera AI detection start timing', () => {
       }))
       expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelUrl')
       expect(PlateDetector.mock.calls[0][0]).not.toHaveProperty('modelPath')
+      expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'model_config', expect.objectContaining({
+        appEnv: 'sit',
+        wxEnvVersion: 'trial',
+        plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+        damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
+      }))
 
       await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.DAMAGE)
 

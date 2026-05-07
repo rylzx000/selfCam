@@ -202,12 +202,14 @@ Page({
   },
 
   logAiModelConfig(aiConfig) {
-    console.log('[AI:model:config]', {
+    const payload = {
       wxEnvVersion: aiConfig.wxEnvVersion,
       appEnv: aiConfig.appEnv,
       plateModelUrl: aiConfig.plateModelUrl,
       damageModelUrl: aiConfig.damageModelUrl
-    })
+    }
+    console.log('[AI:model:config]', payload)
+    runtimeLogger.info('ai', 'model_config', payload)
   },
 
   getAIStatusByStep(step) {
@@ -281,9 +283,10 @@ Page({
       console.error('[AI] detector init failed:', error)
       const aiConfig = envConfig.getAiConfig()
       const systemInfo = getSystemInfoSnapshot()
+      const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
       runtimeLogger.error('ai', 'detector_init_failed', {
         step,
-        feedbackId: `selfCam_${runtimeLogger.getSessionId()}`,
+        feedbackId: sessionId ? `selfCam_${sessionId}` : '',
         appEnv: aiConfig.appEnv,
         wxEnvVersion: aiConfig.wxEnvVersion,
         plateModelUrl: aiConfig.plateModelUrl,
