@@ -203,8 +203,8 @@ Page({
 
   logAiModelConfig(aiConfig) {
     const payload = {
-      wxEnvVersion: aiConfig.wxEnvVersion,
       appEnv: aiConfig.appEnv,
+      wxEnvVersion: aiConfig.wxEnvVersion,
       plateModelUrl: aiConfig.plateModelUrl,
       damageModelUrl: aiConfig.damageModelUrl
     }
@@ -282,7 +282,7 @@ Page({
     } catch (error) {
       console.error('[AI] detector init failed:', error)
       const aiConfig = envConfig.getAiConfig()
-      const systemInfo = getSystemInfoSnapshot()
+      const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
       const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
       runtimeLogger.error('ai', 'detector_init_failed', {
         step,
@@ -296,7 +296,14 @@ Page({
         statusCode: error?.statusCode || '',
         message: error?.message || '',
         errMsg: error?.errMsg || '',
-        systemInfo
+        systemInfo: {
+          model: systemInfo.model || '',
+          system: systemInfo.system || '',
+          platform: systemInfo.platform || '',
+          SDKVersion: systemInfo.SDKVersion || '',
+          version: systemInfo.version || '',
+          brand: systemInfo.brand || ''
+        }
       })
       this.setData({
         aiReady: false,
