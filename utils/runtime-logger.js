@@ -141,7 +141,11 @@ function createSession(meta = {}) {
     meta: safeClone(meta)
   }
   writeStorageObject(SESSION_STORAGE_KEY, session)
-  realtimeLog.setFilterMsg(session.sessionId)
+  try {
+    realtimeLog.setFilterMsg(session.sessionId)
+  } catch (error) {
+    // 实时日志失败不影响主流程
+  }
   return session
 }
 
@@ -156,7 +160,18 @@ function appendLocalLog(entry) {
 }
 
 function getSessionId() {
-  return getSession()?.sessionId || ''
+  return ensureSession().sessionId
+}
+
+function syncRealtimeLog(level, scope, event, payload) {
+  try {
+    const logger = realtimeLog[level]
+    if (typeof logger === 'function') {
+      logger(scope, event, payload)
+    }
+  } catch (error) {
+    // 实时日志失败不影响主流程
+  }
 }
 
 function scheduleUpload() {
@@ -228,18 +243,10 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
 
   const realtimePayload = {
     sessionId: session.sessionId,
-    scope,
-    event,
     at: entry.at,
     ...entry.payload
   }
-  if (level === 'error') {
-    realtimeLog.error(scope, event, realtimePayload)
-  } else if (level === 'warn') {
-    realtimeLog.warn(scope, event, realtimePayload)
-  } else {
-    realtimeLog.info(scope, event, realtimePayload)
-  }
+  syncRealtimeLog(level, scope, event, realtimePayload)
 
   if (shouldUpload()) {
     const loggerConfig = getLoggerConfig()
@@ -312,5 +319,6 @@ module.exports = {
   error,
   flush,
   readLogs,
+  addLog,
   getSessionId
 }

@@ -1,7 +1,7 @@
 const fs = wx.getFileSystemManager()
 const YOLOProcessUtils = require('./yolo-process-utils')
 const envConfig = require('./env-config')
-const realtimeLog = require('./realtime-log')
+const runtimeLogger = require('./runtime-logger')
 
 const MODEL_NAME = 'damage'
 
@@ -19,11 +19,15 @@ function createModelError(message, payload = {}) {
 }
 
 function logModel(level, event, payload = {}) {
-  const logger = realtimeLog[level] || realtimeLog.info
-  logger('ai_model', event, {
-    modelName: MODEL_NAME,
-    ...payload
-  })
+  try {
+    const logger = runtimeLogger[level] || runtimeLogger.info
+    logger('ai_model', event, {
+      modelName: MODEL_NAME,
+      ...payload
+    })
+  } catch (error) {
+    // AI 日志失败不影响模型加载主流程
+  }
 }
 
 class DamageDetector {
