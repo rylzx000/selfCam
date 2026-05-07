@@ -86,7 +86,7 @@ describe('env-config', () => {
     }))
   })
 
-  test('识别 trial 环境并默认收紧调试输出', () => {
+  test('识别 trial 环境并开启体验版诊断日志', () => {
     mockWxEnv('trial')
     const envConfig = loadEnvConfig()
 
@@ -104,7 +104,7 @@ describe('env-config', () => {
       allowDebug: false,
       allowLocalModelHost: false,
       enableDebugUpload: false,
-      runtimeLoggerLevel: 'warn'
+      runtimeLoggerLevel: 'info'
     }))
 
     expect(envConfig.getDebugConfig()).toEqual(expect.objectContaining({

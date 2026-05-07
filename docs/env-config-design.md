@@ -80,7 +80,7 @@
 - 默认收紧调试输出
 - 默认关闭调试上传
 - 默认不展示开发面板
-- `runtime-logger` 只保留较高优先级日志
+- 业务体验版排查 AI 加载问题期间，`runtime-logger` 临时保留 `info` 级日志；稳定后可改回只保留较高优先级日志
 - `quality-config` 默认 source 为 `mock`
 
 ### release

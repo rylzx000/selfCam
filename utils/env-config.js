@@ -60,7 +60,8 @@ const ENV_POLICY_MAP = {
     showDevPanel: false,
     showAIDebugPanel: false,
     enableVerboseConsole: false,
-    runtimeLoggerLevel: 'warn',
+    // 业务体验版排查 AI 加载问题期间开启 info，稳定后可改回 warn。
+    runtimeLoggerLevel: 'info',
     enableDebugUpload: false,
     qualityConfigDefaultSourceType: 'mock'
   },
