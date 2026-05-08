@@ -682,6 +682,35 @@
 
 ---
 
+### TC-AI-020A: iPhone12 车牌/车损 AI 检测不触发连续系统快门 [ ]
+
+**Priority**: High
+**Type**: Compatibility
+**Status**: [ ] Not Run
+**Suite**: Regression
+**Tags**: @device:iPhone12, @component:camera, @feature:auto-capture
+
+**Preconditions**:
+- 使用 iPhone12 真机运行体验版或真机调试版
+- 相机权限已授权
+- AI 模型可正常加载
+
+**Steps**:
+1. 进入车牌拍摄页，等待 AI 状态进入识别中
+2. 不点击手动拍照按钮，观察是否出现连续系统快门反馈
+3. 完成车牌和 VIN 后进入车损拍摄页，等待 AI 状态进入识别中
+4. 不点击手动拍照按钮，观察是否出现连续系统快门反馈
+5. 分别触发一次车牌和车损自动拍照
+
+**Expected Result**:
+- 车牌页 AI 检测期间不出现连续系统快门
+- 车损页 AI 检测期间不出现连续系统快门
+- AI 自动拍照仍可在满足条件后触发
+- 车损自动拍照仍可使用稳定时刻候选帧生成待确认图
+- VIN 页不启用 AI 检测，行为不变
+
+---
+
 ## 测试数据要求
 
 - 标准机动车车牌样本

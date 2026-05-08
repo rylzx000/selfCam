@@ -38,6 +38,7 @@
       class="camera"
       device-position="back"
       flash="auto"
+      frame-size="medium"
       binderror="onCameraError"
       bindstop="onCameraStop"
       bindinitdone="onCameraInitDone"

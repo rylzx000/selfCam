@@ -204,6 +204,9 @@ Page({
   plateFrameChecker: null,
   damageAutoCaptureEngine: null,
   cameraInitialized: false,
+  cameraFrameListener: null,
+  latestAIFrame: null,
+  aiPreviewTakePhotoRemovedLogged: false,
   aiDetectionRunId: 0,
   cameraLayoutLogKey: '',
 
@@ -260,6 +263,7 @@ Page({
   onHide() {
     this.cancelPlateHintClear()
     this.stopPlateBlink()
+    this.stopAIFrameListener('page_hide')
   },
 
   onUnload() {
@@ -271,6 +275,7 @@ Page({
     this.cancelPlateHintClear()
     this.stopPlateBlink()
     this.stopAIDetectionLoop()
+    this.stopAIFrameListener('page_unload')
     this.destroyDetectors()
     // 椤甸潰鍗歌浇鏃讹紝濡傛湁寰呯‘璁ょ収鐗囧垯鍏堜繚瀛?
     if (this.data.showConfirmModal && this.data.pendingPhoto) {
@@ -479,6 +484,7 @@ Page({
     this.stopAIDetectionLoop()
 
     if (!aiSupportedStep || showConfirmModal || this.isLeaving || !this.cameraInitialized) {
+      this.stopAIFrameListener(`resume_skipped_${reason}`)
       this.setData({ aiStatusText: this.getAIStatusByStep(currentStep), aiLocked: false })
       runtimeLogger.info('ai', 'resume_detection_skipped', {
         reason,
@@ -537,6 +543,7 @@ Page({
       useSelectedDamageFrame: canUseSelectedDamageFrame
     })
     this.stopAIDetectionLoop()
+    this.stopAIFrameListener('auto_capture')
     wx.showLoading({
       title: step === constants.SHOOT_STEP.DAMAGE && aiDetection?.selectedFramePath
         ? '\u5904\u7406\u4e2d...'
@@ -881,28 +888,237 @@ Page({
         damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE
         ? this.getDamagePhaseLabel({ phase: 'SEEK' })
         : ''
+      })
+  },
+
+  startAIFrameListener(reason = 'manual') {
+    if (!this.cameraContext || typeof this.cameraContext.onCameraFrame !== 'function') {
+      return false
+    }
+    if (this.cameraFrameListener) {
+      return true
+    }
+
+    this.latestAIFrame = null
+    const listener = this.cameraContext.onCameraFrame((frame) => {
+      if (!frame || !frame.data || !frame.width || !frame.height) {
+        return
+      }
+      this.latestAIFrame = {
+        data: frame.data,
+        width: frame.width,
+        height: frame.height,
+        capturedAt: Date.now()
+      }
+    })
+
+    this.cameraFrameListener = listener
+
+    try {
+      if (listener && typeof listener.start === 'function') {
+        listener.start({
+          success: () => {
+            runtimeLogger.info('ai', 'ai_frame_listener_start', { reason })
+          },
+          fail: (err) => {
+            if (this.cameraFrameListener === listener) {
+              this.cameraFrameListener = null
+              this.latestAIFrame = null
+            }
+            runtimeLogger.warn('ai', 'ai_frame_listener_start_failed', {
+              reason,
+              message: err?.errMsg || err?.message || ''
+            })
+          }
+        })
+      } else {
+        runtimeLogger.info('ai', 'ai_frame_listener_start', {
+          reason,
+          startMethod: 'unavailable'
+        })
+      }
+      return true
+    } catch (error) {
+      if (this.cameraFrameListener === listener) {
+        this.cameraFrameListener = null
+        this.latestAIFrame = null
+      }
+      runtimeLogger.warn('ai', 'ai_frame_listener_start_failed', {
+        reason,
+        message: error?.errMsg || error?.message || ''
+      })
+      return false
+    }
+  },
+
+  stopAIFrameListener(reason = 'manual') {
+    const listener = this.cameraFrameListener
+    if (!listener) {
+      this.latestAIFrame = null
+      return false
+    }
+
+    this.cameraFrameListener = null
+    this.latestAIFrame = null
+
+    try {
+      if (typeof listener.stop === 'function') {
+        listener.stop({
+          success: () => {
+            runtimeLogger.info('ai', 'ai_frame_listener_stop', { reason })
+          },
+          fail: (err) => {
+            runtimeLogger.warn('ai', 'ai_frame_listener_stop_failed', {
+              reason,
+              message: err?.errMsg || err?.message || ''
+            })
+          }
+        })
+      } else {
+        runtimeLogger.info('ai', 'ai_frame_listener_stop', {
+          reason,
+          stopMethod: 'unavailable'
+        })
+      }
+    } catch (error) {
+      runtimeLogger.warn('ai', 'ai_frame_listener_stop_failed', {
+        reason,
+        message: error?.errMsg || error?.message || ''
+      })
+    }
+
+    return true
+  },
+
+  getAIFrameBytes(frameData) {
+    if (!frameData) {
+      return null
+    }
+    if (frameData instanceof Uint8ClampedArray) {
+      return frameData
+    }
+    if (frameData instanceof ArrayBuffer) {
+      return new Uint8ClampedArray(frameData)
+    }
+    if (ArrayBuffer.isView(frameData)) {
+      return new Uint8ClampedArray(frameData.buffer, frameData.byteOffset, frameData.byteLength)
+    }
+    return null
+  },
+
+  convertAIFrameToImagePath(frame) {
+    return new Promise((resolve, reject) => {
+      const width = Math.floor(Number(frame?.width) || 0)
+      const height = Math.floor(Number(frame?.height) || 0)
+      const frameBytes = this.getAIFrameBytes(frame?.data)
+
+      if (!width || !height || !frameBytes) {
+        reject(new Error('AI_FRAME_INVALID'))
+        return
+      }
+      if (typeof wx.createOffscreenCanvas !== 'function') {
+        reject(new Error('AI_FRAME_CANVAS_UNAVAILABLE'))
+        return
+      }
+
+      const canvas = wx.createOffscreenCanvas({
+        type: '2d',
+        width,
+        height
+      })
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx || typeof ctx.putImageData !== 'function') {
+        reject(new Error('AI_FRAME_CANVAS_CONTEXT_UNAVAILABLE'))
+        return
+      }
+
+      const imageData = typeof ctx.createImageData === 'function'
+        ? ctx.createImageData(width, height)
+        : (typeof ctx.getImageData === 'function' ? ctx.getImageData(0, 0, width, height) : null)
+      if (!imageData || !imageData.data) {
+        reject(new Error('AI_FRAME_IMAGE_DATA_UNAVAILABLE'))
+        return
+      }
+
+      imageData.data.set(frameBytes.subarray(0, imageData.data.length))
+      ctx.putImageData(imageData, 0, 0)
+
+      const success = (res) => {
+        const imagePath = res?.tempFilePath || res?.tempImagePath || ''
+        if (!imagePath) {
+          reject(new Error('AI_FRAME_TEMP_PATH_EMPTY'))
+          return
+        }
+        resolve(imagePath)
+      }
+      const fail = (err) => {
+        reject(err || new Error('AI_FRAME_TO_PATH_FAILED'))
+      }
+
+      if (typeof canvas.toTempFilePath === 'function') {
+        canvas.toTempFilePath({
+          x: 0,
+          y: 0,
+          width,
+          height,
+          destWidth: width,
+          destHeight: height,
+          fileType: 'jpg',
+          quality: 0.8,
+          success,
+          fail
+        })
+        return
+      }
+
+      if (typeof wx.canvasToTempFilePath === 'function') {
+        wx.canvasToTempFilePath({
+          canvas,
+          x: 0,
+          y: 0,
+          width,
+          height,
+          destWidth: width,
+          destHeight: height,
+          fileType: 'jpg',
+          quality: 0.8,
+          success,
+          fail
+        })
+        return
+      }
+
+      reject(new Error('AI_FRAME_TO_PATH_UNAVAILABLE'))
     })
   },
 
-  takeAIPreviewPhoto() {
+  async takeAIPreviewPhoto() {
     if (!this.cameraContext || !this.cameraInitialized || this.isLeaving) {
-      return Promise.resolve('')
+      return ''
     }
 
-    return new Promise((resolve) => {
-      this.cameraContext.takePhoto({
-        quality: AUTO_CAPTURE.LOW_QUALITY,
-        success: (res) => {
-          resolve(res?.tempImagePath || '')
-        },
-        fail: (err) => {
-          runtimeLogger.warn('ai', 'preview_photo_failed', {
-            message: err?.errMsg || ''
-          })
-          resolve('')
-        }
+    const frame = this.latestAIFrame
+    if (!frame) {
+      return ''
+    }
+
+    if (!this.aiPreviewTakePhotoRemovedLogged) {
+      runtimeLogger.info('ai', 'ai_preview_take_photo_removed', {
+        source: 'onCameraFrame'
       })
-    })
+      this.aiPreviewTakePhotoRemovedLogged = true
+    }
+
+    try {
+      return await this.convertAIFrameToImagePath(frame)
+    } catch (error) {
+      runtimeLogger.warn('ai', 'ai_preview_frame_to_path_failed', {
+        message: error?.errMsg || error?.message || ''
+      })
+      return ''
+    }
   },
 
   startAIDetectionLoop(step) {
@@ -919,6 +1135,8 @@ Page({
       })
       return
     }
+
+    this.startAIFrameListener(`detection_loop_${step}`)
 
     const runId = this.aiDetectionRunId
     runtimeLogger.info('ai', 'detection_loop_start', {
@@ -1273,6 +1491,7 @@ Page({
     }
 
     this.stopAIDetectionLoop()
+    this.stopAIFrameListener('manual_capture')
     this.setData({ aiLocked: false, aiStatusText: this.getAIStatusByStep(this.data.currentStep) })
     wx.showLoading({ title: '\u5904\u7406\u4e2d...' })
 
@@ -1727,6 +1946,7 @@ Page({
       hasDetail: !!e?.detail
     })
     this.cameraInitialized = false
+    this.stopAIFrameListener('camera_stop')
   },
 
   onGoPreview() {

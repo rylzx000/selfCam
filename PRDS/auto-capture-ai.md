@@ -190,7 +190,7 @@ AUTO_CAPTURE.PLATE = {
 
 - 微信小程序 `camera + cover-view` 原生层对复杂 CSS 无限动画不稳定
 - 两整组静态帧切换比多元素动画更稳
-- 车牌检测间隔单独降为 `800ms`，减少周期性 `takePhoto(low)` 对预览帧率的影响
+- 车牌检测间隔单独降为 `800ms`，检测帧来自 `CameraContext.onCameraFrame`，不再使用低清 `takePhoto` 周期性抽帧
 - 当前方案优先保证真机稳定性
 
 ---

@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 运行环境 | 微信小程序原生 | 不依赖跨端框架 |
 | 页面层 | `wxml + wxss + js` | 原生页面与组件 |
-| 相机 | `camera` + `wx.createCameraContext()` | 负责预览与拍照 |
+| 相机 | `camera` + `wx.createCameraContext()` + `CameraContext.onCameraFrame` | 负责预览、AI 检测抽帧与最终拍照 |
 | 覆盖层 | `cover-view` / `cover-image` | 显示辅助框、箭头、状态文字 |
 | 图片压缩 | `wx.compressImage` | 拍照后压缩到较小体积 |
 | 本地存储 | `wx.setStorageSync` | 保存拍摄过程缓存 |
@@ -415,6 +415,9 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - `ensureDetector(step)`
 - `resumeAIDetection()`
 - `resumeAIDetectionAfterStepReady(reason)`
+- `startAIFrameListener(reason)`
+- `stopAIFrameListener(reason)`
+- `takeAIPreviewPhoto()`
 - `startAIDetectionLoop(step)`
 - `checkAutoCaptureReady(step, framePayload)`
 - `triggerAutoCapture(step, aiDetection)`
@@ -423,6 +426,9 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - `resumeAIDetection()` 会先判断当前步骤、确认态、离页状态、相机初始化状态和已有循环状态。
 - `loadCacheData()` 必须在 `setData` 完成后再调用 `resumeAIDetectionAfterStepReady()`，避免 `currentStep` 尚未落定导致车损检测没有启动。
 - `onCameraInitDone()` 设置 `cameraInitialized = true` 后，会针对当前步骤再次尝试恢复检测。
+- 车牌/车损 AI 检测恢复时启动 `CameraContext.onCameraFrame` 监听，保存最新实时帧到 `latestAIFrame`。
+- `takeAIPreviewPhoto()` 不再调用低清 `cameraContext.takePhoto()`，而是将最新实时帧通过离屏 canvas 转成临时图片路径后继续交给 `detector.detect(imagePath)`。
+- 若当前没有可用实时帧，则跳过当前检测轮，不回退到低清拍照抽帧。
 - 每次停止检测会递增 `aiDetectionRunId`，旧检测循环在异步返回后不再继续调度，避免重复循环。
 
 ### 3. 检测节奏
@@ -434,6 +440,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 自动拍照冷却：`2500ms`
 - 车损预览轮询：`280ms`
 - 车损 `SEEK` 阶段按 `detectorEveryNFrames = 3` 降频执行；进入 `HOLD / SHOOT` 后每帧执行检测，保证稳定后尽快拿到候选帧
+- 以上检测节奏只控制 AI 处理频率；实时帧来源为 `onCameraFrame`，不会触发系统快门。
 
 ### 4. 环境配置收口
 

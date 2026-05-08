@@ -14,11 +14,13 @@
 - 推理 session 首次仍使用 `precisionLevel=1`，创建失败、无效 session 或 `onError` 后只重试一次 `precisionLevel=4` 稳模式；不重新下载模型，不清理模型缓存。
 - 拍照页相机区新增横屏窗口尺寸计算，按横屏长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，修复部分机型横屏下相机预览区被短边 `rpx` 换算压小的问题。
 - 车牌、VIN、车损取景框和距离提示箭头改为相对相机区的百分比布局，保持固定虚拟 `400 x 300` 坐标系不变。
+- 车牌/车损 AI 检测抽帧改用 `CameraContext.onCameraFrame` 与 `frame-size="medium"`，不再通过低清 `cameraContext.takePhoto()` 轮询取帧，保留车损 `selectedFramePath` 候选帧成片逻辑。
 
 ### 修复 - 2026-05-08
 
 - 修复 nova13 等部分横屏机型上拍照页相机区缩在中间小块的问题。
 - 修复首次布局修正中误用竖屏 `safeArea` 宽度和固定高度比例导致正常机型相机区、按钮区变小的回归风险。
+- 修复 iPhone12 真机进入车牌页/车损页后，AI 检测抽帧被系统表现为连续快门的问题；VIN 页仍不启用 AI 自动检测。
 
 ### 追加验证 - 2026-05-08
 
@@ -27,6 +29,8 @@
 - `node --check utils/runtime-logger.js`：通过。
 - `npm test -- --runTestsByPath __tests__\camera-layout.test.js __tests__\camera-ai-start.test.js __tests__\camera-photo-quality.test.js`：3 个测试套件、15 个用例通过。
 - `npm test -- --runInBand`：21 个测试套件、194 个用例通过。
+- `npx jest __tests__/camera-ai-start.test.js __tests__/damage-capture-modules.test.js __tests__/camera-photo-quality.test.js --runInBand`：3 个测试套件、28 个用例通过。
+- `npx jest --runInBand`：21 个测试套件、197 个用例通过。
 
 ### 追加 - 2026-05-05
 

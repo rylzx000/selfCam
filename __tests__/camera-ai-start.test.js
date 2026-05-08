@@ -227,6 +227,8 @@ describe('camera AI detection start timing', () => {
         }
       },
       getDamagePhaseLabel: pageConfig.getDamagePhaseLabel,
+      getAIFrameBytes: pageConfig.getAIFrameBytes,
+      convertAIFrameToImagePath: pageConfig.convertAIFrameToImagePath,
       logAiModelConfig: pageConfig.logAiModelConfig,
       reportAiUnavailable: pageConfig.reportAiUnavailable,
       resumeAIDetectionAfterStepReady: jest.fn(),
@@ -275,6 +277,97 @@ describe('camera AI detection start timing', () => {
 
     expect(cameraSource).not.toContain('PLATE_MODEL_URL')
     expect(cameraSource).not.toContain('DAMAGE_MODEL_URL')
+  })
+
+  test('camera component requests medium realtime frames for AI preview', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).toContain('frame-size="medium"')
+  })
+
+  test('starts and stops camera frame listener for AI preview frames', () => {
+    let frameHandler = null
+    const start = jest.fn(({ success } = {}) => {
+      if (success) success()
+    })
+    const stop = jest.fn(({ success } = {}) => {
+      if (success) success()
+    })
+    const onCameraFrame = jest.fn((handler) => {
+      frameHandler = handler
+      return { start, stop }
+    })
+    const frame = {
+      data: new ArrayBuffer(4),
+      width: 1,
+      height: 1
+    }
+    const instance = createPageInstance({
+      cameraContext: { onCameraFrame },
+      cameraFrameListener: null,
+      latestAIFrame: null
+    })
+
+    pageConfig.startAIFrameListener.call(instance, 'test_start')
+    frameHandler(frame)
+    expect(instance.latestAIFrame).toEqual(expect.objectContaining({
+      data: frame.data,
+      width: 1,
+      height: 1
+    }))
+
+    pageConfig.stopAIFrameListener.call(instance, 'test_stop')
+
+    expect(onCameraFrame).toHaveBeenCalledWith(expect.any(Function))
+    expect(start).toHaveBeenCalled()
+    expect(stop).toHaveBeenCalled()
+    expect(instance.latestAIFrame).toBeNull()
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'ai_frame_listener_start', expect.objectContaining({
+      reason: 'test_start'
+    }))
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'ai_frame_listener_stop', expect.objectContaining({
+      reason: 'test_stop'
+    }))
+  })
+
+  test('AI preview uses latest camera frame instead of cameraContext.takePhoto', async () => {
+    const takePhoto = jest.fn()
+    const imageData = { data: new Uint8ClampedArray(4) }
+    const putImageData = jest.fn()
+    const createImageData = jest.fn(() => imageData)
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: jest.fn(() => ({
+        createImageData,
+        putImageData
+      })),
+      toTempFilePath: jest.fn(({ success } = {}) => {
+        success({ tempFilePath: '/tmp/ai-frame.jpg' })
+      })
+    }
+    wx.createOffscreenCanvas = jest.fn(() => canvas)
+    const instance = createPageInstance({
+      cameraContext: { takePhoto },
+      latestAIFrame: {
+        data: new Uint8Array([255, 0, 0, 255]).buffer,
+        width: 1,
+        height: 1
+      },
+      aiPreviewTakePhotoRemovedLogged: false
+    })
+
+    const result = await pageConfig.takeAIPreviewPhoto.call(instance)
+
+    expect(result).toBe('/tmp/ai-frame.jpg')
+    expect(takePhoto).not.toHaveBeenCalled()
+    expect(createImageData).toHaveBeenCalledWith(1, 1)
+    expect(putImageData).toHaveBeenCalledWith(imageData, 0, 0)
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'ai_preview_take_photo_removed', expect.objectContaining({
+      source: 'onCameraFrame'
+    }))
   })
 
   test('onShow sends forced realtime probe', () => {

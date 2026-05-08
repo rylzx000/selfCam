@@ -10,7 +10,7 @@
 
 ## 版本概述
 
-`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦真机兼容性：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次稳模式重试，解决部分 Android 机型 AI 不可加载的问题；追加修复部分横屏机型拍照页相机区被短边 `rpx` 换算压小的问题。拍照、缓存、上传、模型 URL、模型缓存清理和自动拍照算法保持不变。
+`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦真机兼容性：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次稳模式重试，解决部分 Android 机型 AI 不可加载的问题；追加修复部分横屏机型拍照页相机区被短边 `rpx` 换算压小的问题，并将车牌/车损 AI 检测抽帧从低清 `takePhoto` 改为 `CameraContext.onCameraFrame`，避免 iPhone12 真机连续快门。缓存、上传、模型 URL、模型缓存清理和自动拍照判断算法保持不变。
 
 ### 本版本重点
 
@@ -22,6 +22,7 @@
 - 稳模式重试不重新下载模型、不清理模型缓存、不修改模型 URL，也不改变拍照流程和自动拍照算法。
 - 拍照页相机区按横屏长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，避免部分机型横屏下相机区缩小。
 - 车牌、VIN、车损辅助框随相机区等比例缩放，但 AI 判断仍使用固定虚拟 `400 x 300` 坐标系。
+- 车牌/车损 AI 检测抽帧使用 `CameraContext.onCameraFrame` 和 `frame-size="medium"`，检测循环不再调用低清 `cameraContext.takePhoto()`；车损 `selectedFramePath` 候选帧成片逻辑保持不变。
 
 ## v1.3.7 变更摘要
 
@@ -43,6 +44,12 @@
 - `pages/camera/camera.wxss` 将车牌框、VIN 框、车损框和距离提示箭头改为相对相机区的百分比布局，避免显示尺寸变化后覆盖层错位。
 - `getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 与车损 `canvasWidth/canvasHeight = 400/300` 均保持不变。
 
+### AI 检测抽帧修复
+
+- `pages/camera/camera.wxml` 为 `camera` 增加 `frame-size="medium"`，用于车牌/车损 AI 检测实时帧。
+- `takeAIPreviewPhoto()` 保留原方法名，但改为读取 `latestAIFrame` 并通过离屏 canvas 转临时图片路径，继续复用现有 `detector.detect(imagePath)`。
+- 检测循环无实时帧时跳过当前轮，不回退到 `cameraContext.takePhoto()`，避免 iPhone12 真机连续快门。
+
 ### 测试与文档同步
 
 - `package.json` 与 `package-lock.json` 版本号提升到 `1.3.7`。
@@ -50,6 +57,7 @@
 - 新增 `__tests__/camera-layout.test.js`，覆盖正常横屏机型尺寸不回退、竖屏 `safeArea` 不压窄相机区、宽屏机型无需机型白名单即可放大。
 - 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`、`node --check utils/runtime-logger.js`。
 - 本轮验证通过 `npm test -- --runInBand`，21 个测试套件、194 个用例通过。
+- 追加验证通过 `npx jest --runInBand`，21 个测试套件、197 个用例通过。
 
 ---
 
