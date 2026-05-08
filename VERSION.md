@@ -2,53 +2,45 @@
 
 ## 当前版本
 
-**版本号**: v1.3.6
-**发布日期**: 2026-05-07
-**状态**: SIT 体验版诊断增强
+**版本号**: v1.3.7
+**发布日期**: 2026-05-08
+**状态**: SIT 体验版日志与 AI 兼容性优化
 
 ---
 
 ## 版本概述
 
-`v1.3.6` 是当前 SIT 体验版对外测试版本。本轮在不提升版本号的前提下，增加微信小程序实时日志，用于定位业务人员真机使用时 AI 模型下载、缓存写入和推理会话加载失败原因；同时修复微信开发者工具代码质量扫描中的包体配置、资源体积和无用组件问题。页面样式和车损自动拍照算法保持不变。
+`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦 AI 真机排障：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次稳模式重试，解决部分 Android 机型 AI 不可加载的问题。页面 UI、拍照流程、模型 URL、模型缓存清理和自动拍照算法保持不变。
 
 ### 本版本重点
 
-- 保留微信运行版本 `wxEnvVersion: develop / trial / release`，新增业务环境 `appEnv: dev / sit / pilot / prod`。
-- 默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`，正式版强制 `prod`。
-- `develop / trial` 支持通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境，正式版忽略覆盖。
-- `BUSINESS_ENV_ENDPOINTS.dev.modelHost` 与 `sit.modelHost` 均指向 `https://onlineclaimsit.chinalife-p.com.cn/video/model`，开发调试复用 SIT 模型资源。
-- 首页 logo 区域增加隐藏 7 连击入口，可选择允许环境、清除环境选择或清除 AI 模型缓存；正式版不显示切换入口。
-- 首页、拍照页、预览页右下角显示透明环境标识，方便真机确认当前业务环境；生产环境不显示。
-- 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
-- 车牌和车损模型缓存文件名包含业务环境和模型 URL hash，切换环境后重新检查当前环境模型缓存。
-- 隐藏调试入口可清除当前环境车牌/车损 onnx 模型缓存，不影响用户照片、车辆/单证/流程缓存和本地日志。
-- 接入 `wx.getRealtimeLogManager()`，记录 AI 模型下载、缓存、推理会话加载和相机页 AI 初始化失败详情。
-- 运行时反馈编号统一为 `selfCam_${sessionId}`，便于在小程序后台实时日志中筛选。
-- 启用 `lazyCodeLoading: requiredComponents`，通过组件按需注入扫描项。
-- 压缩首页品牌 logo 本地资源，并清理未实际使用的 `components/image-preview` 组件。
+- We分析仅上报 AI 排障关键事件：模型下载失败、缓存写入失败、session 创建/加载失败、AI 初始化失败和诊断探针等。
+- 本地 runtime 日志仍完整保留 `camera/page_show`、`workflow/transition`、`ai/resume_detection_*` 等普通日志。
+- We分析 payload 精简为反馈编号、环境、模型、阶段、错误、设备和 session 尝试信息，降低 `UserLog:fail Log Size Exceed` 风险。
+- 车牌/车损 `wx.createInferenceSession` 返回后先校验 session、`onLoad`、`onError` 是否有效，避免无效 session 触发 TypeError。
+- 推理 session 首次仍使用 `precisionLevel=1`；失败后只重试一次 `precisionLevel=4` 稳模式。
+- 稳模式重试不重新下载模型、不清理模型缓存、不修改模型 URL，也不改变拍照流程和自动拍照算法。
 
-## v1.3.6 变更摘要
+## v1.3.7 变更摘要
 
-### 车损自动拍照
+### AI 推理兼容性
 
-- 车损检测新增 `imageAreaRatio`，保留 `captureAreaRatio`；`areaRatio` 统一改为车损框占整张图面积比例。
-- 车损取景框业务阈值仍按“占取景框 50%～100%”配置，运行时换算为整图有效范围，供阶段判断和靠近/远离提示使用。
-- 首次识别到车损时，中心偏移直接使用当前值，避免从初始偏移 `1` 慢慢平滑导致进入 HOLD 偏慢。
-- HOLD / SHOOT 阶段每帧运行车损检测，减少稳定后等待候选帧的卡顿。
-- SEEK / HOLD 中心阈值放宽，HOLD 面积短暂出界允许 2 帧缓冲，降低手持轻微晃动导致反复回 SEEK 的概率。
-- 开发态拍照框调试信息精简为 `phase / area / center / stable / hold`。
+- `utils/plate-detector.js` 与 `utils/damage-detector.js` 在访问 `session.onLoad` 前增加 session 有效性校验。
+- fast `precisionLevel=1` 创建失败、返回无效 session 或触发 `onError` 时，自动重试一次 stable `precisionLevel=4`。
+- 两次均失败时抛出结构化错误，包含 `stage/modelName/modelPath/attemptName/precisionLevel/errMsg`，交给相机页现有 AI 不可用降级逻辑处理。
+
+### We分析实时日志
+
+- `runtime-logger` 仅将白名单 AI 排障事件转发到 `wx.getRealtimeLogManager()`，降低实时日志体积。
+- We分析 payload 精简，不再透传完整 payload；本地日志仍保留完整 payload。
+- `forceWarn` / `forceError` 仍保留强制上报能力，但同样使用精简 payload。
 
 ### 测试与文档同步
 
-- `package.json` 与 `package-lock.json` 版本号保持 `1.3.6`。
-- 新增实时日志链路，覆盖 `download_start/cache_hit/download_success/download_failed/cache_copy_failed/session_load_failed/detector_init_failed` 等事件。
-- 补齐车损自动拍照模块单元测试，覆盖面积口径、阈值换算、首次中心偏移、HOLD 检测频率和短暂面积出界容错。
-- 新增总照片容量上限 `LIMITS.MAX_TOTAL_PHOTOS = 50`，达到上限时禁止继续新增并提示 `最多50张，请先删除`。
-- 补齐容量边界、删除补拍、重拍替换、多车满图、提交一致性和恢复乱序 P0 e2e。
-- 修复微信开发者工具代码质量扫描：组件按需注入、图片资源体积和无用组件文件。
-- 本轮验证通过 `npm test -- --runInBand`，19 个测试套件、170 个用例通过。
-- 本轮验证通过 `npm run test:e2e:p0`，5 个 e2e 测试文件、12 个 P0 用例通过。
+- `package.json` 与 `package-lock.json` 版本号提升到 `1.3.7`。
+- 新增/调整 runtimeLogger 与 AI session 单元测试，覆盖无效 session、稳模式重试、We分析白名单、黑名单和 payload 精简。
+- 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`、`node --check utils/runtime-logger.js`。
+- 本轮验证通过 `npm test -- --runInBand`，20 个测试套件、191 个用例通过。
 
 ---
 
@@ -56,7 +48,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| v1.3.7 | 2026-05-04 | 本地历史 | 车损自动拍照面积口径与真机手感优化 |
+| v1.3.7 | 2026-05-08 | SIT 体验版日志与 AI 兼容性优化 | 收敛 We分析实时日志，补充推理 session 稳模式重试，解决部分机型 AI 不可加载 |
 | v1.3.6 | 2026-05-07 | SIT 体验版诊断增强 | 业务环境切换、SIT 模型地址、安全校验、模型缓存隔离、AI 实时日志与代码质量扫描修复 |
 | v1.3.5 | 2026-04-30 | 已封板（本地） | 每辆车行驶证资料上传、缓存兼容、提交风险提示与三页背景统一 |
 | v1.3.4 | 2026-04-29 | 已封板（本地） | 权限申请与相册保存瘦身，保留失败轻提示和开始采集防重复点击 |
@@ -84,7 +76,7 @@ git fetch --tags
 git checkout v1.3.4
 ```
 
-如果后续需要把 `v1.3.6` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+如果后续需要把 `v1.3.7` 作为正式标签发布，建议在本地提交后再创建对应 tag。
 
 ---
 

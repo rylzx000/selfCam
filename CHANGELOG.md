@@ -4,7 +4,21 @@
 
 ---
 
-## [v1.3.7] - 2026-05-04
+## [v1.3.7] - 2026-05-08
+
+### 追加 - 2026-05-08
+
+- 收敛 We分析实时日志：本地 runtime 日志继续完整保存，普通实时日志仅上报 AI 排障关键事件，避免 `camera/page_show`、`workflow/transition`、`ai/resume_detection_skipped` 等高频日志挤掉模型失败信息。
+- 精简 We分析 payload，仅保留反馈编号、环境、模型、阶段、错误、设备和 session 尝试信息，降低 `UserLog:fail Log Size Exceed` 风险。
+- 车牌/车损推理 session 创建增加有效性校验，避免部分 Android 设备上 `wx.createInferenceSession` 返回无效对象后触发 `Cannot read properties of undefined (reading 'onLoad')`。
+- 推理 session 首次仍使用 `precisionLevel=1`，创建失败、无效 session 或 `onError` 后只重试一次 `precisionLevel=4` 稳模式；不重新下载模型，不清理模型缓存。
+
+### 追加验证 - 2026-05-08
+
+- `node --check utils/plate-detector.js`：通过。
+- `node --check utils/damage-detector.js`：通过。
+- `node --check utils/runtime-logger.js`：通过。
+- `npm test -- --runInBand`：20 个测试套件、191 个用例通过。
 
 ### 追加 - 2026-05-05
 
@@ -374,7 +388,7 @@
 
 | 版本 | 日期 | 类型 | 说明 |
 | --- | --- | --- | --- |
-| v1.3.7 | 2026-05-04 | 车损自动拍照优化版 | 调整车损面积口径、中心响应、HOLD 检测频率和短暂出界容错 |
+| v1.3.7 | 2026-05-08 | AI 诊断与兼容性优化版 | 收敛 We分析实时日志，补充推理 session 稳模式重试，解决部分机型 AI 不可加载 |
 | v1.3.6 | 2026-05-02 | 业务环境切换版 | 新增 appEnv、隐藏环境切换入口、模型地址安全校验与模型缓存隔离 |
 | v1.3.5 | 2026-04-30 | 行驶证资料版 | 每辆车行驶证上传、缓存兼容、提交风险提示与预览页交互补齐 |
 | v1.3.4 | 2026-04-29 | 权限瘦身版 | 权限申请与相册保存瘦身，保留失败轻提示和开始采集防重复点击 |

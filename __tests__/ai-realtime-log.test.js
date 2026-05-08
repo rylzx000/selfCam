@@ -53,12 +53,19 @@ describe('AI realtime logging', () => {
     }))
   }
 
-  test('runtimeLogger.addLog forwards local logs to realtime log', () => {
+  function expectNoRealtimeLog() {
+    expect(realtimeLog.info).not.toHaveBeenCalled()
+    expect(realtimeLog.warn).not.toHaveBeenCalled()
+    expect(realtimeLog.error).not.toHaveBeenCalled()
+  }
+
+  test('runtimeLogger.addLog keeps local logs but filters non-critical realtime logs', () => {
     setupRuntimeLoggerTest()
     const runtimeLogger = require('../utils/runtime-logger')
 
     const entry = runtimeLogger.addLog('info', 'ai', 'model_probe', {
-      modelName: 'plate'
+      modelName: 'plate',
+      extraDetail: 'local only'
     })
 
     expect(entry).toEqual(expect.objectContaining({
@@ -68,14 +75,16 @@ describe('AI realtime logging', () => {
       at: expect.any(String)
     }))
     expect(realtimeLog.setFilterMsg).toHaveBeenCalledWith(entry.sessionId)
-    expect(realtimeLog.info).toHaveBeenCalledWith('ai', 'model_probe', expect.objectContaining({
-      sessionId: entry.sessionId,
-      at: entry.at,
-      modelName: 'plate'
+    expectNoRealtimeLog()
+    expect(runtimeLogger.readLogs()[0]).toEqual(expect.objectContaining({
+      payload: expect.objectContaining({
+        modelName: 'plate',
+        extraDetail: 'local only'
+      })
     }))
   })
 
-  test('runtimeLogger.startSession sets realtime log filter message', () => {
+  test('runtimeLogger.startSession sets filter without forwarding camera session_start', () => {
     setupRuntimeLoggerTest()
     const runtimeLogger = require('../utils/runtime-logger')
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
@@ -84,10 +93,7 @@ describe('AI realtime logging', () => {
       const sessionId = runtimeLogger.startSession('camera', { step: 'damage' })
 
       expect(realtimeLog.setFilterMsg).toHaveBeenCalledWith(sessionId)
-      expect(realtimeLog.info).toHaveBeenCalledWith('camera', 'session_start', expect.objectContaining({
-        sessionId,
-        step: 'damage'
-      }))
+      expectNoRealtimeLog()
     } finally {
       consoleLogSpy.mockRestore()
     }
@@ -122,7 +128,9 @@ describe('AI realtime logging', () => {
     const runtimeLogger = require('../utils/runtime-logger')
 
     const entry = runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
-      probe: 'selfCam_realtime_probe'
+      feedbackId: 'feedback-1',
+      probe: 'selfCam_realtime_probe',
+      largePayload: { nested: true }
     })
 
     expect(entry).toEqual(expect.objectContaining({
@@ -131,10 +139,10 @@ describe('AI realtime logging', () => {
       scope: 'diagnostic',
       event: 'realtime_probe'
     }))
-    expect(realtimeLog.warn).toHaveBeenCalledWith('diagnostic', 'realtime_probe', expect.objectContaining({
+    expect(realtimeLog.warn).toHaveBeenCalledWith('diagnostic', 'realtime_probe', {
       sessionId: entry.sessionId,
-      probe: 'selfCam_realtime_probe'
-    }))
+      feedbackId: 'feedback-1'
+    })
   })
 
   test('runtimeLogger.forceError forwards realtime log without level filtering', () => {
@@ -155,7 +163,8 @@ describe('AI realtime logging', () => {
     const runtimeLogger = require('../utils/runtime-logger')
 
     const entry = runtimeLogger.forceError('ai', 'ai_unavailable', {
-      reason: 'detector_init_failed'
+      reason: 'detector_init_failed',
+      detail: { huge: true }
     })
 
     expect(entry).toEqual(expect.objectContaining({
@@ -164,10 +173,93 @@ describe('AI realtime logging', () => {
       scope: 'ai',
       event: 'ai_unavailable'
     }))
-    expect(realtimeLog.error).toHaveBeenCalledWith('ai', 'ai_unavailable', expect.objectContaining({
+    expect(realtimeLog.error).toHaveBeenCalledWith('ai', 'ai_unavailable', {
       sessionId: entry.sessionId,
       reason: 'detector_init_failed'
+    })
+  })
+
+  test.each([
+    ['camera', 'page_show'],
+    ['workflow', 'transition'],
+    ['ai', 'resume_detection_skipped']
+  ])('runtimeLogger.addLog filters %s/%s from realtime log', (scope, event) => {
+    setupRuntimeLoggerTest()
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const entry = runtimeLogger.addLog('info', scope, event, {
+      feedbackId: 'feedback-2',
+      largePayload: { localOnly: true }
+    })
+
+    expect(entry).toEqual(expect.objectContaining({
+      scope,
+      event,
+      payload: expect.objectContaining({
+        feedbackId: 'feedback-2',
+        largePayload: { localOnly: true }
+      })
     }))
+    expectNoRealtimeLog()
+  })
+
+  test.each([
+    ['error', 'ai', 'ai_unavailable'],
+    ['error', 'ai', 'detector_init_failed'],
+    ['error', 'ai_model', 'session_create_failed'],
+    ['error', 'ai_model', 'session_load_failed']
+  ])('runtimeLogger.addLog forwards critical %s %s/%s with slim payload', (level, scope, event) => {
+    setupRuntimeLoggerTest()
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const entry = runtimeLogger.addLog(level, scope, event, {
+      feedbackId: 'feedback-3',
+      appEnv: 'sit',
+      wxEnvVersion: 'trial',
+      reason: 'detector_init_failed',
+      stage: 'inference_session',
+      modelName: 'plate',
+      statusCode: 503,
+      message: 'AI unavailable',
+      errMsg: 'session failed',
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4,
+      modelUrl: 'https://example.com/plate.onnx',
+      modelPath: '/tmp/plate.onnx',
+      plateModelUrl: 'https://example.com/plate.onnx',
+      damageModelUrl: 'https://example.com/damage.onnx',
+      system: 'Android',
+      model: 'Pixel',
+      platform: 'android',
+      SDKVersion: '3.15.1',
+      version: '8.0.1',
+      at: 'should-not-forward',
+      rawPayload: { huge: true }
+    })
+
+    expect(realtimeLog[level]).toHaveBeenCalledWith(scope, event, {
+      sessionId: entry.sessionId,
+      feedbackId: 'feedback-3',
+      appEnv: 'sit',
+      wxEnvVersion: 'trial',
+      reason: 'detector_init_failed',
+      stage: 'inference_session',
+      modelName: 'plate',
+      statusCode: 503,
+      message: 'AI unavailable',
+      errMsg: 'session failed',
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4,
+      modelUrl: 'https://example.com/plate.onnx',
+      modelPath: '/tmp/plate.onnx',
+      plateModelUrl: 'https://example.com/plate.onnx',
+      damageModelUrl: 'https://example.com/damage.onnx',
+      system: 'Android',
+      model: 'Pixel',
+      platform: 'android',
+      SDKVersion: '3.15.1',
+      version: '8.0.1'
+    })
   })
 
   function setupDetectorTest(fsMock, wxOverrides = {}) {
@@ -191,6 +283,181 @@ describe('AI realtime logging', () => {
       }))
     }))
   }
+
+  function createLoadedSession() {
+    return {
+      onLoad: jest.fn((callback) => callback()),
+      onError: jest.fn()
+    }
+  }
+
+  function createFailedSession(errMsg) {
+    return {
+      onLoad: jest.fn(),
+      onError: jest.fn((callback) => callback({ errMsg }))
+    }
+  }
+
+  const detectorSessionCases = [
+    {
+      modelName: 'plate',
+      detectorPath: '../utils/plate-detector',
+      modelUrl: 'https://example.com/plate.onnx',
+      modelPath: '/tmp/plate.onnx'
+    },
+    {
+      modelName: 'damage',
+      detectorPath: '../utils/damage-detector',
+      modelUrl: 'https://example.com/damage.onnx',
+      modelPath: '/tmp/damage.onnx'
+    }
+  ]
+
+  test.each(detectorSessionCases)('$modelName detector retries stable mode when fast mode returns undefined', async ({
+    modelName,
+    detectorPath,
+    modelUrl,
+    modelPath
+  }) => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    const stableSession = createLoadedSession()
+    const createInferenceSession = jest.fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => stableSession)
+    setupDetectorTest(fsMock, { createInferenceSession })
+    const Detector = require(detectorPath)
+    const detector = new Detector({ modelUrl, modelPath })
+
+    await expect(detector.loadSession()).resolves.toBeUndefined()
+
+    expect(createInferenceSession).toHaveBeenNthCalledWith(1, {
+      model: modelPath,
+      precisionLevel: 1
+    })
+    expect(createInferenceSession).toHaveBeenNthCalledWith(2, {
+      model: modelPath,
+      precisionLevel: 4
+    })
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_create_failed', expect.objectContaining({
+      modelName,
+      modelPath,
+      attemptName: 'fast_precision_1',
+      precisionLevel: 1,
+      stage: 'inference_session_create',
+      errMsg: 'wx.createInferenceSession returned invalid session',
+      sessionType: 'undefined',
+      sessionKeys: ''
+    }))
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_create_success', expect.objectContaining({
+      modelName,
+      modelPath,
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4
+    }))
+    expect(stableSession.onLoad).toHaveBeenCalledTimes(1)
+  })
+
+  test.each(detectorSessionCases)('$modelName detector succeeds when fast mode throws and stable mode loads', async ({
+    detectorPath,
+    modelUrl,
+    modelPath
+  }) => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    const createInferenceSession = jest.fn()
+      .mockImplementationOnce(() => {
+        throw new Error('createInferenceSession:fail precision unsupported')
+      })
+      .mockImplementationOnce(() => createLoadedSession())
+    setupDetectorTest(fsMock, { createInferenceSession })
+    const Detector = require(detectorPath)
+    const detector = new Detector({ modelUrl, modelPath })
+
+    await expect(detector.loadSession()).resolves.toBeUndefined()
+
+    expect(createInferenceSession).toHaveBeenCalledTimes(2)
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_success', expect.objectContaining({
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4
+    }))
+  })
+
+  test.each(detectorSessionCases)('$modelName detector throws structured create error when both modes return undefined', async ({
+    modelName,
+    detectorPath,
+    modelUrl,
+    modelPath
+  }) => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    const createInferenceSession = jest.fn(() => undefined)
+    setupDetectorTest(fsMock, { createInferenceSession })
+    const Detector = require(detectorPath)
+    const detector = new Detector({ modelUrl, modelPath })
+
+    const error = await detector.loadSession().catch((err) => err)
+
+    expect(error).toMatchObject({
+      stage: 'inference_session_create',
+      modelName,
+      modelPath,
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4,
+      errMsg: 'wx.createInferenceSession returned invalid session'
+    })
+    expect(error).not.toBeInstanceOf(TypeError)
+    expect(createInferenceSession).toHaveBeenCalledTimes(2)
+  })
+
+  test.each(detectorSessionCases)('$modelName detector retries stable mode when fast session onError fires', async ({
+    modelName,
+    detectorPath,
+    modelUrl,
+    modelPath
+  }) => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    const createInferenceSession = jest.fn()
+      .mockImplementationOnce(() => createFailedSession('createInferenceSession:fail fast session'))
+      .mockImplementationOnce(() => createLoadedSession())
+    setupDetectorTest(fsMock, { createInferenceSession })
+    const Detector = require(detectorPath)
+    const detector = new Detector({ modelUrl, modelPath })
+
+    await expect(detector.loadSession()).resolves.toBeUndefined()
+
+    expect(createInferenceSession).toHaveBeenNthCalledWith(1, {
+      model: modelPath,
+      precisionLevel: 1
+    })
+    expect(createInferenceSession).toHaveBeenNthCalledWith(2, {
+      model: modelPath,
+      precisionLevel: 4
+    })
+    expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
+      modelName,
+      modelPath,
+      attemptName: 'fast_precision_1',
+      precisionLevel: 1,
+      stage: 'inference_session',
+      errMsg: 'createInferenceSession:fail fast session'
+    }))
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_success', expect.objectContaining({
+      modelName,
+      modelPath,
+      attemptName: 'stable_precision_4',
+      precisionLevel: 4
+    }))
+  })
 
   test('plate detector throws stage/statusCode/modelName when download status is not 200', async () => {
     const fsMock = {

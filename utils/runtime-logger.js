@@ -14,6 +14,42 @@ const LOG_LEVEL_PRIORITY = {
   error: 3
 }
 
+const REALTIME_FORWARD_EVENTS = {
+  diagnostic: new Set(['realtime_probe']),
+  ai: new Set(['model_config_probe', 'ai_unavailable', 'detector_init_failed']),
+  ai_model: new Set([
+    'download_failed',
+    'download_status_failed',
+    'cache_copy_failed',
+    'model_file_invalid',
+    'session_create_failed',
+    'session_load_failed'
+  ])
+}
+
+const REALTIME_PAYLOAD_KEYS = [
+  'feedbackId',
+  'appEnv',
+  'wxEnvVersion',
+  'reason',
+  'stage',
+  'modelName',
+  'statusCode',
+  'message',
+  'errMsg',
+  'attemptName',
+  'precisionLevel',
+  'modelUrl',
+  'modelPath',
+  'plateModelUrl',
+  'damageModelUrl',
+  'system',
+  'model',
+  'platform',
+  'SDKVersion',
+  'version'
+]
+
 function getNow() {
   return Date.now()
 }
@@ -46,6 +82,11 @@ function shouldCaptureLevel(level) {
   }
 
   return (LOG_LEVEL_PRIORITY[level] || 0) >= (LOG_LEVEL_PRIORITY[runtimeLoggerLevel] || 0)
+}
+
+function shouldForwardRealtimeLog(level, scope, event) {
+  const allowedEvents = REALTIME_FORWARD_EVENTS[scope]
+  return !!allowedEvents && allowedEvents.has(event)
 }
 
 function shouldUpload() {
@@ -84,6 +125,22 @@ function safeClone(value, depth = 0) {
   }
 
   return value
+}
+
+function buildRealtimePayload(sessionId, payload = {}) {
+  const realtimePayload = { sessionId }
+
+  if (!payload || typeof payload !== 'object') {
+    return realtimePayload
+  }
+
+  REALTIME_PAYLOAD_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(payload, key) && payload[key] !== undefined) {
+      realtimePayload[key] = safeClone(payload[key])
+    }
+  })
+
+  return realtimePayload
 }
 
 function readStorageObject(storageKey, fallbackValue) {
@@ -241,12 +298,9 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
 
   appendLocalLog(entry)
 
-  const realtimePayload = {
-    sessionId: session.sessionId,
-    at: entry.at,
-    ...entry.payload
+  if (shouldForwardRealtimeLog(level, scope, event)) {
+    syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, entry.payload))
   }
-  syncRealtimeLog(level, scope, event, realtimePayload)
 
   if (shouldUpload()) {
     const loggerConfig = getLoggerConfig()
@@ -276,12 +330,7 @@ function addForcedLog(level, scope, event, payload = {}, sessionMeta = null) {
 
   appendLocalLog(entry)
 
-  const realtimePayload = {
-    sessionId: session.sessionId,
-    at: entry.at,
-    ...entry.payload
-  }
-  syncRealtimeLog(level, scope, event, realtimePayload)
+  syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, entry.payload))
 
   if (shouldUpload()) {
     const loggerConfig = getLoggerConfig()

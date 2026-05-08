@@ -4,6 +4,10 @@ const envConfig = require('./env-config')
 const runtimeLogger = require('./runtime-logger')
 
 const MODEL_NAME = 'damage'
+const SESSION_ATTEMPTS = [
+  { attemptName: 'fast_precision_1', precisionLevel: 1 },
+  { attemptName: 'stable_precision_4', precisionLevel: 4 }
+]
 
 function getErrMsg(error) {
   if (!error) {
@@ -16,6 +20,12 @@ function createModelError(message, payload = {}) {
   const error = new Error(message)
   Object.assign(error, payload)
   return error
+}
+
+function isValidInferenceSession(session) {
+  return !!session
+    && typeof session.onLoad === 'function'
+    && typeof session.onError === 'function'
 }
 
 function logModel(level, event, payload = {}) {
@@ -42,6 +52,14 @@ function logModel(level, event, payload = {}) {
         runtimeLogger.info('ai_model', 'session_load_start', data)
         return
       }
+      if (event === 'session_create_attempt') {
+        runtimeLogger.info('ai_model', 'session_create_attempt', data)
+        return
+      }
+      if (event === 'session_create_success') {
+        runtimeLogger.info('ai_model', 'session_create_success', data)
+        return
+      }
       if (event === 'session_load_success') {
         runtimeLogger.info('ai_model', 'session_load_success', data)
         return
@@ -60,6 +78,10 @@ function logModel(level, event, payload = {}) {
       }
       if (event === 'cache_copy_failed') {
         reportError('ai_model', 'cache_copy_failed', data)
+        return
+      }
+      if (event === 'session_create_failed') {
+        reportError('ai_model', 'session_create_failed', data)
         return
       }
       if (event === 'session_load_failed') {
@@ -227,54 +249,128 @@ class DamageDetector {
       modelPath: this.modelPath
     })
 
-    try {
-      this.session = wx.createInferenceSession({
-        model: this.modelPath,
-        precisionLevel: 1
-      })
+    let lastError = null
 
-      await new Promise((resolve, reject) => {
-        this.session.onLoad(() => {
-          logModel('info', 'session_load_success', {
-            modelPath: this.modelPath
-          })
-          resolve()
+    for (const attempt of SESSION_ATTEMPTS) {
+      const { attemptName, precisionLevel } = attempt
+
+      try {
+        logModel('info', 'session_create_attempt', {
+          modelPath: this.modelPath,
+          attemptName,
+          precisionLevel
         })
-        this.session.onError((err) => {
-          const modelError = createModelError('Damage inference session load failed', {
-            stage: 'inference_session',
+
+        const session = wx.createInferenceSession({
+          model: this.modelPath,
+          precisionLevel
+        })
+
+        if (!isValidInferenceSession(session)) {
+          const modelError = createModelError('wx.createInferenceSession returned invalid session', {
+            stage: 'inference_session_create',
             modelName: MODEL_NAME,
             modelPath: this.modelPath,
-            errMsg: getErrMsg(err)
+            errMsg: 'wx.createInferenceSession returned invalid session',
+            sessionType: typeof session,
+            sessionKeys: session ? Object.keys(session).join(',') : '',
+            attemptName,
+            precisionLevel
           })
-          logModel('error', 'session_load_failed', {
+          logModel('error', 'session_create_failed', {
             stage: modelError.stage,
             modelPath: modelError.modelPath,
-            errMsg: modelError.errMsg
+            attemptName: modelError.attemptName,
+            precisionLevel: modelError.precisionLevel,
+            errMsg: modelError.errMsg,
+            sessionType: modelError.sessionType,
+            sessionKeys: modelError.sessionKeys
           })
-          reject(modelError)
-        })
-      })
-    } catch (error) {
-      if (error?.stage === 'inference_session') {
-        throw error
-      }
+          lastError = modelError
+          this.session = null
+          continue
+        }
 
-      const modelError = createModelError('Damage inference session load failed', {
-        stage: 'inference_session',
-        modelName: MODEL_NAME,
-        modelPath: this.modelPath,
-        errMsg: getErrMsg(error)
-      })
-      logModel('error', 'session_load_failed', {
-        stage: modelError.stage,
-        modelPath: modelError.modelPath,
-        errMsg: modelError.errMsg
-      })
-      throw modelError
+        this.session = session
+        logModel('info', 'session_create_success', {
+          modelPath: this.modelPath,
+          attemptName,
+          precisionLevel
+        })
+
+        await new Promise((resolve, reject) => {
+          session.onLoad(() => {
+            logModel('info', 'session_load_success', {
+              modelPath: this.modelPath,
+              attemptName,
+              precisionLevel
+            })
+            resolve()
+          })
+          session.onError((err) => {
+            const modelError = createModelError('Damage inference session load failed', {
+              stage: 'inference_session',
+              modelName: MODEL_NAME,
+              modelPath: this.modelPath,
+              errMsg: getErrMsg(err),
+              attemptName,
+              precisionLevel
+            })
+            logModel('error', 'session_load_failed', {
+              stage: modelError.stage,
+              modelPath: modelError.modelPath,
+              attemptName: modelError.attemptName,
+              precisionLevel: modelError.precisionLevel,
+              errMsg: modelError.errMsg
+            })
+            reject(modelError)
+          })
+        })
+
+        console.log('[AI:model:damage] session loaded')
+        return
+      } catch (error) {
+        if (error?.stage === 'inference_session' || error?.stage === 'inference_session_create') {
+          lastError = error
+          this.session = null
+          continue
+        }
+
+        const modelError = createModelError('Damage inference session create failed', {
+          stage: 'inference_session_create',
+          modelName: MODEL_NAME,
+          modelPath: this.modelPath,
+          attemptName,
+          precisionLevel,
+          errMsg: getErrMsg(error),
+          sessionType: '',
+          sessionKeys: ''
+        })
+        logModel('error', 'session_create_failed', {
+          stage: modelError.stage,
+          modelPath: modelError.modelPath,
+          attemptName: modelError.attemptName,
+          precisionLevel: modelError.precisionLevel,
+          errMsg: modelError.errMsg,
+          sessionType: modelError.sessionType,
+          sessionKeys: modelError.sessionKeys
+        })
+        lastError = modelError
+        this.session = null
+      }
     }
 
-    console.log('[AI:model:damage] session loaded')
+    if (lastError) {
+      throw lastError
+    }
+
+    const modelError = createModelError('Damage inference session create failed', {
+      stage: 'inference_session_create',
+      modelName: MODEL_NAME,
+      modelPath: this.modelPath,
+      errMsg: 'No inference session attempts were executed'
+    })
+    throw modelError
   }
 
   async detect(imagePath) {
