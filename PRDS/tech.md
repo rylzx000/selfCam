@@ -89,11 +89,20 @@ selfCam/
 
 - 读取缓存并恢复当前车辆 / 当前步骤
 - 初始化相机上下文
+- 基于横屏窗口尺寸计算相机区显示尺寸，保持 4:3 和三栏布局
 - 管理 AI 检测循环
 - 管理辅助框、顶部引导、底部 AI 状态
 - 触发拍照、压缩、确认
 - 在拍后确认前调用端上轻质检模块
 - 保存照片并推进流程
+
+相机区布局规则：
+
+- `cameraLayout` 在 `onLoad`、`onShow`、`onResize` 时刷新。
+- 布局计算按横屏窗口长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，仅当三栏总宽或总高放不下时等比缩小。
+- `safeArea` 只记录诊断信息，不参与主宽度压缩，避免部分横屏设备返回竖屏安全区导致相机区变小。
+- 车牌框、VIN 框、车损框和距离提示箭头使用相对相机区的百分比布局。
+- AI 判断仍使用固定虚拟 `400 x 300` 坐标系，`getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 和车损 `canvasWidth/canvasHeight` 不随显示尺寸改变。
 
 ### 3. `pages/preview`
 
@@ -323,6 +332,7 @@ licensePlate -> vinCode -> damage -> preview
 - `damageFrameState`
 - `damageAreaRatioText`
 - `showDamageDebug`
+- `cameraLayout`
 
 ### 3. 保存逻辑
 

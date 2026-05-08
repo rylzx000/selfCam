@@ -1,5 +1,15 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.3.7 新增测试目标
+
+- 覆盖拍照页横屏相机区布局计算，避免正常机型被主动缩小。
+- 覆盖横屏页面遇到竖屏 `safeArea` 返回值时，不把相机区宽度压成短边。
+- 覆盖宽屏机型不依赖机型白名单也能按横屏长边放大相机区。
+
+## v1.3.7 新增测试文件
+
+- `__tests__/camera-layout.test.js`
+
 ## v1.3.5 本次新增测试目标
 
 - 覆盖每辆车行驶证资料的旧缓存兼容、实体/电子完成态、上传替换、删除和串车隔离。
@@ -39,6 +49,7 @@
 - `__tests__/workflow-recovery.test.js`
 - `__tests__/storage-resume.test.js`
 - `__tests__/cache-selectors.edge.test.js`
+- `__tests__/camera-layout.test.js`
 
 ### 相关已有
 

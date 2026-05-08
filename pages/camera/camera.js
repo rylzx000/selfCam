@@ -29,6 +29,78 @@ const CONFIRM_USE_TEXT = '\u786e\u8ba4\u4f7f\u7528'
 const RETAKE_TEXT = '\u91cd\u65b0\u62cd\u6444'
 const MAX_TOTAL_PHOTOS = (constants.LIMITS && constants.LIMITS.MAX_TOTAL_PHOTOS) || 50
 const TOTAL_PHOTO_LIMIT_TIP = `最多${MAX_TOTAL_PHOTOS}张，请先删除`
+const CAMERA_VIRTUAL_WIDTH = 400
+const CAMERA_VIRTUAL_HEIGHT = 300
+const CAMERA_ASPECT_RATIO = CAMERA_VIRTUAL_WIDTH / CAMERA_VIRTUAL_HEIGHT
+const CAMERA_BASE_RPX_WIDTH = 750
+const CAMERA_BASE_TOTAL_RPX_WIDTH = 32 * 2 + 120 * 2 + 24 * 2 + CAMERA_VIRTUAL_WIDTH
+const CAMERA_BASE_TOTAL_RPX_HEIGHT = 20 * 2 + CAMERA_VIRTUAL_HEIGHT
+
+function getFiniteNumber(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function computeResponsiveCameraLayout(info = {}) {
+  const rawWindowWidth = getFiniteNumber(info.windowWidth, 844)
+  const rawWindowHeight = getFiniteNumber(info.windowHeight, 390)
+  const windowWidth = Math.max(rawWindowWidth, rawWindowHeight)
+  const windowHeight = Math.min(rawWindowWidth, rawWindowHeight)
+  const safeArea = info.safeArea || {}
+  const safeAreaWidth = getFiniteNumber(safeArea.right - safeArea.left, windowWidth)
+  const safeAreaHeight = getFiniteNumber(safeArea.bottom - safeArea.top, windowHeight)
+  const baseScale = windowWidth / CAMERA_BASE_RPX_WIDTH
+  const widthFitScale = windowWidth / CAMERA_BASE_TOTAL_RPX_WIDTH
+  const heightFitScale = windowHeight / CAMERA_BASE_TOTAL_RPX_HEIGHT
+  const layoutScale = Math.max(Math.min(baseScale, widthFitScale, heightFitScale), 0.1)
+  const paddingX = Number((32 * layoutScale).toFixed(2))
+  const paddingY = Number((20 * layoutScale).toFixed(2))
+  const gap = Number((24 * layoutScale).toFixed(2))
+  const sideWidth = Number((120 * layoutScale).toFixed(2))
+  const cameraWidth = Number((CAMERA_VIRTUAL_WIDTH * layoutScale).toFixed(2))
+  const cameraHeight = Number((CAMERA_VIRTUAL_HEIGHT * layoutScale).toFixed(2))
+
+  return {
+    rawWindowWidth,
+    rawWindowHeight,
+    windowWidth,
+    windowHeight,
+    safeWidth: windowWidth,
+    safeHeight: windowHeight,
+    safeAreaWidth,
+    safeAreaHeight,
+    layoutScale,
+    paddingX,
+    paddingY,
+    gap,
+    sideWidth,
+    cameraWidth,
+    cameraHeight,
+    containerStyle: `padding: ${paddingY}px ${paddingX}px; gap: ${gap}px;`,
+    infoAreaStyle: `width: ${sideWidth}px;`,
+    actionAreaStyle: `width: ${sideWidth}px;`,
+    cameraWrapperStyle: `width: ${cameraWidth}px; height: ${cameraHeight}px;`
+  }
+}
+
+function getWindowInfoSnapshot() {
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getWindowInfo === 'function') {
+      return wx.getWindowInfo() || {}
+    }
+  } catch (error) {
+    // 窗口信息读取失败时继续尝试旧接口
+  }
+
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
+      return wx.getSystemInfoSync() || {}
+    }
+  } catch (error) {
+    // 布局读取失败不影响拍照主流程，使用默认横屏尺寸兜底
+  }
+
+  return {}
+}
 
 function countStoredPhotos(cache) {
   let total = 0
@@ -116,7 +188,8 @@ Page({
     damagePhaseLabel: '',
     appEnvBadgeText: '',
     showDamageDebug: false,
-    workflowState: workflow.STATES.IDLE
+    workflowState: workflow.STATES.IDLE,
+    cameraLayout: computeResponsiveCameraLayout()
   },
 
   cameraContext: null,
@@ -132,9 +205,13 @@ Page({
   damageAutoCaptureEngine: null,
   cameraInitialized: false,
   aiDetectionRunId: 0,
+  cameraLayoutLogKey: '',
 
   onLoad() {
     this.isLeaving = false
+    if (typeof this.updateCameraLayout === 'function') {
+      this.updateCameraLayout('page_load')
+    }
     this.updateAppEnvBadge()
     const sessionId = runtimeLogger.startSession('camera', {
       page: 'camera',
@@ -155,6 +232,9 @@ Page({
   },
 
   onShow() {
+    if (typeof this.updateCameraLayout === 'function') {
+      this.updateCameraLayout('page_show')
+    }
     this.updateAppEnvBadge()
     runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
       probe: 'selfCam_realtime_probe',
@@ -170,6 +250,11 @@ Page({
     this.isLeaving = false
     this.setData({ isNavigating: false })
     this.loadCacheData('page_show')
+  },
+
+  onResize(res) {
+    const sizeInfo = res && res.size ? res.size : res
+    this.updateCameraLayout('page_resize', sizeInfo)
   },
 
   onHide() {
@@ -203,6 +288,33 @@ Page({
 
     if (this.data.appEnvBadgeText !== appEnvBadgeText) {
       this.setData({ appEnvBadgeText })
+    }
+  },
+
+  computeCameraLayout(info = {}) {
+    return computeResponsiveCameraLayout(info)
+  },
+
+  updateCameraLayout(reason = 'manual', info = null) {
+    const windowInfo = info || getWindowInfoSnapshot()
+    const cameraLayout = this.computeCameraLayout(windowInfo)
+    const layoutLogKey = `${cameraLayout.windowWidth}x${cameraLayout.windowHeight}:${cameraLayout.cameraWidth}x${cameraLayout.cameraHeight}`
+
+    this.setData({ cameraLayout })
+
+    if (this.cameraLayoutLogKey !== layoutLogKey) {
+      this.cameraLayoutLogKey = layoutLogKey
+      console.log('[camera:layout]', {
+        reason,
+        rawWindowWidth: cameraLayout.rawWindowWidth,
+        rawWindowHeight: cameraLayout.rawWindowHeight,
+        windowWidth: cameraLayout.windowWidth,
+        windowHeight: cameraLayout.windowHeight,
+        cameraWidth: cameraLayout.cameraWidth,
+        cameraHeight: cameraLayout.cameraHeight,
+        sideWidth: cameraLayout.sideWidth,
+        gap: cameraLayout.gap
+      })
     }
   },
 

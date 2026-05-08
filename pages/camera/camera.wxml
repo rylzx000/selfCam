@@ -1,7 +1,7 @@
-<view class="container">
+<view class="container" style="{{cameraLayout.containerStyle}}">
   <view class="page-glow"></view>
 
-  <view class="info-area">
+  <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
     <view class="vehicle-info">
       <text class="vehicle-label">当前车辆</text>
       <text class="vehicle-name">{{vehicleType}}</text>
@@ -32,7 +32,7 @@
     </view>
   </view>
 
-  <view class="camera-wrapper">
+  <view class="camera-wrapper" style="{{cameraLayout.cameraWrapperStyle}}">
     <camera
       wx:if="{{!showConfirmModal}}"
       class="camera"
@@ -199,7 +199,7 @@
     </view>
   </view>
 
-  <view class="action-area">
+  <view class="action-area" style="{{cameraLayout.actionAreaStyle}}">
     <view wx:if="{{!showConfirmModal}}" class="capture-section">
       <view class="capture-btn" bindtap="onCapture">
         <view class="capture-inner"></view>

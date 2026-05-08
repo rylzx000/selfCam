@@ -194,7 +194,7 @@ page {
   padding: 6rpx 14rpx;
   border-radius: 14rpx;
   position: absolute;
-  top: 12rpx;
+  top: 4%;
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
@@ -203,7 +203,7 @@ page {
 
 .damage-debug {
   position: absolute;
-  top: 44rpx;
+  top: 14.6667%;
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(0, 0, 0, 0.45);
@@ -218,7 +218,7 @@ page {
 .ai-tip {
   position: absolute;
   left: 50%;
-  bottom: 14rpx;
+  bottom: 4.6667%;
   transform: translateX(-50%);
   background-color: rgba(33, 33, 33, 0.72);
   color: #FFFFFF;
@@ -245,10 +245,10 @@ page {
 
 /* 杞︾墝杈呭姪妗?*/
 .guide-frame-license {
-  width: 200rpx;
-  height: 68rpx;
+  width: 50%;
+  height: 22.6667%;
   border-radius: 6rpx;
-  bottom: 56rpx;
+  bottom: 18.6667%;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -274,10 +274,10 @@ page {
 .plate-distance-hint {
   position: absolute;
   left: 50%;
-  bottom: 126rpx;
+  bottom: 42%;
   transform: translateX(-50%);
-  width: 184rpx;
-  height: 92rpx;
+  width: 46%;
+  height: 30.6667%;
   z-index: 4;
   pointer-events: none;
 }
@@ -287,8 +287,8 @@ page {
   left: 50%;
   top: 0;
   transform: translateX(-50%);
-  width: 184rpx;
-  height: 92rpx;
+  width: 100%;
+  height: 100%;
 }
 
 .plate-distance-frame {
@@ -302,29 +302,29 @@ page {
 .plate-distance-arrow {
   position: absolute;
   left: 50%;
-  width: 148rpx;
-  height: 24rpx;
+  width: 80.4348%;
+  height: 26.087%;
   transform: translateX(-50%);
 }
 
 .plate-distance-arrow-1 {
-  top: 60rpx;
+  top: 65.2174%;
 }
 
 .plate-distance-arrow-2 {
-  top: 48rpx;
+  top: 52.1739%;
 }
 
 .plate-distance-arrow-3 {
-  top: 36rpx;
+  top: 39.1304%;
 }
 
 .plate-distance-arrow-4 {
-  top: 24rpx;
+  top: 26.087%;
 }
 
 .plate-distance-arrow-5 {
-  top: 12rpx;
+  top: 13.0435%;
 }
 
 .plate-distance-arrow-6 {
@@ -335,18 +335,18 @@ page {
 
 /* 璺濈寮曞绠ご娴?*/
 .guide-frame-vin {
-  width: 320rpx;
-  height: 40rpx;
+  width: 80%;
+  height: 13.3333%;
   border-radius: 4rpx;
-  bottom: 50rpx;
+  bottom: 16.6667%;
   left: 50%;
   transform: translateX(-50%);
 }
 
 /* 杞︽崯杈呭姪妗?*/
 .guide-frame-damage {
-  width: 132rpx;
-  height: 132rpx;
+  width: 33%;
+  height: 44%;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -368,10 +368,10 @@ page {
 .damage-distance-hint {
   position: absolute;
   left: 50%;
-  top: 26rpx;
+  top: 8.6667%;
   transform: translateX(-50%);
-  width: 164rpx;
-  height: 64rpx;
+  width: 41%;
+  height: 21.3333%;
   z-index: 4;
   pointer-events: none;
 }
@@ -381,8 +381,8 @@ page {
   left: 50%;
   top: 0;
   transform: translateX(-50%);
-  width: 164rpx;
-  height: 64rpx;
+  width: 100%;
+  height: 100%;
 }
 
 .damage-distance-frame {
@@ -396,29 +396,29 @@ page {
 .damage-distance-arrow {
   position: absolute;
   left: 50%;
-  width: 132rpx;
-  height: 20rpx;
+  width: 80.4878%;
+  height: 31.25%;
   transform: translateX(-50%);
 }
 
 .damage-distance-arrow-1 {
-  top: 44rpx;
+  top: 68.75%;
 }
 
 .damage-distance-arrow-2 {
-  top: 35rpx;
+  top: 54.6875%;
 }
 
 .damage-distance-arrow-3 {
-  top: 26rpx;
+  top: 40.625%;
 }
 
 .damage-distance-arrow-4 {
-  top: 17rpx;
+  top: 26.5625%;
 }
 
 .damage-distance-arrow-5 {
-  top: 8rpx;
+  top: 12.5%;
 }
 
 .damage-distance-arrow-6 {
@@ -427,7 +427,7 @@ page {
 
 /* 鍗佸瓧鍑嗘槦 */
 .cross-h {
-  width: 24rpx;
+  width: 18.1818%;
   height: 2rpx;
   background-color: rgba(255, 255, 255, 0.5);
   position: absolute;
@@ -438,7 +438,7 @@ page {
 
 .cross-v {
   width: 2rpx;
-  height: 24rpx;
+  height: 18.1818%;
   background-color: rgba(255, 255, 255, 0.5);
   position: absolute;
   left: 50%;

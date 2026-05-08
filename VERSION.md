@@ -4,13 +4,13 @@
 
 **版本号**: v1.3.7
 **发布日期**: 2026-05-08
-**状态**: SIT 体验版日志与 AI 兼容性优化
+**状态**: SIT 体验版日志、AI 与横屏相机兼容性优化
 
 ---
 
 ## 版本概述
 
-`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦 AI 真机排障：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次稳模式重试，解决部分 Android 机型 AI 不可加载的问题。页面 UI、拍照流程、模型 URL、模型缓存清理和自动拍照算法保持不变。
+`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦真机兼容性：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次稳模式重试，解决部分 Android 机型 AI 不可加载的问题；追加修复部分横屏机型拍照页相机区被短边 `rpx` 换算压小的问题。拍照、缓存、上传、模型 URL、模型缓存清理和自动拍照算法保持不变。
 
 ### 本版本重点
 
@@ -20,6 +20,8 @@
 - 车牌/车损 `wx.createInferenceSession` 返回后先校验 session、`onLoad`、`onError` 是否有效，避免无效 session 触发 TypeError。
 - 推理 session 首次仍使用 `precisionLevel=1`；失败后只重试一次 `precisionLevel=4` 稳模式。
 - 稳模式重试不重新下载模型、不清理模型缓存、不修改模型 URL，也不改变拍照流程和自动拍照算法。
+- 拍照页相机区按横屏长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，避免部分机型横屏下相机区缩小。
+- 车牌、VIN、车损辅助框随相机区等比例缩放，但 AI 判断仍使用固定虚拟 `400 x 300` 坐标系。
 
 ## v1.3.7 变更摘要
 
@@ -35,12 +37,19 @@
 - We分析 payload 精简，不再透传完整 payload；本地日志仍保留完整 payload。
 - `forceWarn` / `forceError` 仍保留强制上报能力，但同样使用精简 payload。
 
+### 拍照页横屏适配
+
+- `pages/camera/camera.js` 新增相机页布局计算，优先按横屏窗口长边复刻旧版 `rpx` 尺寸，仅在三栏总宽或总高放不下时等比缩小。
+- `pages/camera/camera.wxss` 将车牌框、VIN 框、车损框和距离提示箭头改为相对相机区的百分比布局，避免显示尺寸变化后覆盖层错位。
+- `getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 与车损 `canvasWidth/canvasHeight = 400/300` 均保持不变。
+
 ### 测试与文档同步
 
 - `package.json` 与 `package-lock.json` 版本号提升到 `1.3.7`。
 - 新增/调整 runtimeLogger 与 AI session 单元测试，覆盖无效 session、稳模式重试、We分析白名单、黑名单和 payload 精简。
+- 新增 `__tests__/camera-layout.test.js`，覆盖正常横屏机型尺寸不回退、竖屏 `safeArea` 不压窄相机区、宽屏机型无需机型白名单即可放大。
 - 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`、`node --check utils/runtime-logger.js`。
-- 本轮验证通过 `npm test -- --runInBand`，20 个测试套件、191 个用例通过。
+- 本轮验证通过 `npm test -- --runInBand`，21 个测试套件、194 个用例通过。
 
 ---
 
@@ -48,7 +57,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| v1.3.7 | 2026-05-08 | SIT 体验版日志与 AI 兼容性优化 | 收敛 We分析实时日志，补充推理 session 稳模式重试，解决部分机型 AI 不可加载 |
+| v1.3.7 | 2026-05-08 | SIT 体验版日志、AI 与横屏相机兼容性优化 | 收敛 We分析实时日志，补充推理 session 稳模式重试，修复部分机型横屏相机区缩小 |
 | v1.3.6 | 2026-05-07 | SIT 体验版诊断增强 | 业务环境切换、SIT 模型地址、安全校验、模型缓存隔离、AI 实时日志与代码质量扫描修复 |
 | v1.3.5 | 2026-04-30 | 已封板（本地） | 每辆车行驶证资料上传、缓存兼容、提交风险提示与三页背景统一 |
 | v1.3.4 | 2026-04-29 | 已封板（本地） | 权限申请与相册保存瘦身，保留失败轻提示和开始采集防重复点击 |
