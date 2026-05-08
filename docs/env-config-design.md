@@ -127,7 +127,7 @@
 ```js
 {
   dev: {
-    modelHost: 'http://192.168.100.100:8000'
+    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
   },
   sit: {
     modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
@@ -140,6 +140,8 @@
   }
 }
 ```
+
+当前开发环境调试也复用 SIT 模型地址，保证 `develop -> dev` 下真机调试与 SIT 体验版使用同一份远程模型资源。
 
 `getAiConfig()` 返回：
 
@@ -180,6 +182,8 @@ damage-pilot-<urlHash>.onnx
 这样 SIT 与 pilot 不会复用同一个本地模型缓存文件。
 
 拍照页创建 `PlateDetector` / `DamageDetector` 前必须实时调用 `envConfig.getAiConfig()`，通过 `options.aiConfig` 传给检测器。不要从 `ai-config.js` 引入模块加载期固化的 `PLATE_MODEL_URL`、`DAMAGE_MODEL_URL`、`PLATE_MODEL_PATH` 或 `DAMAGE_MODEL_PATH`。
+
+隐藏调试入口提供“清除 AI 模型缓存”能力，仅删除当前 `aiConfig.plateModelPath` 和 `aiConfig.damageModelPath` 指向的本地 onnx 文件，不清除用户照片、车辆/单证/流程缓存或本地日志。清理后下次进入拍照页会重新检查并下载当前环境模型。
 
 ## 6. 各类开关说明
 

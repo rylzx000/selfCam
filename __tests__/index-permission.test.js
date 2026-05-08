@@ -3,6 +3,8 @@ describe('index start permission flow', () => {
   let storage
   let constants
   let permission
+  let envConfig
+  let modelCache
   let consoleLogSpy
   let consoleWarnSpy
 
@@ -31,12 +33,32 @@ describe('index start permission flow', () => {
     permission = {
       ensureStartCapturePermissions: jest.fn()
     }
+    envConfig = {
+      getAppEnvBadgeText: jest.fn(() => ''),
+      canSwitchAppEnv: jest.fn(() => true),
+      getAvailableAppEnvs: jest.fn(() => ['dev', 'sit']),
+      saveAppEnvOverride: jest.fn(() => true),
+      clearAppEnvOverride: jest.fn()
+    }
+    modelCache = {
+      clearAiModelCache: jest.fn(() => Promise.resolve({
+        ok: true,
+        appEnv: 'sit',
+        wxEnvVersion: 'trial',
+        results: [
+          { modelName: 'plate', path: '/user-data/plate.onnx', deleted: true, reason: 'deleted', errMsg: '' },
+          { modelName: 'damage', path: '/user-data/damage.onnx', deleted: true, reason: 'deleted', errMsg: '' }
+        ]
+      }))
+    }
 
     global.wx = {
       navigateTo: jest.fn(({ success }) => {
         success && success()
       }),
-      showToast: jest.fn()
+      showToast: jest.fn(),
+      showModal: jest.fn(),
+      showActionSheet: jest.fn()
     }
     global.Page = jest.fn((config) => {
       pageConfig = config
@@ -46,6 +68,8 @@ describe('index start permission flow', () => {
     jest.doMock('../utils/storage', () => storage)
     jest.doMock('../utils/constants', () => constants)
     jest.doMock('../utils/permission', () => permission)
+    jest.doMock('../utils/env-config', () => envConfig)
+    jest.doMock('../utils/model-cache', () => modelCache)
 
     require('../pages/index/index')
   }
@@ -65,6 +89,8 @@ describe('index start permission flow', () => {
     jest.dontMock('../utils/storage')
     jest.dontMock('../utils/constants')
     jest.dontMock('../utils/permission')
+    jest.dontMock('../utils/env-config')
+    jest.dontMock('../utils/model-cache')
   })
 
   test('does not initialize capture flow when camera permission is denied', async () => {
@@ -148,5 +174,25 @@ describe('index start permission flow', () => {
     await pageConfig.onStart.call(pageConfig)
 
     expect(global.wx.navigateTo).toHaveBeenCalledTimes(2)
+  })
+
+  test('hidden debug action clears AI model cache and shows success tip', async () => {
+    const clearResult = await modelCache.clearAiModelCache()
+    modelCache.clearAiModelCache.mockClear()
+    global.wx.showActionSheet.mockImplementationOnce(({ itemList, success }) => {
+      expect(itemList).toEqual(['dev', 'sit', '清除环境选择', '清除 AI 模型缓存'])
+      success({ tapIndex: 3 })
+    })
+
+    pageConfig.showAppEnvSelector.call(pageConfig)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(modelCache.clearAiModelCache).toHaveBeenCalledTimes(1)
+    expect(consoleLogSpy).toHaveBeenCalledWith('[AI:model:cache:clear]', clearResult)
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: '模型缓存已清理',
+      icon: 'none'
+    })
   })
 })

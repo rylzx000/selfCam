@@ -2,6 +2,7 @@ const storage = require('../../utils/storage')
 const constants = require('../../utils/constants')
 const permission = require('../../utils/permission')
 const envConfig = require('../../utils/env-config')
+const modelCache = require('../../utils/model-cache')
 
 const APP_ENV_SWITCH_TAP_COUNT = 7
 const APP_ENV_SWITCH_RESET_MS = 1200
@@ -76,9 +77,11 @@ Page({
     }
 
     const clearLabel = '\u6e05\u9664\u73af\u5883\u9009\u62e9'
+    const clearModelCacheLabel = '\u6e05\u9664 AI \u6a21\u578b\u7f13\u5b58'
+    const itemList = appEnvs.concat(clearLabel, clearModelCacheLabel)
 
     wx.showActionSheet({
-      itemList: appEnvs.concat(clearLabel),
+      itemList,
       success: (res) => {
         if (!res || typeof res.tapIndex !== 'number') {
           return
@@ -89,9 +92,39 @@ Page({
           return
         }
 
+        if (res.tapIndex === appEnvs.length + 1) {
+          this.clearAiModelCacheDebug()
+          return
+        }
+
         this.saveAppEnvSelection(appEnvs[res.tapIndex])
       }
     })
+  },
+
+  async clearAiModelCacheDebug() {
+    const result = await modelCache.clearAiModelCache()
+    const hasFailed = !result?.ok || result.results?.some((item) => !!item.errMsg)
+
+    console.log('[AI:model:cache:clear]', result)
+
+    if (hasFailed && typeof wx.showModal === 'function') {
+      wx.showModal({
+        title: '\u6a21\u578b\u7f13\u5b58',
+        content: '\u6a21\u578b\u7f13\u5b58\u90e8\u5206\u6e05\u7406\u5931\u8d25\uff0c\u8bf7\u67e5\u770b\u65e5\u5fd7',
+        showCancel: false
+      })
+      return
+    }
+
+    if (typeof wx.showToast === 'function') {
+      wx.showToast({
+        title: hasFailed
+          ? '\u6a21\u578b\u7f13\u5b58\u90e8\u5206\u6e05\u7406\u5931\u8d25'
+          : '\u6a21\u578b\u7f13\u5b58\u5df2\u6e05\u7406',
+        icon: 'none'
+      })
+    }
   },
 
   saveAppEnvSelection(appEnv) {

@@ -54,12 +54,14 @@
 ### 新增
 
 - 新增业务环境 `appEnv`，在微信运行版本 `develop / trial / release` 之外支持 `dev / sit / pilot / prod`，默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`。
-- 首页 logo 区域新增隐藏环境切换入口，非正式版连续点击 7 次后可选择允许的业务环境或清除本地环境选择。
+- 首页 logo 区域新增隐藏环境切换入口，非正式版连续点击 7 次后可选择允许的业务环境、清除本地环境选择或清除 AI 模型缓存。
 - AI 模型缓存文件按业务环境和模型地址 hash 隔离，避免 SIT、pilot 等环境复用同一个 `plate.onnx` / `damage.onnx`。
+- 新增 `utils/model-cache.js`，用于隐藏调试入口清除当前环境车牌/车损 onnx 模型缓存，不影响用户照片、车辆/单证/流程缓存和本地日志。
 
 ### 变更
 
 - `utils/env-config.js` 统一维护业务环境模型地址，`ai-config.js` 不再写死模型地址。
+- `dev.modelHost` 调整为与 SIT 相同的 `https://onlineclaimsit.chinalife-p.com.cn/video/model`，开发环境调试复用 SIT 模型资源。
 - `release` 正式版强制 `prod`，忽略本地 `SELF_CAM_APP_ENV` 覆盖。
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
 - 首页、拍照页、预览页右下角增加透明环境标识，`dev / sit / pilot` 分别显示本地、sit、实盘，`prod` 不显示。

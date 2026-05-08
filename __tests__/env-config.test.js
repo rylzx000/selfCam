@@ -69,11 +69,11 @@ describe('env-config', () => {
       envVersion: 'develop',
       appEnv: 'dev',
       allowLocalModelHost: true,
-      modelHost: 'http://192.168.100.100:8000',
+      modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
       plateModelPath: expect.stringMatching(/^\/user-data\/plate-dev-[a-z0-9]+\.onnx$/),
       damageModelPath: expect.stringMatching(/^\/user-data\/damage-dev-[a-z0-9]+\.onnx$/),
-      plateModelUrl: 'http://192.168.100.100:8000/plate.onnx',
-      damageModelUrl: 'http://192.168.100.100:8000/damage.onnx'
+      plateModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/plate.onnx',
+      damageModelUrl: 'https://onlineclaimsit.chinalife-p.com.cn/video/model/damage.onnx'
     }))
 
     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({

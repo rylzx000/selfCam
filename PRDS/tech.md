@@ -3,7 +3,7 @@
 > 项目名称：车辆损失辅助拍照工具
 > 代码基线：v1.3.6（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-07
+> 最后更新：2026-05-08
 
 ---
 
@@ -49,6 +49,7 @@ selfCam/
 │  ├─ constants.js
 │  ├─ ai-config.js
 │  ├─ env-config.js
+│  ├─ model-cache.js
 │  ├─ quality-config-default.js
 │  ├─ quality-config-loader.js
 │  ├─ quality-config.js
@@ -387,6 +388,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 本地模型文件统一写入 `USER_DATA_PATH`，文件名包含模型类型、业务环境和模型 URL hash
 - `utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
 - 当前 `sit.modelHost` 为 `https://onlineclaimsit.chinalife-p.com.cn/video/model`
+- 当前 `dev.modelHost` 也指向同一 SIT 模型地址，便于开发环境调试复现体验版模型下载与推理问题
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
 - 拍照页不再从 `ai-config.js` 引入固化的模型 URL / path 常量；创建检测器前实时调用 `envConfig.getAiConfig()` 并通过 `options.aiConfig` 传入检测器
 - 创建检测器前打印 `wxEnvVersion`、`appEnv`、`plateModelUrl`、`damageModelUrl`，用于真机确认当前业务环境
@@ -432,6 +434,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 默认映射：`develop -> dev`、`trial -> sit`、`release -> prod`
 - `develop / trial` 允许通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境；`release` 强制 `prod`
 - 首页隐藏入口负责写入或清除 `SELF_CAM_APP_ENV`，切换后通过 `wx.reLaunch` 重新进入首页
+- 同一隐藏入口提供“清除 AI 模型缓存”，只删除当前环境 `plateModelPath` / `damageModelPath` 指向的 onnx 文件，不清除照片、车辆、单证或流程缓存
 - `dev / sit / pilot` 在首页、拍照页、预览页显示低权重环境标识，`prod` 不显示
 - `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
 - `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断

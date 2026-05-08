@@ -17,11 +17,12 @@
 - 保留微信运行版本 `wxEnvVersion: develop / trial / release`，新增业务环境 `appEnv: dev / sit / pilot / prod`。
 - 默认映射为 `develop -> dev`、`trial -> sit`、`release -> prod`，正式版强制 `prod`。
 - `develop / trial` 支持通过本地缓存 `SELF_CAM_APP_ENV` 覆盖业务环境，正式版忽略覆盖。
-- `BUSINESS_ENV_ENDPOINTS.sit.modelHost` 指向 `https://onlineclaimsit.chinalife-p.com.cn/video/model`。
-- 首页 logo 区域增加隐藏 7 连击入口，可选择允许环境或清除环境选择；正式版不显示切换入口。
+- `BUSINESS_ENV_ENDPOINTS.dev.modelHost` 与 `sit.modelHost` 均指向 `https://onlineclaimsit.chinalife-p.com.cn/video/model`，开发调试复用 SIT 模型资源。
+- 首页 logo 区域增加隐藏 7 连击入口，可选择允许环境、清除环境选择或清除 AI 模型缓存；正式版不显示切换入口。
 - 首页、拍照页、预览页右下角显示透明环境标识，方便真机确认当前业务环境；生产环境不显示。
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址。
 - 车牌和车损模型缓存文件名包含业务环境和模型 URL hash，切换环境后重新检查当前环境模型缓存。
+- 隐藏调试入口可清除当前环境车牌/车损 onnx 模型缓存，不影响用户照片、车辆/单证/流程缓存和本地日志。
 - 接入 `wx.getRealtimeLogManager()`，记录 AI 模型下载、缓存、推理会话加载和相机页 AI 初始化失败详情。
 - 运行时反馈编号统一为 `selfCam_${sessionId}`，便于在小程序后台实时日志中筛选。
 - 启用 `lazyCodeLoading: requiredComponents`，通过组件按需注入扫描项。
@@ -87,4 +88,4 @@ git checkout v1.3.4
 
 ---
 
-*最后更新：2026-05-07*
+*最后更新：2026-05-08*

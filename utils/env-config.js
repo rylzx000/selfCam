@@ -81,7 +81,7 @@ const ENV_POLICY_MAP = {
 
 const BUSINESS_ENV_ENDPOINTS = {
   dev: {
-    modelHost: 'http://192.168.100.100:8000'
+    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
   },
   sit: {
     modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
