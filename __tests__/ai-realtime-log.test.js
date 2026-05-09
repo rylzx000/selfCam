@@ -222,7 +222,7 @@ describe('AI realtime logging', () => {
       statusCode: 503,
       message: 'AI unavailable',
       errMsg: 'session failed',
-      attemptName: 'stable_precision_4',
+      attemptName: 'cpu_safe_precision_4',
       precisionLevel: 4,
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx',
@@ -248,7 +248,7 @@ describe('AI realtime logging', () => {
       statusCode: 503,
       message: 'AI unavailable',
       errMsg: 'session failed',
-      attemptName: 'stable_precision_4',
+      attemptName: 'cpu_safe_precision_4',
       precisionLevel: 4,
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx',
@@ -313,7 +313,36 @@ describe('AI realtime logging', () => {
     }
   ]
 
-  test.each(detectorSessionCases)('$modelName detector retries stable mode when fast mode returns undefined', async ({
+  test.each(detectorSessionCases)('$modelName detector does not enter cpu safe mode when fast mode loads', async ({
+    detectorPath,
+    modelUrl,
+    modelPath
+  }) => {
+    const fsMock = {
+      accessSync: jest.fn(),
+      copyFileSync: jest.fn()
+    }
+    const fastSession = createLoadedSession()
+    const createInferenceSession = jest.fn(() => fastSession)
+    setupDetectorTest(fsMock, { createInferenceSession })
+    const Detector = require(detectorPath)
+    const detector = new Detector({ modelUrl, modelPath })
+
+    await expect(detector.loadSession()).resolves.toBeUndefined()
+
+    expect(createInferenceSession).toHaveBeenCalledTimes(1)
+    expect(createInferenceSession).toHaveBeenNthCalledWith(1, {
+      model: modelPath,
+      precisionLevel: 1
+    })
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_success', expect.objectContaining({
+      attemptName: 'fast_precision_1',
+      precisionLevel: 1
+    }))
+    expect(fastSession.onLoad).toHaveBeenCalledTimes(1)
+  })
+
+  test.each(detectorSessionCases)('$modelName detector retries cpu safe mode when fast mode returns undefined', async ({
     modelName,
     detectorPath,
     modelUrl,
@@ -339,7 +368,9 @@ describe('AI realtime logging', () => {
     })
     expect(createInferenceSession).toHaveBeenNthCalledWith(2, {
       model: modelPath,
-      precisionLevel: 4
+      precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false
     })
     expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_create_failed', expect.objectContaining({
       modelName,
@@ -354,13 +385,15 @@ describe('AI realtime logging', () => {
     expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_create_success', expect.objectContaining({
       modelName,
       modelPath,
-      attemptName: 'stable_precision_4',
-      precisionLevel: 4
+      attemptName: 'cpu_safe_precision_4',
+      precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false
     }))
     expect(stableSession.onLoad).toHaveBeenCalledTimes(1)
   })
 
-  test.each(detectorSessionCases)('$modelName detector succeeds when fast mode throws and stable mode loads', async ({
+  test.each(detectorSessionCases)('$modelName detector succeeds when fast mode throws and cpu safe mode loads', async ({
     detectorPath,
     modelUrl,
     modelPath
@@ -382,8 +415,10 @@ describe('AI realtime logging', () => {
 
     expect(createInferenceSession).toHaveBeenCalledTimes(2)
     expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_success', expect.objectContaining({
-      attemptName: 'stable_precision_4',
-      precisionLevel: 4
+      attemptName: 'cpu_safe_precision_4',
+      precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false
     }))
   })
 
@@ -408,15 +443,17 @@ describe('AI realtime logging', () => {
       stage: 'inference_session_create',
       modelName,
       modelPath,
-      attemptName: 'stable_precision_4',
+      attemptName: 'cpu_safe_precision_4',
       precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false,
       errMsg: 'wx.createInferenceSession returned invalid session'
     })
     expect(error).not.toBeInstanceOf(TypeError)
     expect(createInferenceSession).toHaveBeenCalledTimes(2)
   })
 
-  test.each(detectorSessionCases)('$modelName detector retries stable mode when fast session onError fires', async ({
+  test.each(detectorSessionCases)('$modelName detector retries cpu safe mode when fast session onError fires', async ({
     modelName,
     detectorPath,
     modelUrl,
@@ -441,7 +478,9 @@ describe('AI realtime logging', () => {
     })
     expect(createInferenceSession).toHaveBeenNthCalledWith(2, {
       model: modelPath,
-      precisionLevel: 4
+      precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false
     })
     expect(runtimeLogger.forceError).toHaveBeenCalledWith('ai_model', 'session_load_failed', expect.objectContaining({
       modelName,
@@ -454,8 +493,10 @@ describe('AI realtime logging', () => {
     expect(runtimeLogger.info).toHaveBeenCalledWith('ai_model', 'session_load_success', expect.objectContaining({
       modelName,
       modelPath,
-      attemptName: 'stable_precision_4',
-      precisionLevel: 4
+      attemptName: 'cpu_safe_precision_4',
+      precisionLevel: 4,
+      allowNPU: false,
+      allowQuantize: false
     }))
   })
 

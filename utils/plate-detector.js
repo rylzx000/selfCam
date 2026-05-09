@@ -6,7 +6,12 @@ const runtimeLogger = require('./runtime-logger')
 const MODEL_NAME = 'plate'
 const SESSION_ATTEMPTS = [
   { attemptName: 'fast_precision_1', precisionLevel: 1 },
-  { attemptName: 'stable_precision_4', precisionLevel: 4 }
+  {
+    attemptName: 'cpu_safe_precision_4',
+    precisionLevel: 4,
+    allowNPU: false,
+    allowQuantize: false
+  }
 ]
 
 function getErrMsg(error) {
@@ -252,19 +257,35 @@ class PlateDetector {
     let lastError = null
 
     for (const attempt of SESSION_ATTEMPTS) {
-      const { attemptName, precisionLevel } = attempt
+      const {
+        attemptName,
+        precisionLevel,
+        allowNPU,
+        allowQuantize
+      } = attempt
+      const sessionOptions = {
+        model: this.modelPath,
+        precisionLevel
+      }
+      const attemptLogPayload = {
+        modelPath: this.modelPath,
+        attemptName,
+        precisionLevel
+      }
+
+      if (typeof allowNPU === 'boolean') {
+        sessionOptions.allowNPU = allowNPU
+        attemptLogPayload.allowNPU = allowNPU
+      }
+      if (typeof allowQuantize === 'boolean') {
+        sessionOptions.allowQuantize = allowQuantize
+        attemptLogPayload.allowQuantize = allowQuantize
+      }
 
       try {
-        logModel('info', 'session_create_attempt', {
-          modelPath: this.modelPath,
-          attemptName,
-          precisionLevel
-        })
+        logModel('info', 'session_create_attempt', attemptLogPayload)
 
-        const session = wx.createInferenceSession({
-          model: this.modelPath,
-          precisionLevel
-        })
+        const session = wx.createInferenceSession(sessionOptions)
 
         if (!isValidInferenceSession(session)) {
           const modelError = createModelError('wx.createInferenceSession returned invalid session', {
@@ -275,13 +296,17 @@ class PlateDetector {
             sessionType: typeof session,
             sessionKeys: session ? Object.keys(session).join(',') : '',
             attemptName,
-            precisionLevel
+            precisionLevel,
+            allowNPU,
+            allowQuantize
           })
           logModel('error', 'session_create_failed', {
             stage: modelError.stage,
             modelPath: modelError.modelPath,
             attemptName: modelError.attemptName,
             precisionLevel: modelError.precisionLevel,
+            allowNPU: modelError.allowNPU,
+            allowQuantize: modelError.allowQuantize,
             errMsg: modelError.errMsg,
             sessionType: modelError.sessionType,
             sessionKeys: modelError.sessionKeys
@@ -293,17 +318,13 @@ class PlateDetector {
 
         this.session = session
         logModel('info', 'session_create_success', {
-          modelPath: this.modelPath,
-          attemptName,
-          precisionLevel
+          ...attemptLogPayload
         })
 
         await new Promise((resolve, reject) => {
           session.onLoad(() => {
             logModel('info', 'session_load_success', {
-              modelPath: this.modelPath,
-              attemptName,
-              precisionLevel
+              ...attemptLogPayload
             })
             resolve()
           })
@@ -314,13 +335,17 @@ class PlateDetector {
               modelPath: this.modelPath,
               errMsg: getErrMsg(err),
               attemptName,
-              precisionLevel
+              precisionLevel,
+              allowNPU,
+              allowQuantize
             })
             logModel('error', 'session_load_failed', {
               stage: modelError.stage,
               modelPath: modelError.modelPath,
               attemptName: modelError.attemptName,
               precisionLevel: modelError.precisionLevel,
+              allowNPU: modelError.allowNPU,
+              allowQuantize: modelError.allowQuantize,
               errMsg: modelError.errMsg
             })
             reject(modelError)
@@ -342,6 +367,8 @@ class PlateDetector {
           modelPath: this.modelPath,
           attemptName,
           precisionLevel,
+          allowNPU,
+          allowQuantize,
           errMsg: getErrMsg(error),
           sessionType: '',
           sessionKeys: ''
@@ -351,6 +378,8 @@ class PlateDetector {
           modelPath: modelError.modelPath,
           attemptName: modelError.attemptName,
           precisionLevel: modelError.precisionLevel,
+          allowNPU: modelError.allowNPU,
+          allowQuantize: modelError.allowQuantize,
           errMsg: modelError.errMsg,
           sessionType: modelError.sessionType,
           sessionKeys: modelError.sessionKeys
