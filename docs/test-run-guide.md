@@ -1,5 +1,15 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.3.8 新增测试目标
+
+- 覆盖车牌/车损模型创建 session 时统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`。
+- 覆盖旧的 `precisionLevel=1/4` 尝试逻辑不再作为模型加载路径。
+- 建议真机补充验证 `wx.getInferenceEnvInfo` 成功、失败或不支持时均不阻断模型加载。
+
+## v1.3.8 重点测试文件
+
+- `__tests__/ai-realtime-log.test.js`
+
 ## v1.3.7 新增测试目标
 
 - 覆盖拍照页横屏相机区布局计算，避免正常机型被主动缩小。

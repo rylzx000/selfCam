@@ -1,9 +1,9 @@
 # AI 自动拍照集成文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.7（`package.json`）
+> 代码基线：v1.3.8（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-04
+> 最后更新：2026-05-09
 
 ---
 
@@ -46,6 +46,8 @@ const DAMAGE_MODEL_URL = `${MODEL_HOST}/damage.onnx`
 
 - 模型运行时下载到本地
 - 依赖 `wx.createInferenceSession`
+- 创建推理 session 前会尝试调用 `wx.getInferenceEnvInfo` 记录推理环境，失败或不支持不阻断加载
+- 车牌/车损模型统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false` 创建 session
 - 若推理能力不可用，自动降级到手动拍照
 
 ---
@@ -355,7 +357,7 @@ formatDamageDebugText(debug, searchState)
 - 车损保存流程
 - 页面跳转失败与降级
 
-v1.3.7 SIT 体验版日志与 AI 兼容性优化中，`runtime-logger` 仅将 AI 排障关键事件同步到 `wx.getRealtimeLogManager()`；本地 runtime 日志继续保留页面生命周期、流程切换和 AI 恢复请求等完整记录。车牌/车损检测器会在推理 session 创建失败、无效 session 或加载失败时记录结构化错误，并使用 `selfCam_${sessionId}` 作为后台实时日志过滤号。
+v1.3.8 模型加载修复中，车牌/车损检测器会在创建推理 session 前记录 `wx.getInferenceEnvInfo` 结果，并统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false` 创建 session。`runtime-logger` 仍仅将 AI 排障关键事件同步到 `wx.getRealtimeLogManager()`；本地 runtime 日志继续保留页面生命周期、流程切换和 AI 恢复请求等完整记录。检测器会在推理 session 创建失败、无效 session 或加载失败时记录结构化错误，并使用 `selfCam_${sessionId}` 作为后台实时日志过滤号。
 
 ---
 

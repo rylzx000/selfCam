@@ -1,9 +1,9 @@
 # 产品需求文档（PRD）
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.7（`package.json`）
+> 代码基线：v1.3.8（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-08
+> 最后更新：2026-05-09
 
 ---
 
@@ -360,6 +360,7 @@
 - v1.3.7 收敛 We分析实时日志，仅上报 AI 排障关键事件；本地 runtime 日志继续完整保留。
 - v1.3.7 补充车牌/车损推理 session 有效性校验和一次 CPU-safe 重试，第二档使用 `precisionLevel=4`、`allowNPU=false`、`allowQuantize=false`，解决部分 Android / 华为机型 AI 不可加载问题。
 - v1.3.7 追加修复部分横屏机型拍照页相机区缩小问题；仅调整显示尺寸和覆盖层百分比布局，不改变固定虚拟 `400 x 300` AI 坐标体系。
+- v1.3.8 修复部分真机模型加载失败问题：车牌/车损检测器创建 session 前记录 `wx.getInferenceEnvInfo`，并统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`；拍照、缓存、上传和 AI 检测循环保持不变。
 
 ---
 

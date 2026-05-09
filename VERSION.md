@@ -2,63 +2,43 @@
 
 ## 当前版本
 
-**版本号**: v1.3.7
-**发布日期**: 2026-05-08
-**状态**: SIT 体验版日志、AI 与横屏相机兼容性优化
+**版本号**: v1.3.8
+**发布日期**: 2026-05-09
+**状态**: SIT 体验版模型加载修复
 
 ---
 
 ## 版本概述
 
-`v1.3.7` 是当前 SIT 体验版对外测试版本。本轮聚焦真机兼容性：收敛 We分析实时日志上报范围，保留本地 runtime 日志完整性，避免高频页面和流程日志挤掉关键模型失败信息；同时为车牌/车损推理 session 创建增加有效性校验和一次 CPU-safe 重试，解决部分 Android / 华为机型 AI 不可加载的问题；追加修复部分横屏机型拍照页相机区被短边 `rpx` 换算压小的问题，并将车牌/车损 AI 检测抽帧从低清 `takePhoto` 改为 `CameraContext.onCameraFrame`，避免 iPhone12 真机连续快门。缓存、上传、模型 URL、模型缓存清理和自动拍照判断算法保持不变。
+`v1.3.8` 是当前 SIT 体验版对外测试版本。本轮聚焦模型加载失败修复：车牌/车损检测器在创建推理 session 前先轻量调用 `wx.getInferenceEnvInfo` 记录环境信息，并统一使用已验证机型可加载的 `wx.createInferenceSession` 参数，解决部分真机返回 `invalid session` 导致 AI 不可用的问题。拍照逻辑、AI 检测循环、预处理、后处理、页面、缓存和上传逻辑保持不变。
 
 ### 本版本重点
 
-- We分析仅上报 AI 排障关键事件：模型下载失败、缓存写入失败、session 创建/加载失败、AI 初始化失败和诊断探针等。
-- 本地 runtime 日志仍完整保留 `camera/page_show`、`workflow/transition`、`ai/resume_detection_*` 等普通日志。
-- We分析 payload 精简为反馈编号、环境、模型、阶段、错误、设备和 session 尝试信息，降低 `UserLog:fail Log Size Exceed` 风险。
-- 车牌/车损 `wx.createInferenceSession` 返回后先校验 session、`onLoad`、`onError` 是否有效，避免无效 session 触发 TypeError。
-- 推理 session 首次仍使用 `precisionLevel=1`；失败后只重试一次 `cpu_safe_precision_4`。
-- CPU-safe 重试使用 `precisionLevel=4`、`allowNPU=false`、`allowQuantize=false`，不重新下载模型、不清理模型缓存、不修改模型 URL，也不改变拍照流程和自动拍照算法。
-- 拍照页相机区按横屏长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，避免部分机型横屏下相机区缩小。
-- 车牌、VIN、车损辅助框随相机区等比例缩放，但 AI 判断仍使用固定虚拟 `400 x 300` 坐标系。
-- 车牌/车损 AI 检测抽帧使用 `CameraContext.onCameraFrame` 和 `frame-size="medium"`，检测循环不再调用低清 `cameraContext.takePhoto()`；车损 `selectedFramePath` 候选帧成片逻辑保持不变。
+- 车牌/车损 `loadSession` 创建 session 前会尝试调用一次 `wx.getInferenceEnvInfo`。
+- `getInferenceEnvInfo` 成功、失败或不支持都只记录日志，不阻断后续模型加载。
+- 车牌/车损 `wx.createInferenceSession` 统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`。
+- 保留现有 runtimeLogger、结构化错误、session 有效性校验和 `onLoad/onError` 处理。
+- 不修改拍照、AI 检测循环、预处理、后处理、页面、缓存和上传逻辑。
 
-## v1.3.7 变更摘要
+## v1.3.8 变更摘要
 
 ### AI 推理兼容性
 
-- `utils/plate-detector.js` 与 `utils/damage-detector.js` 在访问 `session.onLoad` 前增加 session 有效性校验。
-- fast `precisionLevel=1` 创建失败、返回无效 session 或触发 `onError` 时，自动重试一次 `cpu_safe_precision_4`。
-- 两次均失败时抛出结构化错误，包含 `stage/modelName/modelPath/attemptName/precisionLevel/allowNPU/allowQuantize/errMsg`，交给相机页现有 AI 不可用降级逻辑处理。
+- `utils/plate-detector.js` 与 `utils/damage-detector.js` 新增轻量 `checkInferenceEnv()`。
+- 创建推理 session 前先尝试读取 `wx.getInferenceEnvInfo`，结果仅用于日志排障。
+- 旧的 `precisionLevel=1/4` 尝试逻辑收敛为固定 CPU 兼容参数：`precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`。
+- session 无效或加载失败时仍抛出结构化错误，交给相机页现有 AI 不可用降级逻辑处理。
 
-### We分析实时日志
+### 版本同步
 
-- `runtime-logger` 仅将白名单 AI 排障事件转发到 `wx.getRealtimeLogManager()`，降低实时日志体积。
-- We分析 payload 精简，不再透传完整 payload；本地日志仍保留完整 payload。
-- `forceWarn` / `forceError` 仍保留强制上报能力，但同样使用精简 payload。
-
-### 拍照页横屏适配
-
-- `pages/camera/camera.js` 新增相机页布局计算，优先按横屏窗口长边复刻旧版 `rpx` 尺寸，仅在三栏总宽或总高放不下时等比缩小。
-- `pages/camera/camera.wxss` 将车牌框、VIN 框、车损框和距离提示箭头改为相对相机区的百分比布局，避免显示尺寸变化后覆盖层错位。
-- `getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 与车损 `canvasWidth/canvasHeight = 400/300` 均保持不变。
-
-### AI 检测抽帧修复
-
-- `pages/camera/camera.wxml` 为 `camera` 增加 `frame-size="medium"`，用于车牌/车损 AI 检测实时帧。
-- `takeAIPreviewPhoto()` 保留原方法名，但改为读取 `latestAIFrame` 并通过离屏 canvas 转临时图片路径，继续复用现有 `detector.detect(imagePath)`。
-- 检测循环无实时帧时跳过当前轮，不回退到 `cameraContext.takePhoto()`，避免 iPhone12 真机连续快门。
+- `package.json` 与 `package-lock.json` 版本号提升到 `1.3.8`。
+- `CHANGELOG.md`、`VERSION.md` 和 AI 相关 PRD/技术文档同步到当前模型加载策略。
 
 ### 测试与文档同步
 
-- `package.json` 与 `package-lock.json` 版本号提升到 `1.3.7`。
-- 新增/调整 runtimeLogger 与 AI session 单元测试，覆盖无效 session、CPU-safe 重试、We分析白名单、黑名单和 payload 精简。
-- 新增 `__tests__/camera-layout.test.js`，覆盖正常横屏机型尺寸不回退、竖屏 `safeArea` 不压窄相机区、宽屏机型无需机型白名单即可放大。
-- 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`、`node --check utils/runtime-logger.js`。
-- 本轮验证通过 `npm test -- --runInBand`，21 个测试套件、194 个用例通过。
-- 追加验证通过 `npx jest --runInBand`，21 个测试套件、197 个用例通过。
-- 追加验证通过 `npm test -- --runInBand`，21 个测试套件、199 个用例通过。
+- 调整 AI session 相关单元测试，覆盖新的 `precisionLevel=0` 固定参数。
+- 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`。
+- 本轮验证通过 `npm test -- --runInBand`，21 个测试套件、199 个用例通过。
 
 ---
 
@@ -66,6 +46,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.3.8 | 2026-05-09 | SIT 体验版模型加载修复 | 车牌/车损推理创建前记录推理环境，并统一使用 `precisionLevel=0`、禁用 NPU 与量化 |
 | v1.3.7 | 2026-05-08 | SIT 体验版日志、AI 与横屏相机兼容性优化 | 收敛 We分析实时日志，补充推理 session CPU-safe 重试，修复部分机型横屏相机区缩小 |
 | v1.3.6 | 2026-05-07 | SIT 体验版诊断增强 | 业务环境切换、SIT 模型地址、安全校验、模型缓存隔离、AI 实时日志与代码质量扫描修复 |
 | v1.3.5 | 2026-04-30 | 已封板（本地） | 每辆车行驶证资料上传、缓存兼容、提交风险提示与三页背景统一 |
@@ -94,8 +75,8 @@ git fetch --tags
 git checkout v1.3.4
 ```
 
-如果后续需要把 `v1.3.7` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+如果后续需要把 `v1.3.8` 作为正式标签发布，建议在本地提交后再创建对应 tag。
 
 ---
 
-*最后更新：2026-05-08*
+*最后更新：2026-05-09*

@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.3.7（`package.json`）
+> 代码基线：v1.3.8（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-08
+> 最后更新：2026-05-09
 
 ---
 
@@ -403,6 +403,8 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 拍照页不再从 `ai-config.js` 引入固化的模型 URL / path 常量；创建检测器前实时调用 `envConfig.getAiConfig()` 并通过 `options.aiConfig` 传入检测器
 - 创建检测器前打印 `wxEnvVersion`、`appEnv`、`plateModelUrl`、`damageModelUrl`，用于真机确认当前业务环境
 - 推理能力依赖 `wx.createInferenceSession`
+- 车牌/车损检测器创建推理 session 前会轻量调用 `wx.getInferenceEnvInfo`，结果仅记录日志，不阻断加载。
+- 车牌/车损 `wx.createInferenceSession` 统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`，避免部分真机因旧的 `precisionLevel=1/4` 尝试逻辑返回无效 session。
 - 若推理不可用，则自动降级为手动拍照
 
 ### 2. AI 调度入口

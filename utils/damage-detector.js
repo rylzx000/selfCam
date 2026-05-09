@@ -5,10 +5,9 @@ const runtimeLogger = require('./runtime-logger')
 
 const MODEL_NAME = 'damage'
 const SESSION_ATTEMPTS = [
-  { attemptName: 'fast_precision_1', precisionLevel: 1 },
   {
-    attemptName: 'cpu_safe_precision_4',
-    precisionLevel: 4,
+    attemptName: 'cpu_precision_0',
+    precisionLevel: 0,
     allowNPU: false,
     allowQuantize: false
   }
@@ -248,11 +247,49 @@ class DamageDetector {
     }
   }
 
+  async checkInferenceEnv() {
+    if (!wx || typeof wx.getInferenceEnvInfo !== 'function') {
+      console.log('[AI:model:damage] getInferenceEnvInfo not supported')
+      return
+    }
+
+    await new Promise((resolve) => {
+      try {
+        wx.getInferenceEnvInfo({
+          success: (res) => {
+            console.log('[AI:model:damage] getInferenceEnvInfo success', res)
+            logModel('info', 'inference_env_info_success', {
+              modelPath: this.modelPath,
+              envInfo: res
+            })
+            resolve()
+          },
+          fail: (err) => {
+            console.warn('[AI:model:damage] getInferenceEnvInfo failed', err)
+            logModel('info', 'inference_env_info_failed', {
+              modelPath: this.modelPath,
+              errMsg: getErrMsg(err)
+            })
+            resolve()
+          }
+        })
+      } catch (error) {
+        console.warn('[AI:model:damage] getInferenceEnvInfo error', error)
+        logModel('info', 'inference_env_info_failed', {
+          modelPath: this.modelPath,
+          errMsg: getErrMsg(error)
+        })
+        resolve()
+      }
+    })
+  }
+
   async loadSession() {
     console.log('[AI:model:damage] loadSession start', this.modelPath)
     logModel('info', 'session_load_start', {
       modelPath: this.modelPath
     })
+    await this.checkInferenceEnv()
 
     let lastError = null
 
@@ -265,7 +302,9 @@ class DamageDetector {
       } = attempt
       const sessionOptions = {
         model: this.modelPath,
-        precisionLevel
+        allowNPU: false,
+        precisionLevel: 0,
+        allowQuantize: false
       }
       const attemptLogPayload = {
         modelPath: this.modelPath,

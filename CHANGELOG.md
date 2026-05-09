@@ -4,6 +4,25 @@
 
 ---
 
+## [v1.3.8] - 2026-05-09
+
+### 修复 - 2026-05-09
+
+- 修复部分真机车牌/车损模型加载时 `wx.createInferenceSession` 返回 `invalid session` 的问题。
+- 车牌/车损检测器在创建推理 session 前轻量调用一次 `wx.getInferenceEnvInfo`，成功、失败或不支持都只记录日志，不阻断加载。
+- 车牌/车损 `wx.createInferenceSession` 参数统一为 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`，移除旧的 `precisionLevel=1/4` 尝试逻辑。
+- 保留现有 runtimeLogger、结构化错误、session 有效性校验、`onLoad/onError` 处理和相机页 AI 不可用降级逻辑。
+
+### 未变更 - 2026-05-09
+
+- 未修改拍照逻辑、AI 检测循环、预处理、后处理、页面、缓存和上传逻辑。
+
+### 验证 - 2026-05-09
+
+- `node --check utils/plate-detector.js`：通过。
+- `node --check utils/damage-detector.js`：通过。
+- `npm test -- --runInBand`：21 个测试套件、199 个用例通过。
+
 ## [v1.3.7] - 2026-05-08
 
 ### 追加 - 2026-05-08
@@ -402,6 +421,7 @@
 
 | 版本 | 日期 | 类型 | 说明 |
 | --- | --- | --- | --- |
+| v1.3.8 | 2026-05-09 | 模型加载修复版 | 创建推理 session 前记录推理环境，并统一使用 `precisionLevel=0`、禁用 NPU 与量化 |
 | v1.3.7 | 2026-05-08 | AI 诊断与横屏兼容性优化版 | 收敛 We分析实时日志，补充推理 session CPU-safe 重试，修复部分机型横屏相机区缩小 |
 | v1.3.6 | 2026-05-02 | 业务环境切换版 | 新增 appEnv、隐藏环境切换入口、模型地址安全校验与模型缓存隔离 |
 | v1.3.5 | 2026-04-30 | 行驶证资料版 | 每辆车行驶证上传、缓存兼容、提交风险提示与预览页交互补齐 |
