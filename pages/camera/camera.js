@@ -12,7 +12,6 @@ const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine'
 const { AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
-const album = require('../../utils/album')
 
 const PLATE_DISTANCE_HINT_TEXT = {
   forward: '\u8bf7\u9760\u8fd1\u4e00\u70b9',
@@ -1622,11 +1621,6 @@ Page({
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
     if (!currentVehicle) return
-
-    Promise.resolve(album.saveConfirmedPhotoToAlbum(pendingPhoto))
-      .catch((err) => {
-        console.warn('[album] saveConfirmedPhotoToAlbum unexpected failure:', err)
-      })
 
     if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
       currentVehicle.licensePlate = {

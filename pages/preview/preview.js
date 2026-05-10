@@ -4,6 +4,7 @@ const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
 const vehicleDocuments = require('../../utils/documents')
 const album = require('../../utils/album')
+const permission = require('../../utils/permission')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 const envConfig = require('../../utils/env-config')
@@ -11,6 +12,9 @@ const envConfig = require('../../utils/env-config')
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
 const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
+
+const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
+const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
 
 function getRemainingTotalPhotoCount(cache) {
   const summary = cacheSelectors.getCacheSummary(cache)
@@ -368,14 +372,6 @@ Page({
             return
           }
 
-          if (sourceType === 'camera') {
-            try {
-              await album.saveConfirmedPhotoToAlbum(savedDocument)
-            } catch (err) {
-              console.warn('[preview] save_driving_license_album_failed', err)
-            }
-          }
-
           resolve(savedDocument)
         },
         fail: () => resolve()
@@ -591,16 +587,182 @@ Page({
       return
     }
 
+    this.checkAlbumSaveBeforeSubmit(cache)
+  },
+
+  checkAlbumSaveBeforeSubmit(cache = storage.loadCache()) {
+    if (!cache) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    const candidates = cacheSelectors.getAlbumSaveCandidates(cache)
+    if (candidates.length === 0) {
+      this.submitComplete()
+      return
+    }
+
+    const hasSavedRecords = Object.keys(cache.albumSaveRecords || {}).some((key) => {
+      const record = cache.albumSaveRecords[key]
+      return record && record.status === 'saved'
+    })
+
+    this.albumSaveCandidates = candidates
+    this.setData({
+      showModal: true,
+      modalContent: hasSavedRecords ? ALBUM_SAVE_NEW_TIP : ALBUM_SAVE_ALL_TIP,
+      modalConfirmText: '保存至手机',
+      modalCancelText: '暂不保存',
+      modalType: 'albumSaveConfirm'
+    })
+  },
+
+  buildAlbumSaveSummary(decision, total, saved = 0, failed = 0, permissionDenied = 0) {
+    return {
+      decision,
+      total,
+      saved,
+      failed,
+      permissionDenied,
+      updatedAt: new Date().toISOString()
+    }
+  },
+
+  saveAlbumSummary(summary) {
+    const cache = storage.loadCache()
+    if (!cache) return false
+
+    cache.albumSaveRecords = cache.albumSaveRecords || {}
+    cache.albumSaveSummary = summary
+    storage.saveCache(cache)
+    return true
+  },
+
+  getAlbumSaveDecision(result) {
+    if (!result || result.total <= 0) {
+      return 'none'
+    }
+
+    if (result.saved === result.total) {
+      return 'saved'
+    }
+
+    if (result.permissionDenied > 0 && result.saved === 0) {
+      return 'permission_denied'
+    }
+
+    if (result.saved > 0 && result.failed > 0) {
+      return 'partial'
+    }
+
+    return 'failed'
+  },
+
+  persistAlbumSaveResult(result) {
+    const cache = storage.loadCache()
+    if (!cache) return false
+
+    const savedAt = new Date().toISOString()
+    cache.albumSaveRecords = cache.albumSaveRecords || {}
+
+    ;(result.results || []).forEach((item) => {
+      if (!item || !item.localPhotoId) {
+        return
+      }
+
+      const status = item.saved
+        ? 'saved'
+        : item.reason === 'permission_denied'
+          ? 'permission_denied'
+          : 'failed'
+
+      cache.albumSaveRecords[item.localPhotoId] = {
+        status,
+        filePath: item.filePath || '',
+        savedAt: item.saved ? savedAt : '',
+        reason: item.reason || ''
+      }
+    })
+
+    cache.albumSaveSummary = this.buildAlbumSaveSummary(
+      this.getAlbumSaveDecision(result),
+      result.total || 0,
+      result.saved || 0,
+      result.failed || 0,
+      result.permissionDenied || 0
+    )
+    storage.saveCache(cache)
+    return true
+  },
+
+  buildFailedAlbumSaveResult(candidates, reason) {
+    return {
+      total: candidates.length,
+      saved: 0,
+      failed: candidates.length,
+      permissionDenied: reason === 'permission_denied' ? candidates.length : 0,
+      results: candidates.map((candidate) => ({
+        localPhotoId: candidate.localPhotoId,
+        filePath: candidate.filePath,
+        saved: false,
+        reason
+      }))
+    }
+  },
+
+  skipAlbumSaveAndComplete() {
+    const candidates = this.albumSaveCandidates || cacheSelectors.getAlbumSaveCandidates(storage.loadCache())
+    this.saveAlbumSummary(this.buildAlbumSaveSummary(
+      'skipped',
+      candidates.length,
+      0,
+      0,
+      0
+    ))
     this.submitComplete()
   },
 
-  onModalConfirm() {
+  async saveAlbumCandidatesAndComplete() {
+    const cache = storage.loadCache()
+    const candidates = cacheSelectors.getAlbumSaveCandidates(cache)
+
+    if (candidates.length === 0) {
+      this.submitComplete()
+      return
+    }
+
+    const granted = await permission.ensureAlbumSavePermission()
+    if (!granted) {
+      this.persistAlbumSaveResult(this.buildFailedAlbumSaveResult(candidates, 'permission_denied'))
+      this.submitComplete()
+      return
+    }
+
+    let result
+    try {
+      wx.showLoading({ title: '正在保存照片...' })
+      result = await album.savePhotosToAlbumBatch(candidates)
+    } catch (err) {
+      console.warn('[preview] batch_album_save_failed', err)
+      result = this.buildFailedAlbumSaveResult(candidates, 'exception')
+    } finally {
+      wx.hideLoading()
+    }
+
+    this.persistAlbumSaveResult(result)
+    this.submitComplete()
+  },
+
+  async onModalConfirm() {
     const modalType = this.data.modalType
     this.setData({ showModal: false })
     if (modalType === 'drivingLicenseRisk') {
-      this.submitComplete()
+      this.checkAlbumSaveBeforeSubmit()
     } else if (modalType === 'thirdVehicle') {
       this.checkDrivingLicenseBeforeSubmit()
+    } else if (modalType === 'albumSaveConfirm') {
+      await this.saveAlbumCandidatesAndComplete()
     }
   },
 
@@ -609,6 +771,8 @@ Page({
     this.setData({ showModal: false })
     if (modalType === 'thirdVehicle') {
       this.addThirdVehicle()
+    } else if (modalType === 'albumSaveConfirm') {
+      this.skipAlbumSaveAndComplete()
     }
   },
 

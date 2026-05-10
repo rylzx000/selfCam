@@ -801,8 +801,11 @@ npm run test:e2e:full
 
 - `pages/index/index.js` 在 `onStart()` 中使用 `isStartingCapture` 防重复点击，并用 `try/catch/finally` 确保流程结束后释放锁。
 - `startCaptureFlow()` 保留原缓存初始化和 `/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
-- `pages/camera/camera.js` 在 `onConfirmPhoto()` 中 fire-and-forget 调用 `album.saveConfirmedPhotoToAlbum(pendingPhoto)`，失败只写日志，不改变缓存推进逻辑。
+- `pages/camera/camera.js` 在 `onConfirmPhoto()` 中只写入采集缓存并推进步骤，不再调用相册保存工具。
 - `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。
+- `pages/preview/preview.js` 在 `完成采集` 的三者车确认、行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
+- `utils/cache-selectors.js` 提供 `getAlbumSaveCandidates(cache)`，只返回当前缓存中未保存过、非相册来源且路径去重后的候选图片。
+- `utils/album.js` 提供 `savePhotosToAlbumBatch(candidates)`，顺序保存候选图片并返回批量汇总，不逐张弹失败提示。
 
 ---
 
@@ -824,9 +827,29 @@ npm run test:e2e:full
   -> wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType })
   -> compress.compressImage(tempFilePath, { maxFileSize: 400 * 1024 })
   -> storage.saveVehicleDocument(vehicleIndex, documentRecord)
-  -> camera 来源尝试 album.saveConfirmedPhotoToAlbum(savedDocument)
+  -> camera 来源只记录 sourceType，不立即保存到手机相册
   -> loadData() 刷新预览页
 ```
+
+### 最终相册保存链路
+
+```text
+点击完成采集
+  -> 三者车确认
+  -> 行驶证风险确认
+  -> cacheSelectors.getAlbumSaveCandidates(cache)
+  -> 候选为空：直接进入完成页
+  -> 候选不为空：弹出是否保存至手机相册
+  -> 用户暂不保存：记录 albumSaveSummary.decision = skipped，进入完成页
+  -> 用户确认保存：permission.ensureAlbumSavePermission()
+  -> album.savePhotosToAlbumBatch(candidates)
+  -> 写入 albumSaveRecords 和 albumSaveSummary
+  -> 进入完成页
+```
+
+- 每张新拍、重拍、上传或替换的照片生成新的 `localPhotoId`。
+- `albumSaveRecords` 按 `localPhotoId` 记录保存结果，避免完成页返回修改后二次完成重复保存旧图。
+- 替换照片不会继承旧照片的保存记录；删除照片只影响当前缓存，不尝试删除用户手机相册中的旧图。
 
 ### 替换与删除
 

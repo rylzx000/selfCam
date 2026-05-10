@@ -2,43 +2,46 @@
 
 ## 当前版本
 
-**版本号**: v1.3.8
-**发布日期**: 2026-05-09
-**状态**: SIT 体验版模型加载修复
+**版本号**: v1.4.0
+**发布日期**: 2026-05-10
+**状态**: SIT 体验版图片本机保存模式调整
 
 ---
 
 ## 版本概述
 
-`v1.3.8` 是当前 SIT 体验版对外测试版本。本轮聚焦模型加载失败修复：车牌/车损检测器在创建推理 session 前先轻量调用 `wx.getInferenceEnvInfo` 记录环境信息，并统一使用已验证机型可加载的 `wx.createInferenceSession` 参数，解决部分真机返回 `invalid session` 导致 AI 不可用的问题。拍照逻辑、AI 检测循环、预处理、后处理、页面、缓存和上传逻辑保持不变。
+`v1.4.0` 是当前 SIT 体验版对外测试版本。本轮调整图片保存本机模式：相册保存从拍照确认阶段后移到预览页完成采集阶段，由用户在最终确认中选择是否保存全部/新增图片至手机相册；同意后才申请相册保存权限。完成页提示按本次保存结果展示，并通过图片身份与保存记录支持完成页返回修改、替换照片后的增量保存。
 
 ### 本版本重点
 
-- 车牌/车损 `loadSession` 创建 session 前会尝试调用一次 `wx.getInferenceEnvInfo`。
-- `getInferenceEnvInfo` 成功、失败或不支持都只记录日志，不阻断后续模型加载。
-- 车牌/车损 `wx.createInferenceSession` 统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`。
-- 保留现有 runtimeLogger、结构化错误、session 有效性校验和 `onLoad/onError` 处理。
-- 不修改拍照、AI 检测循环、预处理、后处理、页面、缓存和上传逻辑。
+- 拍照页确认照片时不再触发 `wx.saveImageToPhotosAlbum`。
+- 预览页点击 `完成采集` 后增加相册保存确认，确认保存后再申请 `scope.writePhotosAlbum`。
+- 通过 `localPhotoId`、`albumSaveRecords` 和 `albumSaveSummary` 记录已保存图片和本次保存结果。
+- 完成页返回后替换照片，只保存当前新增/替换图片，不重复保存已保存图片。
+- 完成页按保存结果展示“已保存”“未保存”或“部分未保存”提示。
 
-## v1.3.8 变更摘要
+## v1.4.0 变更摘要
 
-### AI 推理兼容性
+### 图片本机保存模式
 
-- `utils/plate-detector.js` 与 `utils/damage-detector.js` 新增轻量 `checkInferenceEnv()`。
-- 创建推理 session 前先尝试读取 `wx.getInferenceEnvInfo`，结果仅用于日志排障。
-- 旧的 `precisionLevel=1/4` 尝试逻辑收敛为固定 CPU 兼容参数：`precisionLevel=0`、`allowNPU=false`、`allowQuantize=false`。
-- session 无效或加载失败时仍抛出结构化错误，交给相机页现有 AI 不可用降级逻辑处理。
+- `pages/camera/camera.js` 移除确认照片后的即时相册保存调用。
+- `pages/preview/preview.js` 在完成采集流程末尾统一处理相册保存确认、权限申请、批量保存、保存记录写入和完成页跳转。
+- `utils/album.js` 新增批量保存能力，保存失败不阻断完成采集。
+- `utils/permission.js` 将开始采集权限收敛为相机权限，最终保存时再申请相册保存权限。
+- `utils/storage-schema.js` 和 `utils/cache-selectors.js` 增加保存身份、保存记录、保存结果摘要和候选图片筛选逻辑。
 
 ### 版本同步
 
-- `package.json` 与 `package-lock.json` 版本号提升到 `1.3.8`。
-- `CHANGELOG.md`、`VERSION.md` 和 AI 相关 PRD/技术文档同步到当前模型加载策略。
+- `package.json` 与 `package-lock.json` 版本号提升到 `1.4.0`。
+- `CHANGELOG.md`、`VERSION.md`、`PRDS/` 与 `docs/` 同步到新的图片保存本机模式。
 
 ### 测试与文档同步
 
-- 调整 AI session 相关单元测试，覆盖新的 `precisionLevel=0` 固定参数。
-- 本轮验证通过 `node --check utils/plate-detector.js`、`node --check utils/damage-detector.js`。
-- 本轮验证通过 `npm test -- --runInBand`，21 个测试套件、199 个用例通过。
+- 新增和更新相册保存、权限、缓存修复、完成页返回替换照片、完成页文案、行驶证来源差异相关单元测试。
+- 本轮验证通过 `node --check` 覆盖相册、权限、缓存、相机页、预览页和完成页核心 JS 文件。
+- 本轮验证通过 `npm test -- --runInBand`，22 个测试套件、215 个用例通过。
+- 本轮验证通过 `npm run test:e2e -- --testPathPattern=submit-consistency`，2 个 P0 微信开发者工具 automator 用例通过。
+- 用户已完成真机测试，确认功能没问题。
 
 ---
 
@@ -46,6 +49,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.0 | 2026-05-10 | SIT 体验版图片本机保存模式调整 | 相册保存后移到完成采集最终确认，支持保存记录、增量保存和完成页结果提示 |
 | v1.3.8 | 2026-05-09 | SIT 体验版模型加载修复 | 车牌/车损推理创建前记录推理环境，并统一使用 `precisionLevel=0`、禁用 NPU 与量化 |
 | v1.3.7 | 2026-05-08 | SIT 体验版日志、AI 与横屏相机兼容性优化 | 收敛 We分析实时日志，补充推理 session CPU-safe 重试，修复部分机型横屏相机区缩小 |
 | v1.3.6 | 2026-05-07 | SIT 体验版诊断增强 | 业务环境切换、SIT 模型地址、安全校验、模型缓存隔离、AI 实时日志与代码质量扫描修复 |
@@ -75,8 +79,8 @@ git fetch --tags
 git checkout v1.3.4
 ```
 
-如果后续需要把 `v1.3.8` 作为正式标签发布，建议在本地提交后再创建对应 tag。
+如果后续需要把 `v1.4.0` 作为正式标签发布，建议在本地提交后再创建对应 tag。
 
 ---
 
-*最后更新：2026-05-09*
+*最后更新：2026-05-10*

@@ -111,7 +111,7 @@ describe('preview page driving license flow', () => {
     jest.dontMock('../utils/album')
   })
 
-  test('uploads front page into current vehicle documents from camera and saves album', async () => {
+  test('uploads front page into current vehicle documents from camera without saving album immediately', async () => {
     actionSheetTapIndexes = [0]
     const page = loadPreviewPageWithVehicles(1)
 
@@ -149,9 +149,7 @@ describe('preview page driving license flow', () => {
       size: 456789,
       compressedSize: 123456
     }))
-    expect(album.saveConfirmedPhotoToAlbum).toHaveBeenCalledWith(expect.objectContaining({
-      compressedPath: '/tmp/license.jpg.compressed'
-    }))
+    expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
   test('uploads from album without saving back to system album', async () => {
@@ -185,9 +183,8 @@ describe('preview page driving license flow', () => {
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
-  test('keeps uploaded document when saving camera source to album fails', async () => {
+  test('keeps uploaded camera document without final album save side effects', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-    album.saveConfirmedPhotoToAlbum.mockRejectedValueOnce(new Error('album save failed'))
     actionSheetTapIndexes = [0]
     const page = loadPreviewPageWithVehicles(1)
 
@@ -210,9 +207,10 @@ describe('preview page driving license flow', () => {
     expect(vehicle.documents).toHaveLength(1)
     expect(vehicle.documents[0].compressedPath).toBe('/tmp/license.jpg.compressed')
     expect(global.wx.showToast).not.toHaveBeenCalledWith({ title: '处理失败', icon: 'none' })
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalledWith(
       '[preview] save_driving_license_album_failed',
-      expect.any(Error)
+      expect.anything()
     )
 
     warnSpy.mockRestore()

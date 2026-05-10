@@ -120,6 +120,18 @@ describe('storage cache governance', () => {
       current: 'PREVIEWING',
       updatedAt: checkpointAt
     })
+    expect(cache.albumSaveRecords).toEqual({})
+    expect(cache.albumSaveSummary).toEqual({
+      decision: 'none',
+      total: 0,
+      saved: 0,
+      failed: 0,
+      permissionDenied: 0,
+      updatedAt: ''
+    })
+    expect(cache.vehicles[0].licensePlate.localPhotoId).toMatch(/^photo_/)
+    expect(cache.vehicles[0].damages[0].localPhotoId).toMatch(/^photo_/)
+    expect(cache.documents[0].localPhotoId).toMatch(/^photo_/)
     expect(cache.fromPreview).toBe(false)
     expect(storage.validateCache(cache).valid).toBe(true)
     expect(persistedCache.updatedAt).toBe(checkpointAt)

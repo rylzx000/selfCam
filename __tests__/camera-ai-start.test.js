@@ -559,19 +559,13 @@ describe('camera AI detection start timing', () => {
       compressedPath: '/tmp/vin.jpg',
       status: 'completed'
     }))
-    expect(album.saveConfirmedPhotoToAlbum).toHaveBeenCalledWith(
-      expect.objectContaining({ compressedPath: '/tmp/vin.jpg' })
-    )
+    expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
     expect(instance.resetAIState).toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_vin_to_damage')
   })
 
-  test('continues confirmation when album save fails', async () => {
+  test('continues confirmation without saving confirmed photo to album', async () => {
     cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
-    album.saveConfirmedPhotoToAlbum.mockResolvedValueOnce({
-      saved: false,
-      reason: 'save_failed'
-    })
     const instance = createPageInstance({
       data: {
         currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
@@ -593,8 +587,7 @@ describe('camera AI detection start timing', () => {
     }))
     expect(storage.saveCache).toHaveBeenCalledWith(cache)
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_license_plate')
-
-    await Promise.resolve()
+    expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
   test('does not save to album when user retakes pending photo', () => {

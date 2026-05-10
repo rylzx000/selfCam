@@ -23,12 +23,16 @@ function buildFailedResult(reason, err) {
   }
 }
 
-function saveImageToPhotosAlbum(filePath) {
+function saveImageToPhotosAlbum(filePath, options = {}) {
+  const shouldShowFailToast = options.showFailToast !== false
+
   return new Promise((resolve) => {
     if (!filePath) {
       const err = new Error('ALBUM_SAVE_PATH_MISSING')
       console.warn('[album] save skipped: missing filePath')
-      showSaveFailToast()
+      if (shouldShowFailToast) {
+        showSaveFailToast()
+      }
       resolve(buildFailedResult('missing_path', err))
       return
     }
@@ -36,7 +40,9 @@ function saveImageToPhotosAlbum(filePath) {
     if (typeof wx === 'undefined' || typeof wx.saveImageToPhotosAlbum !== 'function') {
       const err = new Error('WX_SAVE_IMAGE_TO_PHOTOS_ALBUM_UNAVAILABLE')
       console.warn('[album] save failed: api unavailable', err)
-      showSaveFailToast()
+      if (shouldShowFailToast) {
+        showSaveFailToast()
+      }
       resolve(buildFailedResult('api_unavailable', err))
       return
     }
@@ -58,13 +64,15 @@ function saveImageToPhotosAlbum(filePath) {
             return
           }
 
-          showSaveFailToast()
+          if (shouldShowFailToast) {
+            showSaveFailToast()
+          }
           resolve(buildFailedResult('save_failed', err))
         }
       })
     } catch (err) {
       console.warn('[album] saveImageToPhotosAlbum exception:', err)
-      if (!isAlbumPermissionDenied(err)) {
+      if (!isAlbumPermissionDenied(err) && shouldShowFailToast) {
         showSaveFailToast()
       }
       resolve(buildFailedResult(isAlbumPermissionDenied(err) ? 'permission_denied' : 'exception', err))
@@ -76,9 +84,71 @@ function saveConfirmedPhotoToAlbum(photo) {
   return saveImageToPhotosAlbum(getConfirmedPhotoPath(photo))
 }
 
+function getBatchPhotoPath(photo = {}) {
+  return photo.filePath || getConfirmedPhotoPath(photo)
+}
+
+function buildBatchSummary(results) {
+  return results.reduce((summary, result) => {
+    if (result.saved) {
+      summary.saved += 1
+    } else {
+      summary.failed += 1
+      if (result.reason === 'permission_denied') {
+        summary.permissionDenied += 1
+      }
+    }
+
+    return summary
+  }, {
+    total: results.length,
+    saved: 0,
+    failed: 0,
+    permissionDenied: 0
+  })
+}
+
+async function savePhotosToAlbumBatch(photos = []) {
+  const seenPaths = {}
+  const candidates = []
+
+  photos.forEach((photo) => {
+    const filePath = getBatchPhotoPath(photo)
+    if (!filePath || seenPaths[filePath]) {
+      return
+    }
+
+    seenPaths[filePath] = true
+    candidates.push({
+      ...photo,
+      filePath
+    })
+  })
+
+  const results = []
+
+  for (const candidate of candidates) {
+    const result = await saveImageToPhotosAlbum(candidate.filePath, {
+      showFailToast: false
+    })
+
+    results.push({
+      localPhotoId: candidate.localPhotoId,
+      filePath: candidate.filePath,
+      ...result
+    })
+  }
+
+  return {
+    ...buildBatchSummary(results),
+    results
+  }
+}
+
 module.exports = {
   SAVE_FAIL_TEXT,
   getConfirmedPhotoPath,
   saveImageToPhotosAlbum,
-  saveConfirmedPhotoToAlbum
+  saveConfirmedPhotoToAlbum,
+  savePhotosToAlbumBatch
 }

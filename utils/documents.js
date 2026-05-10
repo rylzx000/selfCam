@@ -83,6 +83,10 @@ function buildDocumentId(docType, docSide, timestamp = nowMs()) {
   return `${docType}_${docSide}_${timestamp}`
 }
 
+function buildLocalPhotoId(timestamp = nowMs()) {
+  return `photo_${timestamp}_${Math.random().toString(36).slice(2, 10)}`
+}
+
 function normalizeVehicleDocument(record, existingRecord = null, timestamp = nowMs()) {
   if (!isPlainObject(record) || !isNonEmptyString(record.compressedPath)) {
     return null
@@ -114,6 +118,7 @@ function normalizeVehicleDocument(record, existingRecord = null, timestamp = now
     sourceType: isValidSourceType(record.sourceType) ? record.sourceType : 'album',
     tempFilePath: isNonEmptyString(record.tempFilePath) ? record.tempFilePath : '',
     compressedPath: record.compressedPath,
+    localPhotoId: isNonEmptyString(record.localPhotoId) ? record.localPhotoId : buildLocalPhotoId(timestamp),
     createdAt,
     updatedAt: Number.isFinite(record.updatedAt) ? record.updatedAt : timestamp
   }

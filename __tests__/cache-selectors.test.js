@@ -189,4 +189,98 @@ describe('cache selectors', () => {
     expect(summary.qualitySummary.totalPhotos).toBe(3)
     expect(summary.qualitySummary.riskPhotos).toEqual([])
   })
+
+  test('builds album save candidates from current unsaved non-album photos', () => {
+    const cache = storage.initCache()
+    const vehicle = createCompletedVehicle(0, 2)
+    vehicle.licensePlate.localPhotoId = 'plate-saved'
+    vehicle.vinCode.localPhotoId = 'vin-unsaved'
+    vehicle.damages[0].localPhotoId = 'damage-unsaved'
+    vehicle.damages[1].localPhotoId = 'damage-duplicate-path'
+    vehicle.damages[1].compressedPath = vehicle.damages[0].compressedPath
+    vehicle.documents = [
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.FRONT_PAGE,
+        label: '行驶证正页',
+        sourceType: 'camera',
+        localPhotoId: 'license-camera',
+        compressedPath: '/license-camera.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.BACK_PAGE,
+        label: '行驶证副页',
+        sourceType: 'album',
+        localPhotoId: 'license-album',
+        compressedPath: '/license-album.jpg'
+      }
+    ]
+    cache.vehicles.push(vehicle)
+    cache.documents = [
+      {
+        source: 'camera',
+        localPhotoId: 'root-camera-doc',
+        compressedPath: '/root-camera-doc.jpg'
+      },
+      {
+        source: 'album',
+        localPhotoId: 'root-album-doc',
+        compressedPath: '/root-album-doc.jpg'
+      }
+    ]
+    cache.albumSaveRecords = {
+      'plate-saved': {
+        status: 'saved',
+        filePath: '/plate-0.jpg'
+      }
+    }
+
+    const candidates = selectors.getAlbumSaveCandidates(cache)
+
+    expect(candidates.map((candidate) => candidate.localPhotoId)).toEqual([
+      'vin-unsaved',
+      'damage-unsaved',
+      'license-camera',
+      'root-camera-doc'
+    ])
+    expect(candidates.map((candidate) => candidate.filePath)).toEqual([
+      '/vin-0.jpg',
+      '/damage-0-0.jpg',
+      '/license-camera.jpg',
+      '/root-camera-doc.jpg'
+    ])
+  })
+
+  test('uses stable fallback identity for legacy photos without localPhotoId', () => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    vehicle.licensePlate = {
+      compressedPath: '/legacy-plate.jpg',
+      compressedSize: 123,
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      status: 'completed'
+    }
+    vehicle.vinCode = {
+      compressedPath: '/legacy-vin.jpg',
+      compressedSize: 456,
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      status: 'completed'
+    }
+    cache.vehicles.push(vehicle)
+
+    const firstCandidates = selectors.getAlbumSaveCandidates(cache)
+    const firstLegacyId = firstCandidates[0].localPhotoId
+    cache.albumSaveRecords = {
+      [firstLegacyId]: {
+        status: 'saved',
+        filePath: '/legacy-plate.jpg'
+      }
+    }
+
+    const secondCandidates = selectors.getAlbumSaveCandidates(cache)
+
+    expect(firstLegacyId).toBe('legacy:/legacy-plate.jpg|123|2026-05-01T00:00:00.000Z')
+    expect(secondCandidates.map((candidate) => candidate.filePath)).toEqual(['/legacy-vin.jpg'])
+  })
 })

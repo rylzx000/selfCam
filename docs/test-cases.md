@@ -1656,3 +1656,69 @@
 - 三个页面都使用浅灰绿色背景
 - 拍照页右上角有淡绿色装饰层
 - 相机预览、按钮和提示文案不被背景装饰遮挡
+
+---
+
+## v1.3.9 完成采集最终相册保存补充用例
+
+### TC-065: 完成采集最后确认是否保存至手机相册 [P]
+
+**Priority**: Critical
+**Type**: Happy Path
+**Status**: [P]
+**Suite**: Smoke
+**Tags**: @feature:album-save, @component:preview
+
+**Preconditions**:
+- 用户在预览页，当前缓存存在未保存到手机相册的车牌、VIN 或车损照片
+
+**Steps**:
+1. 点击 `完成采集`
+2. 按顺序确认三者车弹窗和行驶证风险弹窗
+3. 查看最终相册保存确认弹窗
+
+**Expected Result**:
+- 最后显示 `是否保存全部图片至手机相册？建议保存，便于后续案件处理。`
+- 点击 `暂不保存` 不申请相册权限，直接进入完成页
+- 点击 `保存至手机` 后才申请相册保存权限并批量保存
+
+### TC-066: 完成页返回修改后替换照片只保存新图 [P]
+
+**Priority**: Critical
+**Type**: Edge Case
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:album-save, @feature:retake, @component:preview
+
+**Preconditions**:
+- 第一次完成采集时已成功保存当前照片到手机相册
+
+**Steps**:
+1. 在完成页点击 `返回修改`
+2. 在预览页重拍或替换一张已保存过的照片
+3. 再次点击 `完成采集`
+4. 在最终相册保存确认中点击 `保存至手机`
+
+**Expected Result**:
+- 已保存过且仍存在的旧照片不重复调用 `wx.saveImageToPhotosAlbum`
+- 被替换的新照片生成新的 `localPhotoId`，本次会被保存
+- 删除的旧照片不参与本次保存，也不尝试从手机相册删除
+
+### TC-067: 最终相册保存失败不阻断完成采集 [P]
+
+**Priority**: High
+**Type**: Abnormal
+**Status**: [P]
+**Suite**: Regression
+**Tags**: @feature:album-save, @feature:permission
+
+**Preconditions**:
+- 用户在最终相册保存确认中点击 `保存至手机`
+
+**Steps**:
+1. 拒绝相册权限，或模拟 `wx.saveImageToPhotosAlbum` 部分失败
+2. 观察完成页跳转和提示文案
+
+**Expected Result**:
+- 权限拒绝、接口异常或部分失败都不阻断进入完成页
+- 完成页根据结果显示 `本次照片采集已完成，未保存至手机相册` 或 `本次照片采集已完成，部分照片未保存至手机相册`

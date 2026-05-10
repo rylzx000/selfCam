@@ -32,6 +32,13 @@ describe('complete page', () => {
         flowContext: {
           workflowState: 'LOCAL_COMPLETED'
         },
+        albumSaveSummary: {
+          decision: 'saved',
+          total: 6,
+          saved: 6,
+          failed: 0,
+          permissionDenied: 0
+        },
         ...summaryOverrides
       }))
     }
@@ -83,7 +90,8 @@ describe('complete page', () => {
       vehicleCount: 2,
       damagePhotoCount: 5,
       documentPhotoCount: 1,
-      workflowState: 'LOCAL_COMPLETED'
+      workflowState: 'LOCAL_COMPLETED',
+      albumSaveMessage: '本次照片已保存至手机相册'
     })
   })
 
@@ -106,8 +114,72 @@ describe('complete page', () => {
       vehicleCount: 2,
       damagePhotoCount: 3,
       documentPhotoCount: 2,
-      workflowState: 'LOCAL_COMPLETED'
+      workflowState: 'LOCAL_COMPLETED',
+      albumSaveMessage: '本次照片已保存至手机相册'
     })
+  })
+
+  test('shows skipped album save message on completion page', () => {
+    const config = loadPage({
+      albumSaveSummary: {
+        decision: 'skipped',
+        total: 4,
+        saved: 0,
+        failed: 0,
+        permissionDenied: 0
+      }
+    })
+    const instance = {
+      setData: jest.fn()
+    }
+
+    config.loadSummary.call(instance)
+
+    expect(instance.setData).toHaveBeenCalledWith(expect.objectContaining({
+      albumSaveMessage: '本次照片采集已完成，未保存至手机相册'
+    }))
+  })
+
+  test('shows partial album save message on completion page', () => {
+    const config = loadPage({
+      albumSaveSummary: {
+        decision: 'partial',
+        total: 4,
+        saved: 2,
+        failed: 2,
+        permissionDenied: 0
+      }
+    })
+    const instance = {
+      setData: jest.fn()
+    }
+
+    config.loadSummary.call(instance)
+
+    expect(instance.setData).toHaveBeenCalledWith(expect.objectContaining({
+      albumSaveMessage: '本次照片采集已完成，部分照片未保存至手机相册'
+    }))
+  })
+
+  test('shows denied album save message on completion page', () => {
+    const config = loadPage({
+      albumSaveSummary: {
+        decision: 'permission_denied',
+        total: 4,
+        saved: 0,
+        failed: 4,
+        permissionDenied: 4
+      }
+    })
+    const instance = {
+      setData: jest.fn()
+    }
+
+    config.loadSummary.call(instance)
+
+    expect(instance.setData).toHaveBeenCalledWith(expect.objectContaining({
+      albumSaveMessage: '本次照片采集已完成，未保存至手机相册'
+    }))
   })
 
   test('keeps return-to-edit flow without clearing capture cache', () => {

@@ -33,6 +33,78 @@ function hasStoredAttachment(record) {
   return !!record && isNonEmptyString(record.compressedPath)
 }
 
+function getPhotoFilePath(photo = {}) {
+  return photo.compressedPath || photo.tempFilePath || photo.originalPath || photo.filePath || ''
+}
+
+function getPhotoSize(photo = {}) {
+  if (Number.isFinite(photo.compressedSize)) return photo.compressedSize
+  if (Number.isFinite(photo.fileSize)) return photo.fileSize
+  if (Number.isFinite(photo.size)) return photo.size
+  return ''
+}
+
+function getPhotoUpdatedAt(photo = {}) {
+  return isNonEmptyString(photo.updatedAt)
+    ? photo.updatedAt
+    : isNonEmptyString(photo.createdAt)
+      ? photo.createdAt
+      : ''
+}
+
+function getAlbumPhotoIdentity(photo = {}) {
+  if (isNonEmptyString(photo.localPhotoId)) {
+    return photo.localPhotoId
+  }
+
+  return `legacy:${getPhotoFilePath(photo)}|${getPhotoSize(photo)}|${getPhotoUpdatedAt(photo)}`
+}
+
+function getAlbumSaveRecords(cache) {
+  return isPlainObject(cache && cache.albumSaveRecords) ? cache.albumSaveRecords : {}
+}
+
+function getSavedAlbumPathMap(records) {
+  return Object.keys(records).reduce((result, key) => {
+    const record = records[key]
+    if (record && record.status === 'saved' && isNonEmptyString(record.filePath)) {
+      result[record.filePath] = true
+    }
+    return result
+  }, {})
+}
+
+function isAlbumSource(photo = {}) {
+  return photo.sourceType === 'album' || photo.source === 'album'
+}
+
+function isAlbumSaved(localPhotoId, filePath, records, savedPaths) {
+  return !!(
+    records[localPhotoId]
+    && records[localPhotoId].status === 'saved'
+  ) || !!savedPaths[filePath]
+}
+
+function pushAlbumCandidate(candidates, seenPaths, photo, meta, records, savedPaths) {
+  const filePath = getPhotoFilePath(photo)
+  if (!filePath || seenPaths[filePath] || isAlbumSource(photo)) {
+    return
+  }
+
+  const localPhotoId = getAlbumPhotoIdentity(photo)
+  if (isAlbumSaved(localPhotoId, filePath, records, savedPaths)) {
+    return
+  }
+
+  seenPaths[filePath] = true
+  candidates.push({
+    ...meta,
+    localPhotoId,
+    filePath,
+    photo
+  })
+}
+
 function getSafeCurrentVehicleIndex(cache, vehicles) {
   const currentVehicleIndex = cache && Number.isInteger(cache.currentVehicleIndex)
     ? cache.currentVehicleIndex
@@ -370,6 +442,81 @@ function collectQualityPhotoRecords(cache) {
   return records
 }
 
+function getAlbumSaveCandidates(cache) {
+  const candidates = []
+  const seenPaths = {}
+  const records = getAlbumSaveRecords(cache)
+  const savedPaths = getSavedAlbumPathMap(records)
+
+  getVehicles(cache).forEach((vehicle, vehicleIndex) => {
+    const vehicleType = isNonEmptyString(vehicle && vehicle.type)
+      ? vehicle.type
+      : constants.VEHICLE_TYPE.TARGET
+
+    if (isCompletedPhoto(vehicle && vehicle.licensePlate)) {
+      pushAlbumCandidate(candidates, seenPaths, vehicle.licensePlate, {
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.LICENSE_PLATE,
+        photoIndex: null,
+        label: `${vehicleType} - 车牌`
+      }, records, savedPaths)
+    }
+
+    if (isCompletedPhoto(vehicle && vehicle.vinCode)) {
+      pushAlbumCandidate(candidates, seenPaths, vehicle.vinCode, {
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.VIN_CODE,
+        photoIndex: null,
+        label: `${vehicleType} - VIN码`
+      }, records, savedPaths)
+    }
+
+    const damages = Array.isArray(vehicle && vehicle.damages) ? vehicle.damages : []
+    damages.forEach((damage, damageIndex) => {
+      if (!hasStoredAttachment(damage)) {
+        return
+      }
+
+      pushAlbumCandidate(candidates, seenPaths, damage, {
+        vehicleIndex,
+        photoType: constants.PHOTO_TYPE.DAMAGE,
+        photoIndex: damageIndex,
+        label: `${vehicleType} - 车损${damageIndex + 1}`
+      }, records, savedPaths)
+    })
+
+    vehicleDocuments.getVehicleDocuments(vehicle).forEach((document, documentIndex) => {
+      if (!hasStoredAttachment(document)) {
+        return
+      }
+
+      pushAlbumCandidate(candidates, seenPaths, document, {
+        vehicleIndex,
+        photoType: 'vehicleDocument',
+        photoIndex: documentIndex,
+        docType: document.docType,
+        docSide: document.docSide,
+        label: `${vehicleType} - ${document.label || '单证资料'}`
+      }, records, savedPaths)
+    })
+  })
+
+  getDocuments(cache).forEach((document, documentIndex) => {
+    if (!hasStoredAttachment(document)) {
+      return
+    }
+
+    pushAlbumCandidate(candidates, seenPaths, document, {
+      vehicleIndex: null,
+      photoType: 'document',
+      photoIndex: documentIndex,
+      label: `单证资料 ${documentIndex + 1}`
+    }, records, savedPaths)
+  })
+
+  return candidates
+}
+
 function getQualitySummary(cache) {
   const photoRecords = collectQualityPhotoRecords(cache)
   const riskPhotos = []
@@ -553,6 +700,9 @@ function getCacheSummary(cache) {
     photoCounts,
     totalPhotos: photoCounts.total,
     allPhotos: vehicleSummary.photoEntries.concat(documentSummary.photoEntries),
+    albumSaveSummary: isPlainObject(cache && cache.albumSaveSummary)
+      ? cache.albumSaveSummary
+      : null,
     qualitySummary,
     progress: {
       ...vehicleSummary.progress,
@@ -573,6 +723,7 @@ module.exports = {
   getVehicleSummary,
   getDocumentSummary,
   getQualitySummary,
+  getAlbumSaveCandidates,
   getCurrentFlowContext,
   hasRetakeContext
 }

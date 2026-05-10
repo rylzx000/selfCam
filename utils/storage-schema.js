@@ -72,6 +72,45 @@ function buildWorkflowState(currentOrUpdatedAt = nowIso(), maybeUpdatedAt) {
   }
 }
 
+function buildLocalPhotoId(timestamp = Date.now()) {
+  return `photo_${timestamp}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getPhotoIdentityTimestamp(photo = {}) {
+  return Number.isFinite(photo.createdAt)
+    ? photo.createdAt
+    : Number.isFinite(photo.updatedAt)
+      ? photo.updatedAt
+      : Date.now()
+}
+
+function getPhotoPath(photo = {}) {
+  return photo.compressedPath || photo.tempFilePath || photo.originalPath || photo.filePath || ''
+}
+
+function shouldHaveLocalPhotoId(photo = {}) {
+  return isNonEmptyString(getPhotoPath(photo))
+}
+
+function normalizeLocalPhotoId(photo = {}, timestamp = getPhotoIdentityTimestamp(photo)) {
+  if (isNonEmptyString(photo.localPhotoId)) {
+    return photo.localPhotoId
+  }
+
+  return buildLocalPhotoId(timestamp)
+}
+
+function buildDefaultAlbumSaveSummary() {
+  return {
+    decision: 'none',
+    total: 0,
+    saved: 0,
+    failed: 0,
+    permissionDenied: 0,
+    updatedAt: ''
+  }
+}
+
 function getVehicleType(index) {
   if (index === 0) {
     return constants.VEHICLE_TYPE.TARGET
@@ -105,6 +144,8 @@ function createCache() {
     currentDamageCount: 0,
     retakeMode: buildRetakeMode(),
     workflowState: buildWorkflowState(timestamp),
+    albumSaveRecords: {},
+    albumSaveSummary: buildDefaultAlbumSaveSummary(),
     fromPreview: false,
     createdAt: timestamp,
     updatedAt: timestamp
@@ -170,6 +211,10 @@ function normalizePhotoMeta(photo = {}, meta = {}) {
     normalizedPhoto.quality = normalizedQuality
   } else if (Object.prototype.hasOwnProperty.call(normalizedPhoto, 'quality')) {
     delete normalizedPhoto.quality
+  }
+
+  if (shouldHaveLocalPhotoId(normalizedPhoto)) {
+    normalizedPhoto.localPhotoId = normalizeLocalPhotoId(normalizedPhoto)
   }
 
   return normalizedPhoto
@@ -773,6 +818,64 @@ function migrateCache(oldCache) {
   return migrated
 }
 
+function sanitizeAlbumSaveRecords(records, tracker) {
+  if (!isPlainObject(records)) {
+    markIssue(tracker, 'album_save_records_invalid')
+    return {}
+  }
+
+  return Object.keys(records).reduce((result, key) => {
+    const record = records[key]
+    if (!isNonEmptyString(key) || !isPlainObject(record)) {
+      markIssue(tracker, 'album_save_records_invalid')
+      return result
+    }
+
+    const status = ['saved', 'failed', 'permission_denied', 'skipped'].indexOf(record.status) >= 0
+      ? record.status
+      : ''
+
+    if (!status) {
+      markIssue(tracker, 'album_save_records_invalid')
+      return result
+    }
+
+    result[key] = {
+      status,
+      filePath: isNonEmptyString(record.filePath) ? record.filePath : '',
+      savedAt: isValidIsoString(record.savedAt) ? record.savedAt : '',
+      reason: isNonEmptyString(record.reason) ? record.reason : ''
+    }
+    return result
+  }, {})
+}
+
+function sanitizeAlbumSaveSummary(summary, tracker) {
+  if (!isPlainObject(summary)) {
+    markIssue(tracker, 'album_save_summary_invalid')
+    return buildDefaultAlbumSaveSummary()
+  }
+
+  const decision = ['none', 'saved', 'skipped', 'partial', 'failed', 'permission_denied'].indexOf(summary.decision) >= 0
+    ? summary.decision
+    : 'none'
+
+  if (decision !== summary.decision) {
+    markIssue(tracker, 'album_save_summary_invalid')
+  }
+
+  return {
+    decision,
+    total: Number.isFinite(summary.total) && summary.total >= 0 ? Math.round(summary.total) : 0,
+    saved: Number.isFinite(summary.saved) && summary.saved >= 0 ? Math.round(summary.saved) : 0,
+    failed: Number.isFinite(summary.failed) && summary.failed >= 0 ? Math.round(summary.failed) : 0,
+    permissionDenied: Number.isFinite(summary.permissionDenied) && summary.permissionDenied >= 0
+      ? Math.round(summary.permissionDenied)
+      : 0,
+    updatedAt: isValidIsoString(summary.updatedAt) ? summary.updatedAt : ''
+  }
+}
+
 function sanitizeCache(cache) {
   const repair = repairCache(cache)
   return repair.cache
@@ -876,6 +979,14 @@ function validateCache(cache) {
     issues.push('workflow_state_invalid')
   }
 
+  if (!isPlainObject(cache.albumSaveRecords)) {
+    issues.push('album_save_records_invalid')
+  }
+
+  if (!isPlainObject(cache.albumSaveSummary)) {
+    issues.push('album_save_summary_invalid')
+  }
+
   return {
     valid: issues.length === 0,
     fatal: false,
@@ -941,6 +1052,8 @@ function repairCache(cache) {
   const currentStep = sanitizeCurrentStep(migrated.currentStep, currentVehicle, retakeMode, tracker)
   const currentDamageCount = sanitizeCurrentDamageCount(migrated.currentDamageCount, currentVehicle, tracker)
   const workflowState = sanitizeWorkflowState(migrated.workflowState, updatedAt, tracker)
+  const albumSaveRecords = sanitizeAlbumSaveRecords(migrated.albumSaveRecords, tracker)
+  const albumSaveSummary = sanitizeAlbumSaveSummary(migrated.albumSaveSummary, tracker)
   const fromPreview = typeof migrated.fromPreview === 'boolean' ? migrated.fromPreview : false
 
   if (typeof migrated.fromPreview !== 'boolean') {
@@ -957,6 +1070,8 @@ function repairCache(cache) {
     currentDamageCount,
     retakeMode,
     workflowState,
+    albumSaveRecords,
+    albumSaveSummary,
     fromPreview,
     createdAt,
     updatedAt

@@ -51,6 +51,16 @@ async function returnToPreview(miniProgram) {
   return current
 }
 
+async function skipAlbumSaveIfPrompted(page) {
+  await wait(300)
+  const data = await page.data()
+
+  if (data.modalType === 'albumSaveConfirm') {
+    await page.callMethod('onModalCancel')
+    await wait(300)
+  }
+}
+
 async function deleteDamage(page, vehicleIndex, damageIndex) {
   await page.callMethod('onPreview', eventDataset({
     vehicle: vehicleIndex,
@@ -107,6 +117,7 @@ describe('P0 提交一致性 e2e', () => {
     await page.callMethod('onSubmit')
     expect((await page.data()).modalType).toBe('thirdVehicle')
     await page.callMethod('onModalConfirm')
+    await skipAlbumSaveIfPrompted(page)
 
     const completePage = await waitForCompletePage(miniProgram)
     const completeData = await completePage.data()
@@ -143,6 +154,7 @@ describe('P0 提交一致性 e2e', () => {
     page = await retakeDamage(page, miniProgram, 1, 4, 'p0-submit-retake-b-4')
 
     await page.callMethod('onSubmit')
+    await skipAlbumSaveIfPrompted(page)
     const completePage = await waitForCompletePage(miniProgram)
     const completeData = await completePage.data()
     const cache = await readCache(miniProgram)

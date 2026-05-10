@@ -340,10 +340,10 @@
 
 ---
 
-### TC-AF-018: 相册保存失败不阻断确认链路 [P]
+### TC-AF-018: 确认照片不触发相册保存 [P]
 
 **自动化 / 手工**：自动化
-**前置条件**：拍照页处于确认态，`album.saveConfirmedPhotoToAlbum()` 返回失败结果
+**前置条件**：拍照页处于确认态
 **操作步骤**：
 1. 触发 `onConfirmPhoto()`
 
@@ -352,16 +352,17 @@
 - 缓存正常保存
 - 当前步骤正常推进
 - AI 检测恢复逻辑正常执行
+- 不调用 `album.saveConfirmedPhotoToAlbum()` 或 `wx.saveImageToPhotosAlbum`
 
 **关联模块**：`pages/camera/camera.js`、`utils/album.js`
 **备注**：对应 `__tests__/camera-ai-start.test.js`
 
 ---
 
-### TC-AF-019: 相册权限拒绝类失败不逐张弹窗 [P]
+### TC-AF-019: 最终相册保存权限拒绝不阻断完成 [P]
 
 **自动化 / 手工**：自动化
-**前置条件**：`wx.saveImageToPhotosAlbum` 返回 `auth deny` 等权限拒绝错误
+**前置条件**：预览页最终相册保存确认已显示
 **操作步骤**：
 1. 调用 `saveConfirmedPhotoToAlbum()`
 
