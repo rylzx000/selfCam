@@ -45,9 +45,39 @@ const REALTIME_PAYLOAD_KEYS = [
   'damageModelUrl',
   'system',
   'model',
+  'brand',
   'platform',
   'SDKVersion',
-  'version'
+  'version',
+  'step',
+  'runId',
+  'windowWidth',
+  'windowHeight',
+  'cameraWidth',
+  'cameraHeight',
+  'layoutScale',
+  'needsResponsiveUiScale',
+  'frameWidth',
+  'frameHeight',
+  'frameAspect',
+  'mappingMode',
+  'scale',
+  'offsetX',
+  'offsetY',
+  'captureBox',
+  'mappedBox',
+  'inBox',
+  'centerAligned',
+  'areaRatio',
+  'consecutiveCount',
+  'phase',
+  'hasTrack',
+  'centerOffset',
+  'imageAreaRatio',
+  'effectiveMinAreaRatio',
+  'effectiveMaxAreaRatio',
+  'holdStableCount',
+  'finalReason'
 ]
 
 function getNow() {
@@ -299,7 +329,7 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
   appendLocalLog(entry)
 
   if (shouldForwardRealtimeLog(level, scope, event)) {
-    syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, entry.payload))
+    syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, payload))
   }
 
   if (shouldUpload()) {
@@ -330,7 +360,7 @@ function addForcedLog(level, scope, event, payload = {}, sessionMeta = null) {
 
   appendLocalLog(entry)
 
-  syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, entry.payload))
+  syncRealtimeLog(level, scope, event, buildRealtimePayload(session.sessionId, payload))
 
   if (shouldUpload()) {
     const loggerConfig = getLoggerConfig()

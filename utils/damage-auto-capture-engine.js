@@ -61,7 +61,8 @@ class DamageAutoCaptureEngine {
       timestamp = Date.now(),
       captureBox,
       canvasWidth = 400,
-      canvasHeight = 300
+      canvasHeight = 300,
+      frameMapping = null
     } = frame
 
     const trackingState = this.tracker.update({
@@ -71,7 +72,8 @@ class DamageAutoCaptureEngine {
       captureBox,
       canvasWidth,
       canvasHeight,
-      timestamp
+      timestamp,
+      frameMapping
     })
     const motionState = this.motionEstimator.update(trackingState, timestamp)
     const areaRatioRange = this.getEffectiveAreaRatioRange(captureBox, canvasWidth, canvasHeight)
@@ -119,13 +121,30 @@ class DamageAutoCaptureEngine {
         imageAreaRatio: motionState.imageAreaRatio || motionState.areaRatio || 0,
         captureAreaRatio: motionState.captureAreaRatio || 0,
         effectiveMinAreaRatio: areaRatioRange.effectiveMinAreaRatio,
-        effectiveMaxAreaRatio: areaRatioRange.effectiveMaxAreaRatio
+        effectiveMaxAreaRatio: areaRatioRange.effectiveMaxAreaRatio,
+        mappedBox: trackingState.box
+          ? {
+            centerX: trackingState.box.centerX,
+            centerY: trackingState.box.centerY,
+            width: trackingState.box.width,
+            height: trackingState.box.height
+          }
+          : null
       },
       aiDetection: {
         detected: !!(detection || bestCandidate),
         score: detection ? detection.confidence : (bestCandidate ? bestCandidate.confidence : ''),
         stableFrames: phaseState.holdStableCount || phaseState.detectedFrames || 0,
         box: detection || (bestCandidate ? bestCandidate.box : null),
+        mappedBox: trackingState.box
+          ? {
+            centerX: trackingState.box.centerX,
+            centerY: trackingState.box.centerY,
+            width: trackingState.box.width,
+            height: trackingState.box.height
+          }
+          : null,
+        frameMapping,
         selectedFramePath: bestCandidate ? bestCandidate.previewPath : '',
         selectedFrameScore: bestCandidate ? bestCandidate.score : 0,
         finalReason: captureReady ? (phaseState.finalReason || 'stable_hold') : ''

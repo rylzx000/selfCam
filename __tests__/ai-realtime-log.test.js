@@ -179,6 +179,78 @@ describe('AI realtime logging', () => {
     })
   })
 
+  test('runtimeLogger.forceWarn forwards slim camera geometry diagnostics for WeChat realtime logs', () => {
+    setupRuntimeLoggerTest()
+    const runtimeLogger = require('../utils/runtime-logger')
+
+    const entry = runtimeLogger.forceWarn('ai', 'auto_capture_gate_sample', {
+      feedbackId: 'selfCam_feedback-4',
+      step: 'licensePlate',
+      runId: 3,
+      windowWidth: 1084,
+      windowHeight: 488,
+      cameraWidth: 574.12,
+      cameraHeight: 430.59,
+      layoutScale: 1.435,
+      needsResponsiveUiScale: true,
+      frameWidth: 800,
+      frameHeight: 450,
+      frameAspect: 1.7778,
+      mappingMode: 'aspectFillCrop',
+      scale: 0.6667,
+      offsetX: -66.67,
+      offsetY: 0,
+      captureBox: { x: 100, y: 176, width: 200, height: 68 },
+      mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+      inBox: false,
+      centerAligned: true,
+      areaRatio: 0.41,
+      consecutiveCount: 1,
+      phase: 'SEEK',
+      hasTrack: true,
+      centerOffset: 0.12,
+      imageAreaRatio: 0.14,
+      effectiveMinAreaRatio: 0.07,
+      effectiveMaxAreaRatio: 0.14,
+      holdStableCount: 0,
+      rawFrameBytes: new ArrayBuffer(8),
+      rawDetection: { huge: true }
+    })
+
+    expect(realtimeLog.warn).toHaveBeenCalledWith('ai', 'auto_capture_gate_sample', {
+      sessionId: entry.sessionId,
+      feedbackId: 'selfCam_feedback-4',
+      step: 'licensePlate',
+      runId: 3,
+      windowWidth: 1084,
+      windowHeight: 488,
+      cameraWidth: 574.12,
+      cameraHeight: 430.59,
+      layoutScale: 1.435,
+      needsResponsiveUiScale: true,
+      frameWidth: 800,
+      frameHeight: 450,
+      frameAspect: 1.7778,
+      mappingMode: 'aspectFillCrop',
+      scale: 0.6667,
+      offsetX: -66.67,
+      offsetY: 0,
+      captureBox: { x: 100, y: 176, width: 200, height: 68 },
+      mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+      inBox: false,
+      centerAligned: true,
+      areaRatio: 0.41,
+      consecutiveCount: 1,
+      phase: 'SEEK',
+      hasTrack: true,
+      centerOffset: 0.12,
+      imageAreaRatio: 0.14,
+      effectiveMinAreaRatio: 0.07,
+      effectiveMaxAreaRatio: 0.14,
+      holdStableCount: 0
+    })
+  })
+
   test.each([
     ['camera', 'page_show'],
     ['workflow', 'transition'],

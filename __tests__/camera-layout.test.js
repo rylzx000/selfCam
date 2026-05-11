@@ -152,4 +152,55 @@ describe('camera responsive layout', () => {
     expect(layout.cameraHeight / layout.windowHeight).toBeGreaterThan(0.86)
     expect(layout.cameraWidth / layout.cameraHeight).toBeCloseTo(4 / 3, 4)
   })
+
+  test('keeps normal landscape UI on existing rpx styles', () => {
+    const layout = pageConfig.computeCameraLayout({
+      windowWidth: 844,
+      windowHeight: 390
+    })
+
+    expect(layout.needsResponsiveUiScale).toBe(false)
+    expect(layout.guideTipStyle).toBe('')
+    expect(layout.aiTipStyle).toBe('')
+    expect(layout.captureButtonStyle).toBe('')
+    expect(layout.captureTextStyle).toBe('')
+    expect(layout.plateFrameStyle).toBe('')
+    expect(layout.damageFrameStyle).toBe('')
+  })
+
+  test('enables px UI scaling only on nova-like high resolution landscape screens', () => {
+    const layout = pageConfig.computeCameraLayout({
+      windowWidth: 1084,
+      windowHeight: 488
+    })
+
+    expect(layout.needsResponsiveUiScale).toBe(true)
+    expect(layout.uiScale).toBeCloseTo(layout.layoutScale, 2)
+    expect(layout.guideTipStyle).toContain('font-size:')
+    expect(layout.aiTipStyle).toContain('font-size:')
+    expect(layout.captureButtonStyle).toContain('width:')
+    expect(layout.captureButtonStyle).toContain('height:')
+    expect(layout.captureTextStyle).toContain('font-size:')
+    expect(layout.plateFrameStyle).toContain('width: 50%')
+    expect(layout.damageFrameStyle).toContain('width: 33%')
+  })
+
+  test('keeps visual capture boxes and AI capture boxes from the same virtual geometry', () => {
+    expect(pageConfig.getPlateCaptureBox()).toEqual({
+      x: 100,
+      y: 176,
+      width: 200,
+      height: 68
+    })
+    expect(pageConfig.getDamageCaptureBox()).toEqual({
+      x: 134,
+      y: 84,
+      width: 132,
+      height: 132
+    })
+    expect(pageConfig.getCaptureBoxStyles()).toEqual(expect.objectContaining({
+      plateFrameStyle: expect.stringContaining('width: 50%'),
+      damageFrameStyle: expect.stringContaining('width: 33%')
+    }))
+  })
 })

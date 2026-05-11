@@ -1,3 +1,5 @@
+const { mapDetectionToVirtualCamera } = require('./frame-utils')
+
 class DamageTracker {
   constructor(options = {}) {
     this.config = {
@@ -28,11 +30,12 @@ class DamageTracker {
       captureBox = null,
       canvasWidth = 400,
       canvasHeight = 300,
-      timestamp = Date.now()
+      timestamp = Date.now(),
+      frameMapping = null
     } = params
 
     const detectionBox = detection
-      ? this.toCanvasBox(detection, captureBox, canvasWidth, canvasHeight)
+      ? this.toCanvasBox(detection, captureBox, canvasWidth, canvasHeight, frameMapping)
       : null
     const previousBox = this.trackBox
     const dtMs = this.lastTimestamp ? Math.max(timestamp - this.lastTimestamp, 16) : 16
@@ -134,13 +137,15 @@ class DamageTracker {
     }
   }
 
-  toCanvasBox(detection, captureBox, canvasWidth, canvasHeight) {
-    const scaleX = canvasWidth / Math.max(detection.originalWidth || canvasWidth, 1)
-    const scaleY = canvasHeight / Math.max(detection.originalHeight || canvasHeight, 1)
-    const width = detection.width * scaleX
-    const height = detection.height * scaleY
-    const centerX = detection.centerX * scaleX
-    const centerY = detection.centerY * scaleY
+  toCanvasBox(detection, captureBox, canvasWidth, canvasHeight, frameMapping = null) {
+    const mappedDetection = mapDetectionToVirtualCamera(detection, frameMapping || {
+      targetWidth: canvasWidth,
+      targetHeight: canvasHeight
+    })
+    const width = mappedDetection.width
+    const height = mappedDetection.height
+    const centerX = mappedDetection.centerX
+    const centerY = mappedDetection.centerY
     const left = centerX - width / 2
     const top = centerY - height / 2
     const area = Math.max(width * height, 0)

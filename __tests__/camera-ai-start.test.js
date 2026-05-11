@@ -144,7 +144,21 @@ describe('camera AI detection start timing', () => {
     jest.doMock('../utils/plate-detector', () => PlateDetector)
     jest.doMock('../utils/damage-detector', () => DamageDetector)
     jest.doMock('../utils/frame-utils', () => ({
-      PlateFrameUtils: jest.fn()
+      PlateFrameUtils: jest.fn(),
+      createVirtualCameraMapping: jest.fn(() => ({
+        sourceWidth: 400,
+        sourceHeight: 300,
+        targetWidth: 400,
+        targetHeight: 300,
+        frameAspect: 1.3333,
+        targetAspect: 1.3333,
+        mappingMode: 'legacy',
+        scale: 1,
+        scaleX: 1,
+        scaleY: 1,
+        offsetX: 0,
+        offsetY: 0
+      }))
     }))
     jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
     jest.doMock('../utils/ai-config', () => ({
@@ -229,6 +243,13 @@ describe('camera AI detection start timing', () => {
       getDamagePhaseLabel: pageConfig.getDamagePhaseLabel,
       getAIFrameBytes: pageConfig.getAIFrameBytes,
       convertAIFrameToImagePath: pageConfig.convertAIFrameToImagePath,
+      getFeedbackId: pageConfig.getFeedbackId,
+      roundLogNumber: pageConfig.roundLogNumber,
+      toLogBox: pageConfig.toLogBox,
+      buildFrameMappingLog: pageConfig.buildFrameMappingLog,
+      logAIGeometrySnapshot: pageConfig.logAIGeometrySnapshot,
+      logAutoCaptureGateSample: pageConfig.logAutoCaptureGateSample,
+      logAutoCaptureReady: pageConfig.logAutoCaptureReady,
       logAiModelConfig: pageConfig.logAiModelConfig,
       reportAiUnavailable: pageConfig.reportAiUnavailable,
       resumeAIDetectionAfterStepReady: jest.fn(),
@@ -383,6 +404,128 @@ describe('camera AI detection start timing', () => {
       page: 'pages/camera/camera',
       at: expect.any(Number)
     }))
+  })
+
+  test('logs camera layout snapshot to WeChat realtime logs once per layout geometry', () => {
+    const instance = createPageInstance({
+      cameraLayoutRealtimeLogKey: '',
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+    const layout = {
+      windowWidth: 1084,
+      windowHeight: 488,
+      cameraWidth: 574.12,
+      cameraHeight: 430.59,
+      layoutScale: 1.435,
+      needsResponsiveUiScale: true
+    }
+
+    pageConfig.logCameraLayoutSnapshot.call(instance, layout, 'test_layout')
+    pageConfig.logCameraLayoutSnapshot.call(instance, layout, 'test_layout')
+
+    expect(runtimeLogger.forceWarn).toHaveBeenCalledTimes(1)
+    expect(runtimeLogger.forceWarn).toHaveBeenCalledWith('ai', 'camera_layout_snapshot', expect.objectContaining({
+      feedbackId: 'selfCam_test-session',
+      reason: 'test_layout',
+      windowWidth: 1084,
+      windowHeight: 488,
+      cameraWidth: 574.12,
+      cameraHeight: 430.59,
+      layoutScale: 1.435,
+      needsResponsiveUiScale: true,
+      model: 'iPhone 15',
+      platform: 'ios'
+    }))
+  })
+
+  test('throttles auto capture gate samples for recognized but not ready targets', () => {
+    const dateSpy = jest.spyOn(Date, 'now')
+    const instance = createPageInstance({
+      aiGateLogAt: {},
+      aiDetectionRunId: 7
+    })
+
+    try {
+      dateSpy.mockReturnValueOnce(1000)
+      pageConfig.logAutoCaptureGateSample.call(instance, constants.SHOOT_STEP.LICENSE_PLATE, {
+        frameMapping: {
+          sourceWidth: 800,
+          sourceHeight: 450,
+          frameAspect: 1.7778,
+          mappingMode: 'aspectFillCrop',
+          scale: 0.6667,
+          offsetX: -66.67,
+          offsetY: 0
+        },
+        captureBox: { x: 100, y: 176, width: 200, height: 68 },
+        mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+        inBox: false,
+        centerAligned: true,
+        areaRatio: 0.41,
+        consecutiveCount: 1
+      })
+
+      dateSpy.mockReturnValueOnce(2500)
+      pageConfig.logAutoCaptureGateSample.call(instance, constants.SHOOT_STEP.LICENSE_PLATE, {
+        frameMapping: {
+          sourceWidth: 800,
+          sourceHeight: 450,
+          frameAspect: 1.7778,
+          mappingMode: 'aspectFillCrop',
+          scale: 0.6667,
+          offsetX: -66.67,
+          offsetY: 0
+        },
+        captureBox: { x: 100, y: 176, width: 200, height: 68 },
+        mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+        inBox: false,
+        centerAligned: true,
+        areaRatio: 0.41,
+        consecutiveCount: 1
+      })
+
+      dateSpy.mockReturnValueOnce(5200)
+      pageConfig.logAutoCaptureGateSample.call(instance, constants.SHOOT_STEP.LICENSE_PLATE, {
+        frameMapping: {
+          sourceWidth: 800,
+          sourceHeight: 450,
+          frameAspect: 1.7778,
+          mappingMode: 'aspectFillCrop',
+          scale: 0.6667,
+          offsetX: -66.67,
+          offsetY: 0
+        },
+        captureBox: { x: 100, y: 176, width: 200, height: 68 },
+        mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+        inBox: false,
+        centerAligned: true,
+        areaRatio: 0.41,
+        consecutiveCount: 1
+      })
+
+      expect(runtimeLogger.forceWarn).toHaveBeenCalledTimes(2)
+      expect(runtimeLogger.forceWarn).toHaveBeenNthCalledWith(1, 'ai', 'auto_capture_gate_sample', expect.objectContaining({
+        feedbackId: 'selfCam_test-session',
+        step: constants.SHOOT_STEP.LICENSE_PLATE,
+        runId: 7,
+        frameWidth: 800,
+        frameHeight: 450,
+        mappingMode: 'aspectFillCrop',
+        captureBox: { x: 100, y: 176, width: 200, height: 68 },
+        mappedBox: { centerX: 200, centerY: 210, width: 140, height: 40 },
+        centerAligned: true,
+        areaRatio: 0.41,
+        consecutiveCount: 1
+      }))
+    } finally {
+      dateSpy.mockRestore()
+    }
   })
 
   test('passes fresh aiConfig into detectors instead of frozen model url and path', async () => {

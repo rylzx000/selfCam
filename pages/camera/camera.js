@@ -7,7 +7,10 @@ const runtimeLogger = require('../../utils/runtime-logger')
 const envConfig = require('../../utils/env-config')
 const PlateDetector = require('../../utils/plate-detector')
 const DamageDetector = require('../../utils/damage-detector')
-const { PlateFrameUtils } = require('../../utils/frame-utils')
+const {
+  PlateFrameUtils,
+  createVirtualCameraMapping
+} = require('../../utils/frame-utils')
 const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine')
 const { AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
@@ -34,9 +37,80 @@ const CAMERA_ASPECT_RATIO = CAMERA_VIRTUAL_WIDTH / CAMERA_VIRTUAL_HEIGHT
 const CAMERA_BASE_RPX_WIDTH = 750
 const CAMERA_BASE_TOTAL_RPX_WIDTH = 32 * 2 + 120 * 2 + 24 * 2 + CAMERA_VIRTUAL_WIDTH
 const CAMERA_BASE_TOTAL_RPX_HEIGHT = 20 * 2 + CAMERA_VIRTUAL_HEIGHT
+const RESPONSIVE_UI_SCALE_THRESHOLD = 1.3
+const AUTO_CAPTURE_GATE_LOG_INTERVAL_MS = 4000
+const CAPTURE_BOX = {
+  plate: {
+    widthRatio: 0.5,
+    heightRatio: 68 / CAMERA_VIRTUAL_HEIGHT,
+    bottomRatio: 56 / CAMERA_VIRTUAL_HEIGHT
+  },
+  damage: {
+    widthRatio: 132 / CAMERA_VIRTUAL_WIDTH,
+    heightRatio: 132 / CAMERA_VIRTUAL_HEIGHT,
+    centerXRatio: 0.5,
+    centerYRatio: 0.5
+  }
+}
 
 function getFiniteNumber(value, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function toFixedNumber(value) {
+  return Number(value.toFixed(2))
+}
+
+function px(value) {
+  return `${toFixedNumber(value)}px`
+}
+
+function buildResponsiveStyle(enabled, declarations = []) {
+  if (!enabled) {
+    return ''
+  }
+
+  return declarations
+    .map(([name, value]) => `${name}: ${px(value)};`)
+    .join(' ')
+}
+
+function getPlateCaptureBoxConfig() {
+  const width = CAMERA_VIRTUAL_WIDTH * CAPTURE_BOX.plate.widthRatio
+  const height = CAMERA_VIRTUAL_HEIGHT * CAPTURE_BOX.plate.heightRatio
+  return {
+    x: Math.round((CAMERA_VIRTUAL_WIDTH - width) / 2),
+    y: Math.round(CAMERA_VIRTUAL_HEIGHT - CAMERA_VIRTUAL_HEIGHT * CAPTURE_BOX.plate.bottomRatio - height),
+    width: Math.round(width),
+    height: Math.round(height)
+  }
+}
+
+function getDamageCaptureBoxConfig() {
+  const width = CAMERA_VIRTUAL_WIDTH * CAPTURE_BOX.damage.widthRatio
+  const height = CAMERA_VIRTUAL_HEIGHT * CAPTURE_BOX.damage.heightRatio
+  return {
+    x: Math.round(CAMERA_VIRTUAL_WIDTH * CAPTURE_BOX.damage.centerXRatio - width / 2),
+    y: Math.round(CAMERA_VIRTUAL_HEIGHT * CAPTURE_BOX.damage.centerYRatio - height / 2),
+    width: Math.round(width),
+    height: Math.round(height)
+  }
+}
+
+function getCaptureBoxStyles() {
+  return {
+    plateFrameStyle: [
+      `width: ${toFixedNumber(CAPTURE_BOX.plate.widthRatio * 100)}%;`,
+      `height: ${toFixedNumber(CAPTURE_BOX.plate.heightRatio * 100)}%;`,
+      `bottom: ${toFixedNumber(CAPTURE_BOX.plate.bottomRatio * 100)}%;`
+    ].join(' '),
+    damageFrameStyle: [
+      `width: ${toFixedNumber(CAPTURE_BOX.damage.widthRatio * 100)}%;`,
+      `height: ${toFixedNumber(CAPTURE_BOX.damage.heightRatio * 100)}%;`,
+      'top: 50%;',
+      'left: 50%;'
+    ].join(' ')
+  }
 }
 
 function computeResponsiveCameraLayout(info = {}) {
@@ -57,6 +131,9 @@ function computeResponsiveCameraLayout(info = {}) {
   const sideWidth = Number((120 * layoutScale).toFixed(2))
   const cameraWidth = Number((CAMERA_VIRTUAL_WIDTH * layoutScale).toFixed(2))
   const cameraHeight = Number((CAMERA_VIRTUAL_HEIGHT * layoutScale).toFixed(2))
+  const needsResponsiveUiScale = layoutScale >= RESPONSIVE_UI_SCALE_THRESHOLD
+  const uiScale = needsResponsiveUiScale ? layoutScale : 0
+  const captureBoxStyles = getCaptureBoxStyles()
 
   return {
     rawWindowWidth,
@@ -74,10 +151,113 @@ function computeResponsiveCameraLayout(info = {}) {
     sideWidth,
     cameraWidth,
     cameraHeight,
+    needsResponsiveUiScale,
+    uiScale,
     containerStyle: `padding: ${paddingY}px ${paddingX}px; gap: ${gap}px;`,
     infoAreaStyle: `width: ${sideWidth}px;`,
     actionAreaStyle: `width: ${sideWidth}px;`,
-    cameraWrapperStyle: `width: ${cameraWidth}px; height: ${cameraHeight}px;`
+    cameraWrapperStyle: `width: ${cameraWidth}px; height: ${cameraHeight}px;`,
+    plateFrameStyle: needsResponsiveUiScale ? captureBoxStyles.plateFrameStyle : '',
+    damageFrameStyle: needsResponsiveUiScale ? captureBoxStyles.damageFrameStyle : '',
+    cardStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 14 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 14 * uiScale],
+      ['padding-left', 12 * uiScale]
+    ]),
+    labelTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 12 * uiScale],
+      ['margin-bottom', 4 * uiScale]
+    ]),
+    primaryTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 18 * uiScale]
+    ]),
+    secondaryTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 16 * uiScale]
+    ]),
+    actionButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 10 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 10 * uiScale],
+      ['padding-left', 12 * uiScale]
+    ]),
+    actionButtonTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 14 * uiScale]
+    ]),
+    damageTipTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 12 * uiScale]
+    ]),
+    guideTipStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 16 * uiScale],
+      ['padding-top', 6 * uiScale],
+      ['padding-right', 14 * uiScale],
+      ['padding-bottom', 6 * uiScale],
+      ['padding-left', 14 * uiScale],
+      ['border-radius', 14 * uiScale]
+    ]),
+    aiTipStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 14 * uiScale],
+      ['padding-top', 6 * uiScale],
+      ['padding-right', 16 * uiScale],
+      ['padding-bottom', 6 * uiScale],
+      ['padding-left', 16 * uiScale],
+      ['border-radius', 14 * uiScale]
+    ]),
+    damageDebugStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 12 * uiScale],
+      ['padding-top', 4 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 4 * uiScale],
+      ['padding-left', 12 * uiScale],
+      ['border-radius', 12 * uiScale]
+    ]),
+    guideFrameStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-width', 4 * uiScale],
+      ['border-radius', 6 * uiScale]
+    ]),
+    crossHStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 2 * uiScale]
+    ]),
+    crossVStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 2 * uiScale]
+    ]),
+    captureButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 76 * uiScale],
+      ['height', 76 * uiScale]
+    ]),
+    captureInnerStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 58 * uiScale],
+      ['height', 58 * uiScale]
+    ]),
+    captureTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 12 * uiScale],
+      ['margin-top', 8 * uiScale]
+    ]),
+    confirmSectionStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 14 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 14 * uiScale],
+      ['padding-left', 12 * uiScale]
+    ]),
+    qualityHintStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['max-width', 220 * uiScale],
+      ['font-size', 12 * uiScale],
+      ['border-radius', 12 * uiScale],
+      ['padding-top', 8 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 8 * uiScale],
+      ['padding-left', 12 * uiScale],
+      ['margin-bottom', 12 * uiScale]
+    ]),
+    confirmButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 80 * uiScale],
+      ['height', 36 * uiScale],
+      ['border-radius', 18 * uiScale],
+      ['font-size', 14 * uiScale]
+    ])
   }
 }
 
@@ -188,7 +368,8 @@ Page({
     appEnvBadgeText: '',
     showDamageDebug: false,
     workflowState: workflow.STATES.IDLE,
-    cameraLayout: computeResponsiveCameraLayout()
+    cameraLayout: computeResponsiveCameraLayout(),
+    captureBoxStyles: getCaptureBoxStyles()
   },
 
   cameraContext: null,
@@ -208,6 +389,9 @@ Page({
   aiPreviewTakePhotoRemovedLogged: false,
   aiDetectionRunId: 0,
   cameraLayoutLogKey: '',
+  cameraLayoutRealtimeLogKey: '',
+  aiGeometryLogKeys: null,
+  aiGateLogAt: null,
 
   onLoad() {
     this.isLeaving = false
@@ -299,6 +483,10 @@ Page({
     return computeResponsiveCameraLayout(info)
   },
 
+  getCaptureBoxStyles() {
+    return getCaptureBoxStyles()
+  },
+
   updateCameraLayout(reason = 'manual', info = null) {
     const windowInfo = info || getWindowInfoSnapshot()
     const cameraLayout = this.computeCameraLayout(windowInfo)
@@ -319,7 +507,126 @@ Page({
         sideWidth: cameraLayout.sideWidth,
         gap: cameraLayout.gap
       })
+      this.logCameraLayoutSnapshot(cameraLayout, reason)
     }
+  },
+
+  getFeedbackId() {
+    const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
+    return sessionId ? `selfCam_${sessionId}` : ''
+  },
+
+  roundLogNumber(value) {
+    return Number.isFinite(value) ? Number(value.toFixed(4)) : value
+  },
+
+  toLogBox(box) {
+    if (!box) {
+      return null
+    }
+    const result = {}
+    ;['x', 'y', 'width', 'height', 'centerX', 'centerY'].forEach((key) => {
+      if (box[key] !== undefined) {
+        result[key] = this.roundLogNumber(box[key])
+      }
+    })
+    return result
+  },
+
+  buildFrameMappingLog(frameMapping = {}) {
+    return {
+      frameWidth: frameMapping.sourceWidth || '',
+      frameHeight: frameMapping.sourceHeight || '',
+      frameAspect: this.roundLogNumber(frameMapping.frameAspect || 0),
+      mappingMode: frameMapping.mappingMode || '',
+      scale: this.roundLogNumber(frameMapping.scale || 0),
+      offsetX: this.roundLogNumber(frameMapping.offsetX || 0),
+      offsetY: this.roundLogNumber(frameMapping.offsetY || 0)
+    }
+  },
+
+  logCameraLayoutSnapshot(cameraLayout = {}, reason = 'layout') {
+    const layoutLogKey = `${cameraLayout.windowWidth}x${cameraLayout.windowHeight}:${cameraLayout.cameraWidth}x${cameraLayout.cameraHeight}:${cameraLayout.needsResponsiveUiScale}`
+    if (this.cameraLayoutRealtimeLogKey === layoutLogKey) {
+      return
+    }
+    this.cameraLayoutRealtimeLogKey = layoutLogKey
+
+    runtimeLogger.forceWarn('ai', 'camera_layout_snapshot', {
+      feedbackId: this.getFeedbackId(),
+      reason,
+      ...getSystemInfoSnapshot(),
+      windowWidth: cameraLayout.windowWidth,
+      windowHeight: cameraLayout.windowHeight,
+      cameraWidth: cameraLayout.cameraWidth,
+      cameraHeight: cameraLayout.cameraHeight,
+      layoutScale: this.roundLogNumber(cameraLayout.layoutScale || 0),
+      needsResponsiveUiScale: !!cameraLayout.needsResponsiveUiScale
+    })
+  },
+
+  logAIGeometrySnapshot(step, frameMapping, captureBox) {
+    if (!frameMapping) {
+      return
+    }
+    if (!this.aiGeometryLogKeys) {
+      this.aiGeometryLogKeys = {}
+    }
+    const logKey = `${step}:${frameMapping.sourceWidth}x${frameMapping.sourceHeight}:${frameMapping.mappingMode}`
+    if (this.aiGeometryLogKeys[logKey]) {
+      return
+    }
+    this.aiGeometryLogKeys[logKey] = true
+
+    runtimeLogger.forceWarn('ai', 'ai_geometry_snapshot', {
+      feedbackId: this.getFeedbackId(),
+      step,
+      runId: this.aiDetectionRunId,
+      ...this.buildFrameMappingLog(frameMapping),
+      captureBox: this.toLogBox(captureBox)
+    })
+  },
+
+  logAutoCaptureGateSample(step, payload = {}) {
+    if (!this.aiGateLogAt) {
+      this.aiGateLogAt = {}
+    }
+    const now = Date.now()
+    const lastLoggedAt = this.aiGateLogAt[step] || 0
+    if (lastLoggedAt && now - lastLoggedAt < AUTO_CAPTURE_GATE_LOG_INTERVAL_MS) {
+      return
+    }
+    this.aiGateLogAt[step] = now
+
+    runtimeLogger.forceWarn('ai', 'auto_capture_gate_sample', {
+      feedbackId: this.getFeedbackId(),
+      step,
+      runId: this.aiDetectionRunId,
+      ...this.buildFrameMappingLog(payload.frameMapping || {}),
+      captureBox: this.toLogBox(payload.captureBox),
+      mappedBox: this.toLogBox(payload.mappedBox),
+      inBox: payload.inBox,
+      centerAligned: payload.centerAligned,
+      areaRatio: this.roundLogNumber(payload.areaRatio || 0),
+      consecutiveCount: payload.consecutiveCount,
+      phase: payload.phase,
+      hasTrack: payload.hasTrack,
+      centerOffset: this.roundLogNumber(payload.centerOffset || 0),
+      imageAreaRatio: this.roundLogNumber(payload.imageAreaRatio || 0),
+      effectiveMinAreaRatio: this.roundLogNumber(payload.effectiveMinAreaRatio || 0),
+      effectiveMaxAreaRatio: this.roundLogNumber(payload.effectiveMaxAreaRatio || 0),
+      holdStableCount: payload.holdStableCount
+    })
+  },
+
+  logAutoCaptureReady(step, aiDetection = {}) {
+    runtimeLogger.forceWarn('ai', 'auto_capture_ready', {
+      feedbackId: this.getFeedbackId(),
+      step,
+      runId: this.aiDetectionRunId,
+      finalReason: aiDetection.finalReason || '',
+      ...this.buildFrameMappingLog(aiDetection.frameMapping || {})
+    })
   },
 
   logAiModelConfig(aiConfig) {
@@ -505,21 +812,11 @@ Page({
   },
 
   getDamageCaptureBox() {
-    return {
-      x: 134,
-      y: 84,
-      width: 132,
-      height: 132
-    }
+    return getDamageCaptureBoxConfig()
   },
 
   getPlateCaptureBox() {
-    return {
-      x: 100,
-      y: 176,
-      width: 200,
-      height: 68
-    }
+    return getPlateCaptureBoxConfig()
   },
 
   async triggerAutoCapture(step, aiDetection) {
@@ -1120,6 +1417,15 @@ Page({
     }
   },
 
+  getDetectionFrameMapping(result) {
+    return createVirtualCameraMapping({
+      sourceWidth: result?.originalWidth || CAMERA_VIRTUAL_WIDTH,
+      sourceHeight: result?.originalHeight || CAMERA_VIRTUAL_HEIGHT,
+      targetWidth: CAMERA_VIRTUAL_WIDTH,
+      targetHeight: CAMERA_VIRTUAL_HEIGHT
+    })
+  },
+
   startAIDetectionLoop(step) {
     this.stopAIDetectionLoop()
 
@@ -1212,6 +1518,7 @@ Page({
             finalReason: ready.aiDetection?.finalReason || '',
             selectedFramePath: !!ready.aiDetection?.selectedFramePath
           })
+          this.logAutoCaptureReady(step, ready.aiDetection)
           this.setDataIfChanged({
             aiLocked: true,
             aiStatusText: AUTO_CAPTURE.STATUS_TEXT.locked,
@@ -1282,7 +1589,10 @@ Page({
         }
       }
 
-      const status = this.plateFrameChecker.checkFrameStatus(result, this.getPlateCaptureBox(), 400, 300)
+      const plateCaptureBox = this.getPlateCaptureBox()
+      const frameMapping = this.getDetectionFrameMapping(result)
+      this.logAIGeometrySnapshot(step, frameMapping, plateCaptureBox)
+      const status = this.plateFrameChecker.checkFrameStatus(result, plateCaptureBox, 400, 300, frameMapping)
       const distanceHint = this.getPlateDistanceHint(status)
       let plateFrameState = 'detected'
       if (status.consecutiveMet) {
@@ -1312,6 +1622,17 @@ Page({
       } else {
         this.schedulePlateHintClear(500)
       }
+      if (!status.consecutiveMet) {
+        this.logAutoCaptureGateSample(step, {
+          frameMapping: status.frameMapping,
+          captureBox: plateCaptureBox,
+          mappedBox: status.mappedBox,
+          inBox: status.inBox,
+          centerAligned: status.centerAligned,
+          areaRatio: status.areaRatio,
+          consecutiveCount: status.consecutiveCount
+        })
+      }
       return {
         captureReady: status.consecutiveMet,
         statusText,
@@ -1319,7 +1640,9 @@ Page({
           detected: true,
           score: result.confidence,
           stableFrames: status.consecutiveCount,
-          box: result
+          box: result,
+          mappedBox: status.mappedBox,
+          frameMapping: status.frameMapping
         }
       }
     }
@@ -1331,13 +1654,19 @@ Page({
       }
     }
 
+    const damageCaptureBox = this.getDamageCaptureBox()
+    const frameMapping = result ? this.getDetectionFrameMapping(result) : null
+    if (frameMapping) {
+      this.logAIGeometrySnapshot(step, frameMapping, damageCaptureBox)
+    }
     const damageState = this.damageAutoCaptureEngine.update({
       detection: result,
       previewPath: frame.previewPath || result?.previewPath || '',
       timestamp: frame.timestamp || Date.now(),
-      captureBox: this.getDamageCaptureBox(),
+      captureBox: damageCaptureBox,
       canvasWidth: 400,
-      canvasHeight: 300
+      canvasHeight: 300,
+      frameMapping
     })
     const damageFrameState = damageState.captureReady
       ? 'locked'
@@ -1359,11 +1688,29 @@ Page({
     } else {
       this.schedulePlateHintClear(500)
     }
+    if (!damageState.captureReady && (damageState.detected || damageState.hasTrack)) {
+      const debug = damageState.debug || {}
+      this.logAutoCaptureGateSample(step, {
+        frameMapping,
+        captureBox: damageCaptureBox,
+        mappedBox: debug.mappedBox || damageState.aiDetection?.mappedBox,
+        phase: damageState.phase,
+        hasTrack: damageState.hasTrack,
+        centerOffset: debug.centerOffset,
+        imageAreaRatio: debug.imageAreaRatio,
+        effectiveMinAreaRatio: debug.effectiveMinAreaRatio,
+        effectiveMaxAreaRatio: debug.effectiveMaxAreaRatio,
+        holdStableCount: damageState.holdStableCount
+      })
+    }
 
     return {
       captureReady: !!damageState.captureReady,
       statusText: damageDistanceHint.text || damageState.statusText || AUTO_CAPTURE.STATUS_TEXT.detected,
-      aiDetection: damageState.aiDetection
+      aiDetection: {
+        ...damageState.aiDetection,
+        frameMapping
+      }
     }
   },
   loadCacheData(resumeReason = 'load_cache_data') {

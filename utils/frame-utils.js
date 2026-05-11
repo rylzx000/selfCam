@@ -2,6 +2,113 @@
  * 帧处理工具
  */
 
+const DEFAULT_VIRTUAL_WIDTH = 400
+const DEFAULT_VIRTUAL_HEIGHT = 300
+const DEFAULT_ASPECT_TOLERANCE = 0.015
+
+function getPositiveNumber(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function roundNumber(value) {
+  return Number(value.toFixed(4))
+}
+
+function createVirtualCameraMapping(options = {}) {
+  const sourceWidth = getPositiveNumber(options.sourceWidth, DEFAULT_VIRTUAL_WIDTH)
+  const sourceHeight = getPositiveNumber(options.sourceHeight, DEFAULT_VIRTUAL_HEIGHT)
+  const targetWidth = getPositiveNumber(options.targetWidth, DEFAULT_VIRTUAL_WIDTH)
+  const targetHeight = getPositiveNumber(options.targetHeight, DEFAULT_VIRTUAL_HEIGHT)
+  const aspectTolerance = Number.isFinite(options.aspectTolerance)
+    ? Math.max(options.aspectTolerance, 0)
+    : DEFAULT_ASPECT_TOLERANCE
+  const sourceAspect = sourceWidth / sourceHeight
+  const targetAspect = targetWidth / targetHeight
+  const aspectDelta = Math.abs(sourceAspect - targetAspect) / Math.max(targetAspect, 0.0001)
+
+  if (aspectDelta <= aspectTolerance) {
+    return {
+      mappingMode: 'legacy',
+      sourceWidth,
+      sourceHeight,
+      targetWidth,
+      targetHeight,
+      frameAspect: roundNumber(sourceAspect),
+      targetAspect: roundNumber(targetAspect),
+      scaleX: targetWidth / sourceWidth,
+      scaleY: targetHeight / sourceHeight,
+      scale: targetWidth / sourceWidth,
+      offsetX: 0,
+      offsetY: 0
+    }
+  }
+
+  const scale = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight)
+
+  return {
+    mappingMode: 'aspectFillCrop',
+    sourceWidth,
+    sourceHeight,
+    targetWidth,
+    targetHeight,
+    frameAspect: roundNumber(sourceAspect),
+    targetAspect: roundNumber(targetAspect),
+    scaleX: scale,
+    scaleY: scale,
+    scale,
+    offsetX: (targetWidth - sourceWidth * scale) / 2,
+    offsetY: (targetHeight - sourceHeight * scale) / 2
+  }
+}
+
+function mapDetectionToVirtualCamera(detection, mappingOptions = null) {
+  if (!detection) {
+    return null
+  }
+
+  const mapping = mappingOptions && mappingOptions.mappingMode
+    ? mappingOptions
+    : createVirtualCameraMapping({
+      sourceWidth: detection.originalWidth,
+      sourceHeight: detection.originalHeight,
+      targetWidth: mappingOptions?.targetWidth || DEFAULT_VIRTUAL_WIDTH,
+      targetHeight: mappingOptions?.targetHeight || DEFAULT_VIRTUAL_HEIGHT
+    })
+  const scaleX = mapping.scaleX || mapping.scale || 1
+  const scaleY = mapping.scaleY || mapping.scale || 1
+  const offsetX = mapping.offsetX || 0
+  const offsetY = mapping.offsetY || 0
+  const centerX = detection.centerX * scaleX + offsetX
+  const centerY = detection.centerY * scaleY + offsetY
+  const width = detection.width * scaleX
+  const height = detection.height * scaleY
+  const x1 = Number.isFinite(detection.x1)
+    ? detection.x1 * scaleX + offsetX
+    : centerX - width / 2
+  const y1 = Number.isFinite(detection.y1)
+    ? detection.y1 * scaleY + offsetY
+    : centerY - height / 2
+  const x2 = Number.isFinite(detection.x2)
+    ? detection.x2 * scaleX + offsetX
+    : centerX + width / 2
+  const y2 = Number.isFinite(detection.y2)
+    ? detection.y2 * scaleY + offsetY
+    : centerY + height / 2
+
+  return {
+    ...detection,
+    centerX,
+    centerY,
+    width,
+    height,
+    x1,
+    y1,
+    x2,
+    y2,
+    frameMapping: mapping
+  }
+}
+
 class PlateFrameUtils {
   constructor(options = {}) {
     this.minConsecutiveFrames = options.minConsecutiveFrames || 6
@@ -11,23 +118,24 @@ class PlateFrameUtils {
     this.consecutiveCount = 0
   }
 
-  isInCaptureBox(result, boxConfig, canvasWidth, canvasHeight) {
+  isInCaptureBox(result, boxConfig, canvasWidth, canvasHeight, frameMapping = null) {
     if (!result || !boxConfig || !canvasWidth || !canvasHeight) {
       return { inBox: false }
     }
 
-    const { x1, y1, x2, y2, originalWidth, originalHeight, width: plateWidth, height: plateHeight } = result
+    const mappedResult = mapDetectionToVirtualCamera(result, frameMapping || {
+      targetWidth: canvasWidth,
+      targetHeight: canvasHeight
+    })
+    const { x1, y1, x2, y2, width: plateWidth, height: plateHeight } = mappedResult
     const { x: boxX, y: boxY, width: boxWidth, height: boxHeight } = boxConfig
 
-    const scaleX = canvasWidth / originalWidth
-    const scaleY = canvasHeight / originalHeight
-
-    const canvasPlateX1 = x1 * scaleX
-    const canvasPlateY1 = y1 * scaleY
-    const canvasPlateX2 = x2 * scaleX
-    const canvasPlateY2 = y2 * scaleY
-    const canvasPlateWidth = plateWidth * scaleX
-    const canvasPlateHeight = plateHeight * scaleY
+    const canvasPlateX1 = x1
+    const canvasPlateY1 = y1
+    const canvasPlateX2 = x2
+    const canvasPlateY2 = y2
+    const canvasPlateWidth = plateWidth
+    const canvasPlateHeight = plateHeight
 
     const boxX2 = boxX + boxWidth
     const boxY2 = boxY + boxHeight
@@ -50,12 +158,23 @@ class PlateFrameUtils {
     return {
       inBox: centerInBox && centerAligned && areaInRange,
       centerAligned,
-      areaRatio
+      areaRatio,
+      mappedBox: {
+        x1: canvasPlateX1,
+        y1: canvasPlateY1,
+        x2: canvasPlateX2,
+        y2: canvasPlateY2,
+        centerX: plateCenterX,
+        centerY: plateCenterY,
+        width: canvasPlateWidth,
+        height: canvasPlateHeight
+      },
+      frameMapping: mappedResult.frameMapping
     }
   }
 
-  checkFrameStatus(result, boxConfig, canvasWidth, canvasHeight) {
-    const boxStatus = this.isInCaptureBox(result, boxConfig, canvasWidth, canvasHeight)
+  checkFrameStatus(result, boxConfig, canvasWidth, canvasHeight, frameMapping = null) {
+    const boxStatus = this.isInCaptureBox(result, boxConfig, canvasWidth, canvasHeight, frameMapping)
 
     if (boxStatus.inBox) {
       this.consecutiveCount += 1
@@ -68,7 +187,9 @@ class PlateFrameUtils {
       inBox: boxStatus.inBox,
       centerAligned: boxStatus.centerAligned,
       areaRatio: boxStatus.areaRatio,
-      consecutiveCount: this.consecutiveCount
+      consecutiveCount: this.consecutiveCount,
+      mappedBox: boxStatus.mappedBox,
+      frameMapping: boxStatus.frameMapping
     }
   }
 
@@ -78,5 +199,7 @@ class PlateFrameUtils {
 }
 
 module.exports = {
-  PlateFrameUtils
+  PlateFrameUtils,
+  createVirtualCameraMapping,
+  mapDetectionToVirtualCamera
 }

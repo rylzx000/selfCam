@@ -3,6 +3,11 @@ const DamageFrameScorer = require('../utils/damage-frame-scorer')
 const DamageTracker = require('../utils/damage-tracker')
 const DamageMotionEstimator = require('../utils/damage-motion-estimator')
 const DamageAutoCaptureEngine = require('../utils/damage-auto-capture-engine')
+const {
+  PlateFrameUtils,
+  createVirtualCameraMapping,
+  mapDetectionToVirtualCamera
+} = require('../utils/frame-utils')
 
 describe('DamagePhaseController', () => {
   const controllerOptions = {
@@ -292,6 +297,132 @@ describe('DamageTracker area ratios', () => {
     expect(state.imageAreaRatio).toBeCloseTo(0.09)
     expect(state.captureAreaRatio).toBeCloseTo(0.15)
     expect(state.areaRatio).toBeCloseTo(state.imageAreaRatio)
+  })
+
+  test('maps non-4:3 camera frames through aspect-fill crop before measuring damage gates', () => {
+    const tracker = new DamageTracker()
+    const mapping = createVirtualCameraMapping({
+      sourceWidth: 800,
+      sourceHeight: 450,
+      targetWidth: 400,
+      targetHeight: 300
+    })
+
+    const state = tracker.update({
+      detection: {
+        width: 198,
+        height: 198,
+        centerX: 300,
+        centerY: 225,
+        originalWidth: 800,
+        originalHeight: 450,
+        confidence: '90%'
+      },
+      captureBox: {
+        x: 134,
+        y: 84,
+        width: 132,
+        height: 132
+      },
+      canvasWidth: 400,
+      canvasHeight: 300,
+      frameMapping: mapping,
+      timestamp: 100
+    })
+
+    expect(mapping.mappingMode).toBe('aspectFillCrop')
+    expect(state.box.centerX).toBeCloseTo(133.33, 1)
+    expect(state.box.centerY).toBeCloseTo(150, 1)
+    expect(state.box.width).toBeCloseTo(132, 1)
+    expect(state.box.height).toBeCloseTo(132, 1)
+    expect(state.imageAreaRatio).toBeCloseTo(132 * 132 / (400 * 300), 2)
+  })
+})
+
+describe('Virtual camera geometry mapping', () => {
+  test('keeps legacy stretch geometry unchanged for 4:3 frames', () => {
+    const mapping = createVirtualCameraMapping({
+      sourceWidth: 800,
+      sourceHeight: 600,
+      targetWidth: 400,
+      targetHeight: 300
+    })
+    const mapped = mapDetectionToVirtualCamera({
+      width: 200,
+      height: 100,
+      centerX: 400,
+      centerY: 300,
+      originalWidth: 800,
+      originalHeight: 600
+    }, mapping)
+
+    expect(mapping.mappingMode).toBe('legacy')
+    expect(mapped.centerX).toBe(200)
+    expect(mapped.centerY).toBe(150)
+    expect(mapped.width).toBe(100)
+    expect(mapped.height).toBe(50)
+  })
+
+  test('uses aspect-fill crop geometry for wide realtime frames', () => {
+    const mapping = createVirtualCameraMapping({
+      sourceWidth: 800,
+      sourceHeight: 450,
+      targetWidth: 400,
+      targetHeight: 300
+    })
+    const mapped = mapDetectionToVirtualCamera({
+      width: 210,
+      height: 60,
+      centerX: 400,
+      centerY: 315,
+      originalWidth: 800,
+      originalHeight: 450
+    }, mapping)
+
+    expect(mapping.mappingMode).toBe('aspectFillCrop')
+    expect(mapping.scale).toBeCloseTo(2 / 3)
+    expect(mapping.offsetX).toBeCloseTo(-66.67, 1)
+    expect(mapping.offsetY).toBeCloseTo(0)
+    expect(mapped.centerX).toBeCloseTo(200)
+    expect(mapped.centerY).toBeCloseTo(210)
+    expect(mapped.width).toBeCloseTo(140)
+    expect(mapped.height).toBeCloseTo(40)
+  })
+
+  test('lets a visually valid plate in a wide frame pass the original thresholds without changing threshold values', () => {
+    const checker = new PlateFrameUtils({
+      minConsecutiveFrames: 1,
+      minAreaRatio: 0.35,
+      maxAreaRatio: 1.5,
+      centerOffsetThreshold: 0.16
+    })
+    const mapping = createVirtualCameraMapping({
+      sourceWidth: 800,
+      sourceHeight: 450,
+      targetWidth: 400,
+      targetHeight: 300
+    })
+
+    const status = checker.checkFrameStatus({
+      width: 210,
+      height: 60,
+      centerX: 400,
+      centerY: 315,
+      originalWidth: 800,
+      originalHeight: 450,
+      confidence: '90%'
+    }, {
+      x: 100,
+      y: 176,
+      width: 200,
+      height: 68
+    }, 400, 300, mapping)
+
+    expect(status.areaRatio).toBeGreaterThanOrEqual(0.35)
+    expect(status.areaRatio).toBeLessThanOrEqual(1.5)
+    expect(status.centerAligned).toBe(true)
+    expect(status.inBox).toBe(true)
+    expect(status.consecutiveMet).toBe(true)
   })
 })
 
