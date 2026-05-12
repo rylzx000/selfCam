@@ -3,13 +3,14 @@
 ## 2026-05-11 新增测试目标
 
 - 覆盖正常横屏机型不启用高分辨率 UI 缩放，文字、按钮和取景框继续走原有 `rpx` / WXSS 表现。
-- 覆盖 nova13 类高分辨率横屏启用 `px` UI 缩放，提示文字、按钮和边框随相机区同步放大。
-- 覆盖非 4:3 实时帧按 aspect-fill 裁剪映射到虚拟 `400 x 300` 坐标，自动拍照阈值不变。
-- 覆盖微信小程序实时日志透传布局、帧映射和自动拍照 gate 关键信息，同时过滤原始帧字节和完整检测对象。
+- 覆盖 nova13 / OpenHarmony 横屏启用 `px` UI 缩放，拍照页提示文字、按钮、边框和预览页标题、缩略图、底部按钮、行驶证面板同步放大。
+- 覆盖宽于 4:3 的实时帧按 aspect-fill 裁剪映射、正方形/窄帧按高度贴合并左右补边映射到虚拟 `400 x 300` 坐标，自动拍照阈值不变。
+- 覆盖微信小程序实时日志透传布局、帧映射、自动拍照 gate 关键信息和失败原因，同时过滤原始帧字节和完整检测对象。
 
 ## 2026-05-11 重点测试文件
 
 - `__tests__/camera-layout.test.js`
+- `__tests__/preview-layout.test.js`
 - `__tests__/damage-capture-modules.test.js`
 - `__tests__/ai-realtime-log.test.js`
 - `__tests__/camera-ai-start.test.js`

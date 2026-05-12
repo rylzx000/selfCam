@@ -15,6 +15,12 @@ const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine'
 const { AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+const {
+  buildResponsiveStyle,
+  normalizeLandscapeWindow,
+  resolveResponsiveUiScale,
+  toFixedNumber
+} = require('../../utils/responsive-ui')
 
 const PLATE_DISTANCE_HINT_TEXT = {
   forward: '\u8bf7\u9760\u8fd1\u4e00\u70b9',
@@ -37,7 +43,6 @@ const CAMERA_ASPECT_RATIO = CAMERA_VIRTUAL_WIDTH / CAMERA_VIRTUAL_HEIGHT
 const CAMERA_BASE_RPX_WIDTH = 750
 const CAMERA_BASE_TOTAL_RPX_WIDTH = 32 * 2 + 120 * 2 + 24 * 2 + CAMERA_VIRTUAL_WIDTH
 const CAMERA_BASE_TOTAL_RPX_HEIGHT = 20 * 2 + CAMERA_VIRTUAL_HEIGHT
-const RESPONSIVE_UI_SCALE_THRESHOLD = 1.3
 const AUTO_CAPTURE_GATE_LOG_INTERVAL_MS = 4000
 const CAPTURE_BOX = {
   plate: {
@@ -51,28 +56,6 @@ const CAPTURE_BOX = {
     centerXRatio: 0.5,
     centerYRatio: 0.5
   }
-}
-
-function getFiniteNumber(value, fallback) {
-  return Number.isFinite(value) && value > 0 ? value : fallback
-}
-
-function toFixedNumber(value) {
-  return Number(value.toFixed(2))
-}
-
-function px(value) {
-  return `${toFixedNumber(value)}px`
-}
-
-function buildResponsiveStyle(enabled, declarations = []) {
-  if (!enabled) {
-    return ''
-  }
-
-  return declarations
-    .map(([name, value]) => `${name}: ${px(value)};`)
-    .join(' ')
 }
 
 function getPlateCaptureBoxConfig() {
@@ -114,13 +97,15 @@ function getCaptureBoxStyles() {
 }
 
 function computeResponsiveCameraLayout(info = {}) {
-  const rawWindowWidth = getFiniteNumber(info.windowWidth, 844)
-  const rawWindowHeight = getFiniteNumber(info.windowHeight, 390)
-  const windowWidth = Math.max(rawWindowWidth, rawWindowHeight)
-  const windowHeight = Math.min(rawWindowWidth, rawWindowHeight)
-  const safeArea = info.safeArea || {}
-  const safeAreaWidth = getFiniteNumber(safeArea.right - safeArea.left, windowWidth)
-  const safeAreaHeight = getFiniteNumber(safeArea.bottom - safeArea.top, windowHeight)
+  const {
+    rawWindowWidth,
+    rawWindowHeight,
+    windowWidth,
+    windowHeight,
+    safeAreaWidth,
+    safeAreaHeight,
+    pixelRatio
+  } = normalizeLandscapeWindow(info, 844, 390)
   const baseScale = windowWidth / CAMERA_BASE_RPX_WIDTH
   const widthFitScale = windowWidth / CAMERA_BASE_TOTAL_RPX_WIDTH
   const heightFitScale = windowHeight / CAMERA_BASE_TOTAL_RPX_HEIGHT
@@ -131,8 +116,11 @@ function computeResponsiveCameraLayout(info = {}) {
   const sideWidth = Number((120 * layoutScale).toFixed(2))
   const cameraWidth = Number((CAMERA_VIRTUAL_WIDTH * layoutScale).toFixed(2))
   const cameraHeight = Number((CAMERA_VIRTUAL_HEIGHT * layoutScale).toFixed(2))
-  const needsResponsiveUiScale = layoutScale >= RESPONSIVE_UI_SCALE_THRESHOLD
-  const uiScale = needsResponsiveUiScale ? layoutScale : 0
+  const {
+    needsResponsiveUiScale,
+    uiScale,
+    uiScaleReason
+  } = resolveResponsiveUiScale({ layoutScale, windowWidth, windowHeight, info })
   const captureBoxStyles = getCaptureBoxStyles()
 
   return {
@@ -144,6 +132,7 @@ function computeResponsiveCameraLayout(info = {}) {
     safeHeight: windowHeight,
     safeAreaWidth,
     safeAreaHeight,
+    pixelRatio,
     layoutScale,
     paddingX,
     paddingY,
@@ -153,6 +142,7 @@ function computeResponsiveCameraLayout(info = {}) {
     cameraHeight,
     needsResponsiveUiScale,
     uiScale,
+    uiScaleReason,
     containerStyle: `padding: ${paddingY}px ${paddingX}px; gap: ${gap}px;`,
     infoAreaStyle: `width: ${sideWidth}px;`,
     actionAreaStyle: `width: ${sideWidth}px;`,
@@ -262,23 +252,30 @@ function computeResponsiveCameraLayout(info = {}) {
 }
 
 function getWindowInfoSnapshot() {
-  try {
-    if (typeof wx !== 'undefined' && typeof wx.getWindowInfo === 'function') {
-      return wx.getWindowInfo() || {}
-    }
-  } catch (error) {
-    // 窗口信息读取失败时继续尝试旧接口
-  }
+  let systemInfo = {}
+  let windowInfo = {}
 
   try {
     if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
-      return wx.getSystemInfoSync() || {}
+      systemInfo = wx.getSystemInfoSync() || {}
     }
   } catch (error) {
     // 布局读取失败不影响拍照主流程，使用默认横屏尺寸兜底
   }
 
-  return {}
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getWindowInfo === 'function') {
+      windowInfo = wx.getWindowInfo() || {}
+    }
+  } catch (error) {
+    // 窗口信息读取失败时继续使用系统信息
+  }
+
+  return {
+    ...systemInfo,
+    ...windowInfo,
+    safeArea: windowInfo.safeArea || systemInfo.safeArea
+  }
 }
 
 function countStoredPhotos(cache) {
@@ -525,7 +522,7 @@ Page({
       return null
     }
     const result = {}
-    ;['x', 'y', 'width', 'height', 'centerX', 'centerY'].forEach((key) => {
+    ;['x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'centerX', 'centerY'].forEach((key) => {
       if (box[key] !== undefined) {
         result[key] = this.roundLogNumber(box[key])
       }
@@ -546,7 +543,7 @@ Page({
   },
 
   logCameraLayoutSnapshot(cameraLayout = {}, reason = 'layout') {
-    const layoutLogKey = `${cameraLayout.windowWidth}x${cameraLayout.windowHeight}:${cameraLayout.cameraWidth}x${cameraLayout.cameraHeight}:${cameraLayout.needsResponsiveUiScale}`
+    const layoutLogKey = `${reason}:${cameraLayout.windowWidth}x${cameraLayout.windowHeight}:${cameraLayout.cameraWidth}x${cameraLayout.cameraHeight}:${cameraLayout.needsResponsiveUiScale}`
     if (this.cameraLayoutRealtimeLogKey === layoutLogKey) {
       return
     }
@@ -556,11 +553,18 @@ Page({
       feedbackId: this.getFeedbackId(),
       reason,
       ...getSystemInfoSnapshot(),
+      rawWindowWidth: cameraLayout.rawWindowWidth,
+      rawWindowHeight: cameraLayout.rawWindowHeight,
       windowWidth: cameraLayout.windowWidth,
       windowHeight: cameraLayout.windowHeight,
+      safeAreaWidth: cameraLayout.safeAreaWidth,
+      safeAreaHeight: cameraLayout.safeAreaHeight,
+      pixelRatio: cameraLayout.pixelRatio,
       cameraWidth: cameraLayout.cameraWidth,
       cameraHeight: cameraLayout.cameraHeight,
       layoutScale: this.roundLogNumber(cameraLayout.layoutScale || 0),
+      uiScale: this.roundLogNumber(cameraLayout.uiScale || 0),
+      uiScaleReason: cameraLayout.uiScaleReason || '',
       needsResponsiveUiScale: !!cameraLayout.needsResponsiveUiScale
     })
   },
@@ -577,6 +581,9 @@ Page({
       return
     }
     this.aiGeometryLogKeys[logKey] = true
+    if (this.data && this.data.cameraLayout) {
+      this.logCameraLayoutSnapshot(this.data.cameraLayout, 'ai_geometry')
+    }
 
     runtimeLogger.forceWarn('ai', 'ai_geometry_snapshot', {
       feedbackId: this.getFeedbackId(),
@@ -606,9 +613,17 @@ Page({
       captureBox: this.toLogBox(payload.captureBox),
       mappedBox: this.toLogBox(payload.mappedBox),
       inBox: payload.inBox,
+      centerInBox: payload.centerInBox,
       centerAligned: payload.centerAligned,
+      areaInRange: payload.areaInRange,
       areaRatio: this.roundLogNumber(payload.areaRatio || 0),
+      minAreaRatio: this.roundLogNumber(payload.minAreaRatio || 0),
+      maxAreaRatio: this.roundLogNumber(payload.maxAreaRatio || 0),
+      centerOffsetThreshold: this.roundLogNumber(payload.centerOffsetThreshold || 0),
+      centerOffsetX: this.roundLogNumber(payload.centerOffsetX || 0),
+      centerOffsetY: this.roundLogNumber(payload.centerOffsetY || 0),
       consecutiveCount: payload.consecutiveCount,
+      failReason: payload.failReason,
       phase: payload.phase,
       hasTrack: payload.hasTrack,
       centerOffset: this.roundLogNumber(payload.centerOffset || 0),
@@ -1628,8 +1643,16 @@ Page({
           captureBox: plateCaptureBox,
           mappedBox: status.mappedBox,
           inBox: status.inBox,
+          centerInBox: status.centerInBox,
           centerAligned: status.centerAligned,
+          areaInRange: status.areaInRange,
           areaRatio: status.areaRatio,
+          minAreaRatio: status.minAreaRatio,
+          maxAreaRatio: status.maxAreaRatio,
+          centerOffsetThreshold: status.centerOffsetThreshold,
+          centerOffsetX: status.centerOffsetX,
+          centerOffsetY: status.centerOffsetY,
+          failReason: status.failReason,
           consecutiveCount: status.consecutiveCount
         })
       }

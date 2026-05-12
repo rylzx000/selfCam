@@ -114,7 +114,8 @@ checkAutoCaptureReady(step, framePayload)
 进入取景框判定前，会先通过 `createVirtualCameraMapping()` 将检测框从实时帧坐标映射到固定虚拟 `400 x 300` 坐标：
 
 - 4:3 实时帧使用旧逻辑，分别按宽高缩放，保证既有正常机型手感不变
-- 非 4:3 实时帧按相机预览的 aspect-fill 裁剪逻辑换算，避免 nova13 类宽屏帧检测坐标与视觉取景框错位
+- 宽于 4:3 的实时帧按相机预览的 aspect-fill 裁剪逻辑换算，避免宽屏帧检测坐标与视觉取景框错位
+- 正方形或窄于 4:3 的实时帧按高度贴合到虚拟相机高度，再左右补边；nova13 日志中的 `480 x 480` 帧会走该分支，避免检测框中心被错误映射到取景框下方
 - 映射只修正坐标空间，不改变车牌和车损原有自动拍照阈值
 
 由它产出：
@@ -365,7 +366,7 @@ formatDamageDebugText(debug, searchState)
 
 v1.3.8 模型加载修复中，车牌/车损检测器会在创建推理 session 前记录 `wx.getInferenceEnvInfo` 结果，并统一使用 `precisionLevel=0`、`allowNPU=false`、`allowQuantize=false` 创建 session。`runtime-logger` 仍仅将 AI 排障关键事件同步到 `wx.getRealtimeLogManager()`；本地 runtime 日志继续保留页面生命周期、流程切换和 AI 恢复请求等完整记录。检测器会在推理 session 创建失败、无效 session 或加载失败时记录结构化错误，并使用 `selfCam_${sessionId}` 作为后台实时日志过滤号。
 
-2026-05-11 起，拍照页额外上报低频 AI 几何诊断到微信小程序实时日志：`camera_layout_snapshot`、`ai_geometry_snapshot`、`auto_capture_gate_sample` 和 `auto_capture_ready`。日志包含窗口/相机尺寸、UI 缩放分支、实时帧宽高、坐标映射模式、取景框、映射后的检测框和当前 gate 状态；不上传原始帧字节和完整检测对象。`auto_capture_gate_sample` 按步骤限频，避免业务测试时刷屏。
+2026-05-11 起，拍照页额外上报低频 AI 几何诊断到微信小程序实时日志：`camera_layout_snapshot`、`ai_geometry_snapshot`、`auto_capture_gate_sample` 和 `auto_capture_ready`。2026-05-12 起，预览页补充 `preview_layout_snapshot`，拍照页 AI 几何日志会在首次几何快照时补打一条当前布局快照。日志包含窗口/相机尺寸、UI 缩放分支、实时帧宽高、坐标映射模式、取景框、映射后的检测框、中心/面积 gate、阈值和失败原因；不上传原始帧字节和完整检测对象。`auto_capture_gate_sample` 按步骤限频，避免业务测试时刷屏。
 
 ---
 

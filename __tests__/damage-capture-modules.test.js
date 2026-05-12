@@ -389,6 +389,50 @@ describe('Virtual camera geometry mapping', () => {
     expect(mapped.height).toBeCloseTo(40)
   })
 
+  test('maps square nova13 realtime frames by height fit without changing plate thresholds', () => {
+    const checker = new PlateFrameUtils({
+      minConsecutiveFrames: 1,
+      minAreaRatio: 0.35,
+      maxAreaRatio: 1.5,
+      centerOffsetThreshold: 0.16
+    })
+    const mapping = createVirtualCameraMapping({
+      sourceWidth: 480,
+      sourceHeight: 480,
+      targetWidth: 400,
+      targetHeight: 300
+    })
+
+    const status = checker.checkFrameStatus({
+      width: 188,
+      height: 78,
+      centerX: 242,
+      centerY: 342,
+      originalWidth: 480,
+      originalHeight: 480,
+      confidence: '90%'
+    }, {
+      x: 100,
+      y: 176,
+      width: 200,
+      height: 68
+    }, 400, 300, mapping)
+
+    expect(mapping.mappingMode).toBe('heightFitPad')
+    expect(mapping.scale).toBeCloseTo(0.625)
+    expect(mapping.offsetX).toBeCloseTo(50)
+    expect(mapping.offsetY).toBeCloseTo(0)
+    expect(status.mappedBox.centerX).toBeCloseTo(201.25)
+    expect(status.mappedBox.centerY).toBeCloseTo(213.75)
+    expect(status.mappedBox.width).toBeCloseTo(117.5)
+    expect(status.mappedBox.height).toBeCloseTo(48.75)
+    expect(status.areaRatio).toBeGreaterThanOrEqual(0.35)
+    expect(status.areaRatio).toBeLessThanOrEqual(1.5)
+    expect(status.centerAligned).toBe(true)
+    expect(status.inBox).toBe(true)
+    expect(status.consecutiveMet).toBe(true)
+  })
+
   test('lets a visually valid plate in a wide frame pass the original thresholds without changing threshold values', () => {
     const checker = new PlateFrameUtils({
       minConsecutiveFrames: 1,

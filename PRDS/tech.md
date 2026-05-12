@@ -102,9 +102,9 @@ selfCam/
 - 布局计算按横屏窗口长边复刻旧版 `400rpx x 300rpx` 视觉尺寸，仅当三栏总宽或总高放不下时等比缩小。
 - `safeArea` 只记录诊断信息，不参与主宽度压缩，避免部分横屏设备返回竖屏安全区导致相机区变小。
 - 车牌框、VIN 框、车损框和距离提示箭头使用相对相机区的百分比布局。
-- `cameraLayout.layoutScale < 1.3` 时，文字、按钮、取景框边框和取景框 inline 样式保持空值，继续走原有 WXSS `rpx` 表现；`layoutScale >= 1.3` 时才输出高分辨率横屏专用 `px` 缩放样式。
+- 普通 iOS/Android 横屏下，文字、按钮、取景框边框和取景框 inline 样式保持空值，继续走原有 WXSS `rpx` 表现；当 `layoutScale >= 1.3`，或系统为 OpenHarmony/OHOS 横屏时，才输出专用 `px` 缩放样式。
 - AI 判断仍使用固定虚拟 `400 x 300` 坐标系，`getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 和车损 `canvasWidth/canvasHeight` 不随显示尺寸改变。
-- 实时帧检测结果进入 AI 判定前，先通过 `createVirtualCameraMapping()` 映射到虚拟 `400 x 300` 坐标；4:3 帧沿用旧的独立缩放，宽屏帧按相机预览的 aspect-fill 裁剪逻辑换算，业务阈值不随设备分辨率变化。
+- 实时帧检测结果进入 AI 判定前，先通过 `createVirtualCameraMapping()` 映射到虚拟 `400 x 300` 坐标；4:3 帧沿用旧的独立缩放，宽屏帧按相机预览的 aspect-fill 裁剪逻辑换算，正方形/窄于 4:3 的帧按高度贴合并左右补边，业务阈值不随设备分辨率变化。
 
 ### 3. `pages/preview`
 
@@ -115,6 +115,7 @@ selfCam/
 - 支持添加三者车
 - 集成车辆级行驶证资料上传、替换、删除和模式切换
 - 完成提交前先确认三者车，再提示行驶证风险
+- `previewLayout` 复用通用横屏 UI 缩放判定，普通 iOS/Android 横屏保持原 WXSS `rpx` 表现，OpenHarmony/OHOS 横屏或高分辨率横屏才为主列表、缩略图、底栏、行驶证面板和全屏预览浮层输出 `px` 样式。
 
 ### 4. `pages/document`
 

@@ -168,6 +168,24 @@ describe('camera responsive layout', () => {
     expect(layout.damageFrameStyle).toBe('')
   })
 
+  test('enables px UI scaling on OpenHarmony landscape even below the high resolution threshold', () => {
+    const layout = pageConfig.computeCameraLayout({
+      windowWidth: 960,
+      windowHeight: 480,
+      platform: 'ohos',
+      system: 'OpenHarmonyOS 6.0.0',
+      brand: 'HUAWEI'
+    })
+
+    expect(layout.layoutScale).toBeLessThan(1.3)
+    expect(layout.needsResponsiveUiScale).toBe(true)
+    expect(layout.uiScaleReason).toBe('ohosLandscape')
+    expect(layout.cardStyle).toContain('padding-top:')
+    expect(layout.labelTextStyle).toContain('font-size:')
+    expect(layout.captureButtonStyle).toContain('width:')
+    expect(layout.captureTextStyle).toContain('font-size:')
+  })
+
   test('enables px UI scaling only on nova-like high resolution landscape screens', () => {
     const layout = pageConfig.computeCameraLayout({
       windowWidth: 1084,

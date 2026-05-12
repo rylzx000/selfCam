@@ -6,6 +6,19 @@
 
 ## [v1.4.1] - 2026-05-11
 
+### 修复 - 2026-05-12
+
+- 拍照页 UI 缩放分支补充 OpenHarmony/OHOS 横屏判定：正常 iOS/Android 横屏机型继续走原有 `rpx`，nova13 这类 `layoutScale < 1.3` 但系统 `rpx` 显示偏小的设备也会输出显式 `px` 样式。
+- 预览页接入同一套横屏 UI 缩放规则，覆盖页面标题、车辆卡片、缩略图、上传入口、底部按钮、行驶证面板和全屏预览浮层，修复 nova13 上预览页元素整体偏小的问题。
+- AI 坐标映射补充分支：4:3 帧继续沿用旧逻辑，宽帧继续按 aspect-fill 裁剪映射，正方形/窄于 4:3 的实时帧改为按高度贴合并左右补边，修复 `480 x 480` 帧在 nova13 上识别到车牌但中心映射偏下导致无法自动拍照的问题。
+- 自动拍照 gate 日志补充 `centerInBox`、`areaInRange`、`centerOffsetX/Y`、阈值和 `failReason`；布局日志补充 `uiScale`、`uiScaleReason`，预览页新增 `preview_layout_snapshot`，便于业务一次真机测试抓到关键几何信息。
+
+### 验证 - 2026-05-12
+
+- `node --check pages\camera\camera.js pages\preview\preview.js utils\frame-utils.js utils\runtime-logger.js utils\responsive-ui.js`：通过。
+- `npm test -- --runInBand`：23 个测试套件、229 个用例通过。
+- `npm run test:automator`：244 秒超时；`node e2e\test-launch.js` 显示本机 `miniprogram-automator` 无法拉起微信开发者工具，单条 smoke 报 `Connection closed, check if wechat web devTools is still running`。
+
 ### 调整 - 2026-05-11
 
 - 拍照页新增高分辨率横屏 UI 缩放分支：正常横屏机型继续使用原有 `rpx` 样式，nova13 类高分辨率横屏才将文字、按钮、提示条和边框按相机布局比例输出 `px` 样式。

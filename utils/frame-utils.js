@@ -43,6 +43,25 @@ function createVirtualCameraMapping(options = {}) {
     }
   }
 
+  if (sourceAspect < targetAspect) {
+    const scale = targetHeight / sourceHeight
+
+    return {
+      mappingMode: 'heightFitPad',
+      sourceWidth,
+      sourceHeight,
+      targetWidth,
+      targetHeight,
+      frameAspect: roundNumber(sourceAspect),
+      targetAspect: roundNumber(targetAspect),
+      scaleX: scale,
+      scaleY: scale,
+      scale,
+      offsetX: (targetWidth - sourceWidth * scale) / 2,
+      offsetY: 0
+    }
+  }
+
   const scale = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight)
 
   return {
@@ -154,11 +173,36 @@ class PlateFrameUtils {
     const boxArea = boxWidth * boxHeight
     const areaRatio = plateArea / boxArea
     const areaInRange = areaRatio >= this.minAreaRatio && areaRatio <= this.maxAreaRatio
+    let failReason = ''
+
+    if (!centerInBox) {
+      failReason = 'center_outside_box'
+    } else if (!centerAligned) {
+      if (offsetX > this.centerOffsetThreshold && offsetY > this.centerOffsetThreshold) {
+        failReason = 'center_offset_xy'
+      } else if (offsetX > this.centerOffsetThreshold) {
+        failReason = 'center_offset_x'
+      } else {
+        failReason = 'center_offset_y'
+      }
+    } else if (areaRatio < this.minAreaRatio) {
+      failReason = 'area_too_small'
+    } else if (areaRatio > this.maxAreaRatio) {
+      failReason = 'area_too_large'
+    }
 
     return {
       inBox: centerInBox && centerAligned && areaInRange,
+      centerInBox,
       centerAligned,
+      areaInRange,
       areaRatio,
+      centerOffsetX: offsetX,
+      centerOffsetY: offsetY,
+      minAreaRatio: this.minAreaRatio,
+      maxAreaRatio: this.maxAreaRatio,
+      centerOffsetThreshold: this.centerOffsetThreshold,
+      failReason,
       mappedBox: {
         x1: canvasPlateX1,
         y1: canvasPlateY1,
@@ -185,8 +229,16 @@ class PlateFrameUtils {
     return {
       consecutiveMet: this.consecutiveCount >= this.minConsecutiveFrames,
       inBox: boxStatus.inBox,
+      centerInBox: boxStatus.centerInBox,
       centerAligned: boxStatus.centerAligned,
+      areaInRange: boxStatus.areaInRange,
       areaRatio: boxStatus.areaRatio,
+      minAreaRatio: boxStatus.minAreaRatio,
+      maxAreaRatio: boxStatus.maxAreaRatio,
+      centerOffsetThreshold: boxStatus.centerOffsetThreshold,
+      centerOffsetX: boxStatus.centerOffsetX,
+      centerOffsetY: boxStatus.centerOffsetY,
+      failReason: boxStatus.failReason,
       consecutiveCount: this.consecutiveCount,
       mappedBox: boxStatus.mappedBox,
       frameMapping: boxStatus.frameMapping

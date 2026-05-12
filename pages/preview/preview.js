@@ -8,6 +8,12 @@ const permission = require('../../utils/permission')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 const envConfig = require('../../utils/env-config')
+const runtimeLogger = require('../../utils/runtime-logger')
+const {
+  buildResponsiveStyle,
+  normalizeLandscapeWindow,
+  resolveResponsiveUiScale
+} = require('../../utils/responsive-ui')
 
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
@@ -15,6 +21,292 @@ const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，�
 
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
+
+const PREVIEW_BASE_RPX_WIDTH = 750
+const PREVIEW_BASE_RPX_HEIGHT = 390
+
+function computeResponsivePreviewLayout(info = {}) {
+  const {
+    rawWindowWidth,
+    rawWindowHeight,
+    windowWidth,
+    windowHeight,
+    safeAreaWidth,
+    safeAreaHeight,
+    pixelRatio
+  } = normalizeLandscapeWindow(info, 844, 390)
+  const layoutScale = Math.max(Math.min(windowWidth / PREVIEW_BASE_RPX_WIDTH, windowHeight / PREVIEW_BASE_RPX_HEIGHT), 0.1)
+  const {
+    needsResponsiveUiScale,
+    uiScale,
+    uiScaleReason
+  } = resolveResponsiveUiScale({ layoutScale, windowWidth, windowHeight, info })
+
+  return {
+    rawWindowWidth,
+    rawWindowHeight,
+    windowWidth,
+    windowHeight,
+    safeAreaWidth,
+    safeAreaHeight,
+    pixelRatio,
+    layoutScale,
+    needsResponsiveUiScale,
+    uiScale,
+    uiScaleReason,
+    pageStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['padding-top', 24 * uiScale],
+      ['padding-right', 30 * uiScale],
+      ['padding-bottom', 22 * uiScale],
+      ['padding-left', 30 * uiScale]
+    ]),
+    topbarStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 54 * uiScale],
+      ['min-height', 54 * uiScale],
+      ['margin-bottom', 12 * uiScale]
+    ]),
+    titleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 28 * uiScale],
+      ['line-height', 32 * uiScale]
+    ]),
+    subtitleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 4 * uiScale],
+      ['font-size', 14 * uiScale],
+      ['line-height', 20 * uiScale]
+    ]),
+    gridViewStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['padding-bottom', 58 * uiScale]
+    ]),
+    vehicleSectionStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['min-height', 150 * uiScale],
+      ['margin-bottom', 12 * uiScale],
+      ['padding-top', 14 * uiScale],
+      ['padding-right', 16 * uiScale],
+      ['padding-bottom', 15 * uiScale],
+      ['padding-left', 16 * uiScale],
+      ['border-radius', 14 * uiScale]
+    ]),
+    vehicleHeaderStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-bottom', 12 * uiScale]
+    ]),
+    vehicleTitleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 18 * uiScale],
+      ['line-height', 22 * uiScale]
+    ]),
+    vehicleTagStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 22 * uiScale],
+      ['margin-left', 10 * uiScale],
+      ['padding-right', 9 * uiScale],
+      ['padding-left', 9 * uiScale],
+      ['font-size', 12 * uiScale],
+      ['line-height', 22 * uiScale]
+    ]),
+    deleteButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 26 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-left', 10 * uiScale],
+      ['border-radius', 8 * uiScale],
+      ['font-size', 12 * uiScale],
+      ['line-height', 26 * uiScale]
+    ]),
+    photoGridStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['gap', 10 * uiScale]
+    ]),
+    photoItemStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 112 * uiScale],
+      ['flex-basis', 112 * uiScale]
+    ]),
+    thumbStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 112 * uiScale],
+      ['height', 72 * uiScale],
+      ['border-radius', 9 * uiScale]
+    ]),
+    thumbImageStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 112 * uiScale],
+      ['height', 72 * uiScale]
+    ]),
+    captureBadgeStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['top', 5 * uiScale],
+      ['right', 5 * uiScale],
+      ['height', 16 * uiScale],
+      ['padding-right', 6 * uiScale],
+      ['padding-left', 6 * uiScale],
+      ['font-size', 10 * uiScale],
+      ['line-height', 16 * uiScale]
+    ]),
+    checkStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['right', 5 * uiScale],
+      ['bottom', 5 * uiScale],
+      ['width', 18 * uiScale],
+      ['height', 18 * uiScale],
+      ['font-size', 12 * uiScale],
+      ['line-height', 18 * uiScale]
+    ]),
+    photoLabelStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 6 * uiScale],
+      ['font-size', 13 * uiScale],
+      ['line-height', 16 * uiScale]
+    ]),
+    plusStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 32 * uiScale]
+    ]),
+    plusCircleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 28 * uiScale],
+      ['height', 28 * uiScale],
+      ['font-size', 22 * uiScale],
+      ['line-height', 28 * uiScale]
+    ]),
+    uploadLicenseTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 5 * uiScale],
+      ['font-size', 13 * uiScale],
+      ['line-height', 16 * uiScale]
+    ]),
+    bottomBarStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['left', 30 * uiScale],
+      ['right', 30 * uiScale],
+      ['bottom', 20 * uiScale],
+      ['height', 44 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-left', 16 * uiScale],
+      ['border-radius', 12 * uiScale]
+    ]),
+    tipIconStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 20 * uiScale],
+      ['height', 20 * uiScale],
+      ['font-size', 13 * uiScale],
+      ['line-height', 20 * uiScale]
+    ]),
+    tipTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 13 * uiScale],
+      ['line-height', 18 * uiScale]
+    ]),
+    bottomActionsStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['gap', 10 * uiScale]
+    ]),
+    primaryButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 32 * uiScale],
+      ['min-width', 108 * uiScale],
+      ['border-radius', 9 * uiScale],
+      ['font-size', 13 * uiScale]
+    ]),
+    licensePanelStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 430 * uiScale],
+      ['padding-top', 18 * uiScale],
+      ['padding-right', 20 * uiScale],
+      ['padding-bottom', 20 * uiScale],
+      ['padding-left', 20 * uiScale],
+      ['border-radius', 14 * uiScale]
+    ]),
+    licensePanelHeaderStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-bottom', 16 * uiScale]
+    ]),
+    licensePanelTitleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 20 * uiScale],
+      ['line-height', 24 * uiScale]
+    ]),
+    licensePanelCloseStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 28 * uiScale],
+      ['height', 28 * uiScale],
+      ['font-size', 20 * uiScale],
+      ['line-height', 28 * uiScale]
+    ]),
+    licenseUploadRowStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['gap', 12 * uiScale]
+    ]),
+    licenseUploadSlotStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 104 * uiScale],
+      ['border-radius', 10 * uiScale]
+    ]),
+    slotImageStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['width', 76 * uiScale],
+      ['height', 44 * uiScale],
+      ['border-radius', 7 * uiScale]
+    ]),
+    slotTitleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 8 * uiScale],
+      ['font-size', 14 * uiScale],
+      ['line-height', 18 * uiScale]
+    ]),
+    slotSubtitleStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 3 * uiScale],
+      ['font-size', 11 * uiScale],
+      ['line-height', 14 * uiScale]
+    ]),
+    licenseSwitchStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['margin-top', 14 * uiScale],
+      ['height', 30 * uiScale],
+      ['font-size', 13 * uiScale],
+      ['line-height', 30 * uiScale]
+    ]),
+    previewHeaderStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 44 * uiScale],
+      ['padding-right', 16 * uiScale],
+      ['padding-left', 16 * uiScale]
+    ]),
+    previewTextButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 14 * uiScale],
+      ['padding-top', 6 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 6 * uiScale],
+      ['padding-left', 12 * uiScale]
+    ]),
+    previewCountStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 14 * uiScale]
+    ]),
+    previewLabelStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['top', 44 * uiScale],
+      ['font-size', 14 * uiScale]
+    ]),
+    previewModeTagStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['top', 66 * uiScale],
+      ['font-size', 12 * uiScale],
+      ['padding-top', 6 * uiScale],
+      ['padding-right', 12 * uiScale],
+      ['padding-bottom', 6 * uiScale],
+      ['padding-left', 12 * uiScale],
+      ['border-radius', 14 * uiScale]
+    ]),
+    previewFooterStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['height', 50 * uiScale],
+      ['gap', 40 * uiScale]
+    ]),
+    previewButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 14 * uiScale],
+      ['padding-top', 8 * uiScale],
+      ['padding-right', 24 * uiScale],
+      ['padding-bottom', 8 * uiScale],
+      ['padding-left', 24 * uiScale],
+      ['border-radius', 6 * uiScale]
+    ])
+  }
+}
+
+function getWindowInfoSnapshot() {
+  let systemInfo = {}
+  let windowInfo = {}
+
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
+      systemInfo = wx.getSystemInfoSync() || {}
+    }
+  } catch (error) {
+    // 使用默认横屏尺寸兜底
+  }
+
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getWindowInfo === 'function') {
+      windowInfo = wx.getWindowInfo() || {}
+    }
+  } catch (error) {
+    // 使用系统信息兜底
+  }
+
+  return {
+    ...systemInfo,
+    ...windowInfo,
+    safeArea: windowInfo.safeArea || systemInfo.safeArea
+  }
+}
 
 function getRemainingTotalPhotoCount(cache) {
   const summary = cacheSelectors.getCacheSummary(cache)
@@ -74,7 +366,8 @@ Page({
     activeDrivingLicenseVehicleIndex: null,
     activeDrivingLicenseSlots: [],
     appEnvBadgeText: '',
-    workflowState: workflow.STATES.IDLE
+    workflowState: workflow.STATES.IDLE,
+    previewLayout: computeResponsivePreviewLayout()
   },
 
   isLeaving: false,
@@ -82,6 +375,7 @@ Page({
   onLoad() {
     this.isLeaving = false
     this.updateAppEnvBadge()
+    this.updatePreviewLayout('on_load')
     if (storage.loadCacheForResume()) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
         page: 'preview'
@@ -93,6 +387,7 @@ Page({
   onShow() {
     this.isLeaving = false
     this.updateAppEnvBadge()
+    this.updatePreviewLayout('on_show')
 
     const cache = storage.loadCacheForResume()
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -115,6 +410,51 @@ Page({
     if (this.data.appEnvBadgeText !== appEnvBadgeText) {
       this.setData({ appEnvBadgeText })
     }
+  },
+
+  computePreviewLayout(info = {}) {
+    return computeResponsivePreviewLayout(info)
+  },
+
+  updatePreviewLayout(reason = 'manual', info = null) {
+    const windowInfo = info || getWindowInfoSnapshot()
+    const previewLayout = this.computePreviewLayout(windowInfo)
+    this.setData({ previewLayout })
+    this.logPreviewLayoutSnapshot(previewLayout, reason)
+  },
+
+  getFeedbackId() {
+    const sessionId = runtimeLogger.getSessionId ? runtimeLogger.getSessionId() : ''
+    return sessionId ? `selfCam_${sessionId}` : ''
+  },
+
+  roundLogNumber(value) {
+    return Number.isFinite(value) ? Number(value.toFixed(4)) : value
+  },
+
+  logPreviewLayoutSnapshot(previewLayout = {}, reason = 'layout') {
+    const layoutLogKey = `${reason}:${previewLayout.windowWidth}x${previewLayout.windowHeight}:${previewLayout.needsResponsiveUiScale}`
+    if (this.previewLayoutRealtimeLogKey === layoutLogKey) {
+      return
+    }
+    this.previewLayoutRealtimeLogKey = layoutLogKey
+
+    runtimeLogger.forceWarn('ai', 'preview_layout_snapshot', {
+      feedbackId: this.getFeedbackId(),
+      reason,
+      ...getWindowInfoSnapshot(),
+      rawWindowWidth: previewLayout.rawWindowWidth,
+      rawWindowHeight: previewLayout.rawWindowHeight,
+      windowWidth: previewLayout.windowWidth,
+      windowHeight: previewLayout.windowHeight,
+      safeAreaWidth: previewLayout.safeAreaWidth,
+      safeAreaHeight: previewLayout.safeAreaHeight,
+      pixelRatio: previewLayout.pixelRatio,
+      layoutScale: this.roundLogNumber(previewLayout.layoutScale || 0),
+      uiScale: this.roundLogNumber(previewLayout.uiScale || 0),
+      uiScaleReason: previewLayout.uiScaleReason || '',
+      needsResponsiveUiScale: !!previewLayout.needsResponsiveUiScale
+    })
   },
 
   loadData() {
