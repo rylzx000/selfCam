@@ -17,7 +17,7 @@
           <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">{{item.previewName}}</text>
           <text class="vehicle-tag" style="{{previewLayout.vehicleTagStyle}}">{{item.previewTag}}</text>
         </view>
-        <view wx:if="{{index > 0}}" class="delete-btn" style="{{previewLayout.deleteButtonStyle}}" bindtap="onDeleteVehicle" data-vehicle-index="{{index}}">删除此车</view>
+        <view wx:if="{{item.canDelete}}" class="delete-btn" style="{{previewLayout.deleteButtonStyle}}" bindtap="onDeleteVehicle" data-vehicle-index="{{index}}">删除此车</view>
       </view>
 
       <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">

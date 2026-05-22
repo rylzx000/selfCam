@@ -3,10 +3,14 @@ const realtimeLog = require('./realtime-log')
 
 const LOG_STORAGE_KEY = 'selfcam_runtime_logs'
 const SESSION_STORAGE_KEY = 'selfcam_runtime_session'
+const REPORT_NO_STORAGE_KEY = 'selfcam_report_no'
 
 let uploadTimer = null
 let uploading = false
 let pendingUploadQueue = []
+let errorUploadTimer = null
+let errorUploading = false
+let pendingErrorUploadQueue = []
 
 const LOG_LEVEL_PRIORITY = {
   info: 1,
@@ -26,6 +30,55 @@ const REALTIME_FORWARD_EVENTS = {
     'session_load_failed'
   ])
 }
+
+const ERROR_UPLOAD_EVENTS = {
+  ai_model: new Set([
+    'download_failed',
+    'download_status_failed',
+    'cache_copy_failed',
+    'model_file_invalid',
+    'session_create_failed',
+    'session_load_failed'
+  ]),
+  ai: new Set([
+    'ai_unavailable',
+    'detector_init_failed',
+    'detect_loop_error'
+  ]),
+  capture: new Set(['auto_capture_failed']),
+  camera: new Set(['camera_error']),
+  api: new Set(['request_failed'])
+}
+
+const SENSITIVE_KEY_PATTERN = /(token|cookie|secret|sessionkey|session_key|authorization|password|credential)/i
+const ERROR_LOG_PAYLOAD_KEYS = [
+  'feedbackId',
+  'appEnv',
+  'wxEnvVersion',
+  'reason',
+  'stage',
+  'modelName',
+  'statusCode',
+  'message',
+  'errMsg',
+  'attemptName',
+  'precisionLevel',
+  'modelUrl',
+  'modelPath',
+  'plateModelUrl',
+  'damageModelUrl',
+  'system',
+  'model',
+  'brand',
+  'platform',
+  'SDKVersion',
+  'version',
+  'step',
+  'runId',
+  'failReason',
+  'page',
+  'systemInfo'
+]
 
 const REALTIME_PAYLOAD_KEYS = [
   'feedbackId',
@@ -115,6 +168,24 @@ function getLoggerConfig() {
   return envConfig.getDebugConfig()
 }
 
+function getErrorLoggerConfig() {
+  if (typeof envConfig.getErrorLogConfig !== 'function') {
+    return {
+      uploadEnabled: false,
+      uploadUrl: '',
+      batchSize: 20,
+      maxPendingEntries: 20,
+      uploadThrottleMs: 1500,
+      requestTimeoutMs: 2500,
+      appEnv: '',
+      wxEnvVersion: getEnvVersion(),
+      envVersion: getEnvVersion()
+    }
+  }
+
+  return envConfig.getErrorLogConfig()
+}
+
 function getEnvVersion() {
   return envConfig.getEnvVersion()
 }
@@ -134,6 +205,11 @@ function shouldForwardRealtimeLog(level, scope, event) {
   return !!allowedEvents && allowedEvents.has(event)
 }
 
+function shouldUploadErrorLog(level, scope, event) {
+  const allowedEvents = ERROR_UPLOAD_EVENTS[scope]
+  return level === 'error' && !!allowedEvents && allowedEvents.has(event)
+}
+
 function shouldUpload() {
   const wxRef = getWx()
   const loggerConfig = getLoggerConfig()
@@ -142,6 +218,53 @@ function shouldUpload() {
     && !!loggerConfig.uploadUrl
     && !!wxRef
     && typeof wxRef.request === 'function'
+}
+
+function getReportNo() {
+  try {
+    if (typeof getApp === 'function') {
+      const app = getApp()
+      const reportNo = app && app.globalData && app.globalData.reportNo
+      if (typeof reportNo === 'string' && reportNo.trim()) {
+        return reportNo.trim().slice(0, 64)
+      }
+    }
+  } catch (error) {
+    // getApp 在测试或极早期生命周期不可用时，继续读本地缓存。
+  }
+
+  const wxRef = getWx()
+  if (!wxRef || typeof wxRef.getStorageSync !== 'function') {
+    return ''
+  }
+
+  try {
+    const reportNo = wxRef.getStorageSync(REPORT_NO_STORAGE_KEY)
+    return typeof reportNo === 'string' ? reportNo.trim().slice(0, 64) : ''
+  } catch (error) {
+    return ''
+  }
+}
+
+function getSystemInfoSnapshot() {
+  const wxRef = getWx()
+  if (!wxRef || typeof wxRef.getSystemInfoSync !== 'function') {
+    return {}
+  }
+
+  try {
+    const info = wxRef.getSystemInfoSync() || {}
+    return {
+      brand: safeClone(info.brand || ''),
+      model: safeClone(info.model || ''),
+      system: safeClone(info.system || ''),
+      platform: safeClone(info.platform || ''),
+      SDKVersion: safeClone(info.SDKVersion || ''),
+      wechatVersion: safeClone(info.version || '')
+    }
+  } catch (error) {
+    return {}
+  }
 }
 
 function safeClone(value, depth = 0) {
@@ -170,6 +293,67 @@ function safeClone(value, depth = 0) {
   }
 
   return value
+}
+
+function safeErrorPayloadClone(value, depth = 0) {
+  if (value === null || value === undefined) {
+    return value
+  }
+
+  if (depth >= 3) {
+    return '[depth_limited]'
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 12).map((item) => safeErrorPayloadClone(item, depth + 1))
+  }
+
+  if (typeof value === 'object') {
+    if (value instanceof ArrayBuffer) {
+      return '[binary]'
+    }
+
+    const result = {}
+    Object.keys(value).slice(0, 20).forEach((key) => {
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        return
+      }
+      result[key] = safeErrorPayloadClone(value[key], depth + 1)
+    })
+    return result
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.length > 512 ? `${value.slice(0, 512)}...[truncated]` : value
+    if (/^data:image\//i.test(normalized) || normalized.length > 256 && /^[A-Za-z0-9+/=]+$/.test(normalized)) {
+      return '[redacted]'
+    }
+    return normalized
+  }
+
+  if (typeof value === 'function') {
+    return '[function]'
+  }
+
+  return value
+}
+
+function buildErrorLogPayload(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return {}
+  }
+
+  const result = {}
+  ERROR_LOG_PAYLOAD_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(payload, key) && payload[key] !== undefined && !SENSITIVE_KEY_PATTERN.test(key)) {
+      result[key] = safeErrorPayloadClone(payload[key])
+    }
+  })
+  return result
+}
+
+function normalizeLogString(value, maxLength = 1000) {
+  return typeof value === 'string' ? value.slice(0, maxLength) : ''
 }
 
 function buildRealtimePayload(sessionId, payload = {}) {
@@ -289,6 +473,31 @@ function scheduleUpload() {
   }, loggerConfig.uploadThrottleMs)
 }
 
+function scheduleErrorUpload() {
+  const loggerConfig = getErrorLoggerConfig()
+
+  if (!shouldUploadErrorQueue() || errorUploadTimer || errorUploading || pendingErrorUploadQueue.length === 0) {
+    return
+  }
+
+  errorUploadTimer = setTimeout(() => {
+    errorUploadTimer = null
+    flushErrorLogs()
+  }, loggerConfig.uploadThrottleMs)
+}
+
+function shouldUploadErrorQueue() {
+  const wxRef = getWx()
+  const loggerConfig = getErrorLoggerConfig()
+  const reportNo = getReportNo()
+
+  return !!loggerConfig.uploadEnabled
+    && !!loggerConfig.uploadUrl
+    && !!reportNo
+    && !!wxRef
+    && typeof wxRef.request === 'function'
+}
+
 function flush() {
   const wxRef = getWx()
   const loggerConfig = getLoggerConfig()
@@ -321,6 +530,98 @@ function flush() {
       }
     }
   })
+}
+
+function buildBackendLogItem(entry) {
+  const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  return {
+    clientLogId: entry.id,
+    level: entry.level,
+    scope: entry.scope,
+    event: entry.event,
+    page: normalizeLogString(payload.page || '', 64),
+    step: normalizeLogString(payload.step || '', 64),
+    occurredAt: entry.at,
+    message: normalizeLogString(payload.message || payload.errMsg || '', 1000),
+    errMsg: normalizeLogString(payload.errMsg || '', 1000),
+    stage: normalizeLogString(payload.stage || '', 128),
+    statusCode: payload.statusCode === undefined || payload.statusCode === null
+      ? ''
+      : payload.statusCode,
+    payload: buildErrorLogPayload(payload)
+  }
+}
+
+function buildErrorUploadRequest(batch, loggerConfig, reportNo) {
+  const firstEntry = batch[0] || {}
+  const firstPayload = firstEntry.payload || {}
+  const sessionId = firstEntry.sessionId || getSessionId()
+  const feedbackId = firstPayload.feedbackId || (sessionId ? `selfCam_${sessionId}` : '')
+
+  return {
+    appCode: 'selfCam',
+    appVersion: '',
+    clientType: 'wechat_miniprogram',
+    appEnv: loggerConfig.appEnv || '',
+    wxEnvVersion: loggerConfig.wxEnvVersion || loggerConfig.envVersion || getEnvVersion(),
+    reportNo,
+    sessionId,
+    feedbackId,
+    sentAt: getIsoTime(),
+    device: getSystemInfoSnapshot(),
+    logs: batch.map(buildBackendLogItem)
+  }
+}
+
+function flushErrorLogs() {
+  const wxRef = getWx()
+  const loggerConfig = getErrorLoggerConfig()
+  const reportNo = getReportNo()
+
+  if (!shouldUploadErrorQueue() || errorUploading || pendingErrorUploadQueue.length === 0) {
+    return
+  }
+
+  const batchSize = Math.max(1, Math.min(loggerConfig.batchSize || 20, 20))
+  const batch = pendingErrorUploadQueue.slice(0, batchSize)
+  errorUploading = true
+  let uploaded = false
+
+  wxRef.request({
+    url: loggerConfig.uploadUrl,
+    method: 'POST',
+    timeout: loggerConfig.requestTimeoutMs,
+    data: buildErrorUploadRequest(batch, loggerConfig, reportNo),
+    success: (res) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        pendingErrorUploadQueue = pendingErrorUploadQueue.slice(batch.length)
+        uploaded = true
+      }
+    },
+    complete: () => {
+      errorUploading = false
+      if (uploaded && pendingErrorUploadQueue.length > 0) {
+        scheduleErrorUpload()
+      }
+    }
+  })
+}
+
+function enqueueErrorUpload(entry) {
+  if (!entry || !shouldUploadErrorLog(entry.level, entry.scope, entry.event)) {
+    return
+  }
+
+  const loggerConfig = getErrorLoggerConfig()
+  if (!loggerConfig.uploadEnabled || !loggerConfig.uploadUrl || !getReportNo()) {
+    return
+  }
+
+  pendingErrorUploadQueue.push(entry)
+  if (pendingErrorUploadQueue.length > loggerConfig.maxPendingEntries) {
+    pendingErrorUploadQueue = pendingErrorUploadQueue.slice(-loggerConfig.maxPendingEntries)
+  }
+  scheduleErrorUpload()
 }
 
 function addLog(level, scope, event, payload = {}, sessionMeta = null) {
@@ -356,6 +657,8 @@ function addLog(level, scope, event, payload = {}, sessionMeta = null) {
     scheduleUpload()
   }
 
+  enqueueErrorUpload(entry)
+
   return entry
 }
 
@@ -386,6 +689,8 @@ function addForcedLog(level, scope, event, payload = {}, sessionMeta = null) {
     scheduleUpload()
   }
 
+  enqueueErrorUpload(entry)
+
   return entry
 }
 
@@ -400,15 +705,21 @@ function startSession(scope, meta = {}) {
 function endSession(scope, meta = {}) {
   addLog('info', scope || 'runtime', 'session_end', meta)
   flush()
+  flushErrorLogs()
 }
 
 function clearSession(clearLogs = true) {
   const wxRef = getWx()
 
   pendingUploadQueue = []
+  pendingErrorUploadQueue = []
   if (uploadTimer) {
     clearTimeout(uploadTimer)
     uploadTimer = null
+  }
+  if (errorUploadTimer) {
+    clearTimeout(errorUploadTimer)
+    errorUploadTimer = null
   }
 
   if (!wxRef || typeof wxRef.removeStorageSync !== 'function') {
@@ -457,6 +768,7 @@ module.exports = {
   forceWarn,
   forceError,
   flush,
+  flushErrorLogs,
   readLogs,
   addLog,
   getSessionId

@@ -67,7 +67,75 @@ page {
   font-size: 18rpx;
   color: #212121;
   font-weight: 500;
+  max-width: 100%;
+  line-height: 22rpx;
+  text-align: center;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.vehicle-role {
+  font-size: 18rpx;
+  color: #212121;
+  font-weight: 600;
+  max-width: 100%;
+  line-height: 22rpx;
+  text-align: center;
   white-space: nowrap;
+}
+
+.vehicle-progress {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 2rpx 6rpx;
+  border-radius: 999rpx;
+  background-color: #EEF7F0;
+  color: #2E7D32;
+  font-size: 11rpx;
+  line-height: 15rpx;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vehicle-plate {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 8rpx;
+  padding: 3rpx 7rpx;
+  border-radius: 4rpx;
+  color: #FFFFFF;
+  font-size: 14rpx;
+  line-height: 18rpx;
+  font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-plate-oil {
+  background-color: #1565C0;
+}
+
+.vehicle-plate-electric {
+  background-color: #1B8F4A;
+}
+
+.vehicle-plate-unknown {
+  background-color: #E0E0E0;
+  color: #424242;
 }
 
 .step-name {
@@ -127,6 +195,10 @@ page {
   font-size: 18rpx;
   color: #4CAF50;
   font-weight: 600;
+}
+
+.damage-progress {
+  margin-top: 6rpx;
 }
 
 .damage-tip {

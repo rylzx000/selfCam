@@ -118,6 +118,95 @@ describe('cache selectors', () => {
     expect(summary.shouldSuggestBackToEditReasons).toContain('retake_context')
   })
 
+  test('uses retake vehicle for split camera display fields', () => {
+    const cache = storage.initCache()
+    const firstVehicle = createCompletedVehicle(0, 1)
+    const secondVehicle = createCompletedVehicle(1, 1)
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-2'
+    }
+    firstVehicle.vehicleRoleName = '标的车'
+    firstVehicle.licenseNo = '京A12345'
+    secondVehicle.vehicleRoleName = '三者车'
+    secondVehicle.licenseNo = '京B12345'
+    secondVehicle.plateColor = 'blue'
+    cache.vehicles.push(firstVehicle, secondVehicle)
+    cache.currentVehicleIndex = 0
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.retakeMode = {
+      enabled: true,
+      vehicleIndex: 1,
+      photoType: constants.PHOTO_TYPE.DAMAGE,
+      damageIndex: 0
+    }
+
+    const flowContext = selectors.getCurrentFlowContext(cache)
+
+    expect(flowContext.currentVehicleIndex).toBe(1)
+    expect(flowContext.currentVehicleRoleName).toBe('三者车')
+    expect(flowContext.currentVehiclePlateNo).toBe('京B12345')
+    expect(flowContext.currentVehiclePlateTheme).toBe('oil')
+    expect(flowContext.currentVehicleProgressText).toBe('2/2 辆')
+    expect(flowContext.finishDamageText).toBe('去预览')
+  })
+
+  test('uses backend vehicle display name and locks manual vehicle count in aux photo mode', () => {
+    const cache = storage.initCache()
+    const vehicle = createCompletedVehicle(0, 1)
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-1'
+    }
+    vehicle.vehicleRoleName = '标的车'
+    vehicle.licenseNo = '京A12345'
+    vehicle.displayName = '标的车 京A12345'
+    cache.vehicles.push(vehicle)
+
+    const flowContext = selectors.getCurrentFlowContext(cache)
+    const summary = selectors.getCacheSummary(cache)
+
+    expect(flowContext.currentVehicleType).toBe('标的车 京A12345')
+    expect(summary.vehicles[0].displayName).toBe('标的车 京A12345')
+    expect(summary.vehicles[0].canDelete).toBe(false)
+    expect(summary.canAddThirdVehicle).toBe(false)
+    expect(summary.allPhotos[0].label).toBe('标的车 京A12345 - 车牌')
+  })
+
+  test('builds split camera vehicle display fields for aux photo vehicles', () => {
+    const cache = storage.initCache()
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-3'
+    }
+    const firstVehicle = createCompletedVehicle(0, 1)
+    const secondVehicle = createCompletedVehicle(1, 1)
+    const thirdVehicle = createCompletedVehicle(2, 1)
+    firstVehicle.vehicleRoleName = '标的车'
+    firstVehicle.licenseNo = '京A12345'
+    secondVehicle.vehicleRoleName = '三者车'
+    secondVehicle.licenseNo = '京AD12345'
+    thirdVehicle.vehicleRoleName = '三者车'
+    thirdVehicle.licenseNo = ''
+    cache.vehicles.push(firstVehicle, secondVehicle, thirdVehicle)
+    cache.currentVehicleIndex = 1
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+
+    const flowContext = selectors.getCurrentFlowContext(cache)
+    const summary = selectors.getVehicleSummary(cache)
+
+    expect(flowContext.auxPhotoEnabled).toBe(true)
+    expect(flowContext.currentVehicleRoleName).toBe('三者车')
+    expect(flowContext.currentVehiclePlateNo).toBe('京AD12345')
+    expect(flowContext.currentVehiclePlateTheme).toBe('electric')
+    expect(flowContext.currentVehicleProgressText).toBe('2/3 辆')
+    expect(flowContext.hasNextVehicle).toBe(true)
+    expect(flowContext.nextVehicleIndex).toBe(2)
+    expect(flowContext.finishDamageText).toBe('下一辆车')
+    expect(summary.vehicles[2].vehiclePlateNo).toBe('车牌待确认')
+    expect(summary.vehicles[2].vehiclePlateTheme).toBe('unknown')
+  })
+
   test('returns safe document summary for empty cache', () => {
     const documentSummary = selectors.getDocumentSummary(null)
 

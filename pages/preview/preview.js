@@ -327,8 +327,8 @@ function showTotalPhotoLimitToast() {
 function buildDrivingLicensePreview(vehicle, index) {
   return {
     ...vehicle,
-    previewName: index === 0 ? '您的车' : `其他出险车辆 ${index}`,
-    previewTag: index === 0 ? '标的车' : '三者车',
+    previewName: vehicle.displayName || (index === 0 ? '您的车' : `其他出险车辆 ${index}`),
+    previewTag: vehicle.vehicleRoleName || (index === 0 ? '标的车' : '三者车'),
     drivingLicensePreview: vehicleDocuments.buildDrivingLicensePreview(vehicle)
   }
 }

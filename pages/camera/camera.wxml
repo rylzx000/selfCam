@@ -4,7 +4,11 @@
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
     <view class="vehicle-info" style="{{cameraLayout.cardStyle}}">
       <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
-      <text class="vehicle-name" style="{{cameraLayout.primaryTextStyle}}">{{vehicleType}}</text>
+      <view class="vehicle-main">
+        <text class="vehicle-role" style="{{cameraLayout.primaryTextStyle}}">{{vehicleRoleName}}</text>
+        <text wx:if="{{vehicleProgressText}}" class="vehicle-progress">{{vehicleProgressText}}</text>
+      </view>
+      <text class="vehicle-plate vehicle-plate-{{vehiclePlateTheme}}">{{vehiclePlateNo}}</text>
     </view>
 
     <view wx:if="{{currentStep !== 'damage'}}" class="step-info" style="{{cameraLayout.cardStyle}}">
@@ -16,6 +20,7 @@
       <view class="damage-count">
         <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
         <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/5 张</text>
+        <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
       </view>
 
       <view wx:if="{{damageCount === 0}}" class="damage-tip">
@@ -28,7 +33,7 @@
     </view>
 
     <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.actionButtonStyle}}" bindtap="onFinishDamage">
-      <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">完成拍摄</text>
+      <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
     </view>
   </view>
 

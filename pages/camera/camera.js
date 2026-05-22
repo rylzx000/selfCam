@@ -309,6 +309,19 @@ function showTotalPhotoLimitToast() {
   })
 }
 
+function buildCameraVehicleFields(flowContext = {}) {
+  const vehicleType = flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET
+
+  return {
+    vehicleType,
+    vehicleRoleName: flowContext.currentVehicleRoleName || vehicleType,
+    vehiclePlateNo: flowContext.currentVehiclePlateNo || '',
+    vehiclePlateTheme: flowContext.currentVehiclePlateTheme || 'unknown',
+    vehicleProgressText: flowContext.currentVehicleProgressText || '',
+    finishDamageText: flowContext.finishDamageText || '完成拍摄'
+  }
+}
+
 function getSystemInfoSnapshot() {
   try {
     if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
@@ -344,6 +357,11 @@ Page({
     confirmUseText: CONFIRM_USE_TEXT,
     retakeText: RETAKE_TEXT,
     vehicleType: constants.VEHICLE_TYPE.TARGET,
+    vehicleRoleName: constants.VEHICLE_TYPE.TARGET,
+    vehiclePlateNo: '',
+    vehiclePlateTheme: 'unknown',
+    vehicleProgressText: '',
+    finishDamageText: '完成拍摄',
     damageCount: 0,
     showConfirmModal: false,
     qualityHintText: '',
@@ -1788,10 +1806,12 @@ Page({
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘搁悗鍏夊亾閻庯綆鍓涢敍鐔哥箾鐎电顎撳┑鈥虫喘楠炲繘鎮╃拠鑼唽闂佸湱鍎ら崺鍫濐焽閵夈儮鏀介柣妯活問閺嗩垶鏌嶈閸撴瑩宕捄銊ф／鐟滄棃寮婚悢纰辨晩闁绘挸绨堕崑鎾诲箹娴ｇ懓浠奸梺缁樺灱濡嫬鏁梻浣稿暱閹碱偊宕愰悷鎵虫瀺闁糕剝绋掗埛鎴︽煕韫囨稒锛熼柤鍓蹭邯閺屾稒鎯旈姀銏″垱闂佽桨绀侀崯鏉戠暦閹烘垟妲堥柟鐑樻尭椤忓綊姊婚崒娆戭槮婵犫偓鏉堚晛鍨濇い鏍ㄧ矋閺嗘粓鏌ｉ幇顒夊殶濠⒀€鍓濈换婵嬫偨闂堟刀锝嗐亜閺冣偓閻楃姴鐣风憴鍕嚤閻庢稒锚閳ь剝鍩栫换婵嬫濞戝啿濮涙繛瀛樼矆缁瑥顫忕紒妯诲闁告繂瀚紓鎾绘⒑缁嬫寧鍞夊ù婊庡墯缁旂喖寮撮姀鈺傛櫍闂佺粯锚閸熷潡宕㈣ぐ鎺撯拺?
     if (flowContext.hasRetakeContext) {
       const { currentStep, vehicleType } = flowContext.retakeContext
+      const vehicleFields = buildCameraVehicleFields(flowContext)
       this.setData({
+        ...vehicleFields,
         currentStep,
         guideTip: flowContext.guideTip,
-        vehicleType: vehicleType || constants.VEHICLE_TYPE.TARGET,
+        vehicleType: vehicleType || vehicleFields.vehicleType,
         damageCount,
         damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
@@ -1814,9 +1834,9 @@ Page({
       })
     } else {
       this.setData({
+        ...buildCameraVehicleFields(flowContext),
         currentStep: flowContext.currentStep,
         guideTip: flowContext.guideTip,
-        vehicleType: flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET,
         damageCount,
         damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
@@ -2002,8 +2022,10 @@ Page({
       }
       cache.currentStep = constants.SHOOT_STEP.VIN_CODE
       storage.saveCache(cache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
 
       this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
         showConfirmModal: false,
         pendingPhoto: null,
         qualityHintText: '',
@@ -2032,8 +2054,10 @@ Page({
       cache.currentDamageCount = 0
       const damageCount = currentVehicle.damages?.length || 0
       storage.saveCache(cache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
 
       this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
         showConfirmModal: false,
         pendingPhoto: null,
         qualityHintText: '',
@@ -2058,6 +2082,7 @@ Page({
     currentVehicle.damages.push(pendingPhoto)
     cache.currentDamageCount = currentVehicle.damages.length
     storage.saveCache(cache)
+    const updatedFlowContext = cacheSelectors.getCurrentFlowContext(cache)
     runtimeLogger.info('damage_flow', 'damage_photo_saved', {
       damageCount: currentVehicle.damages.length,
       captureMode: pendingPhoto.captureMode,
@@ -2065,8 +2090,29 @@ Page({
     })
 
     if (currentVehicle.damages.length >= constants.LIMITS.MAX_DAMAGES) {
+      if (updatedFlowContext.auxPhotoEnabled) {
+        this.setData({
+          ...buildCameraVehicleFields(updatedFlowContext),
+          showConfirmModal: false,
+          pendingPhoto: null,
+          qualityHintText: '',
+          damageCount: currentVehicle.damages.length,
+          damageFrameState: 'normal',
+          damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
+          damageAreaRatioText: ''
+        }, () => {
+          workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+            page: 'camera',
+            step: cache.currentStep
+          })
+          this.resetAIState()
+        })
+        return
+      }
+
       this.isLeaving = true
       this.setData({
+        ...buildCameraVehicleFields(updatedFlowContext),
         showConfirmModal: false,
         pendingPhoto: null,
         qualityHintText: '',
@@ -2117,6 +2163,7 @@ Page({
     }
 
     this.setData({
+      ...buildCameraVehicleFields(updatedFlowContext),
       showConfirmModal: false,
       pendingPhoto: null,
       qualityHintText: '',
@@ -2184,6 +2231,45 @@ Page({
           }
         })
       }
+      return
+    }
+
+    if (
+      flowContext.auxPhotoEnabled
+      && flowContext.hasNextVehicle
+      && Number.isInteger(flowContext.nextVehicleIndex)
+    ) {
+      cache.currentVehicleIndex = flowContext.nextVehicleIndex
+      cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+      cache.currentDamageCount = 0
+      const nextCache = storage.clearPreviewFlags(cache)
+      storage.saveCache(nextCache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(nextCache)
+
+      this.isLeaving = false
+      this.resetAIState()
+      this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
+        isNavigating: false,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: '',
+        currentStep: nextFlowContext.currentStep,
+        guideTip: nextFlowContext.guideTip,
+        damageCount: nextFlowContext.damageCount,
+        plateFrameState: 'normal',
+        plateDistanceHint: '',
+        damageDistanceHint: '',
+        damageFrameState: 'normal',
+        damagePhaseLabel: '',
+        damageAreaRatioText: ''
+      }, () => {
+        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+          page: 'camera',
+          step: nextFlowContext.currentStep
+        })
+        this.resumeAIDetectionAfterStepReady('finish_damage_next_vehicle')
+      })
       return
     }
 

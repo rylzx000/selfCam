@@ -3,6 +3,8 @@ const constants = require('../../utils/constants')
 const permission = require('../../utils/permission')
 const envConfig = require('../../utils/env-config')
 const modelCache = require('../../utils/model-cache')
+const auxPhotoApi = require('../../utils/aux-photo-api')
+const auxPhotoMapper = require('../../utils/aux-photo-mapper')
 
 const APP_ENV_SWITCH_TAP_COUNT = 7
 const APP_ENV_SWITCH_RESET_MS = 1200
@@ -169,6 +171,13 @@ Page({
     console.log('[index] onStart')
 
     try {
+      const ticket = this.getLaunchTicket()
+
+      if (this.shouldBlockMissingTicket(ticket)) {
+        this.showInvalidTicketToast()
+        return
+      }
+
       const permissionResult = await permission.ensureStartCapturePermissions()
       console.log('[index] permission result:', permissionResult)
 
@@ -177,7 +186,7 @@ Page({
         return
       }
 
-      await this.startCaptureFlow()
+      await this.startCaptureFlow(ticket)
     } catch (err) {
       console.warn('[index] start capture failed:', err)
       this.showStartFailedToast()
@@ -186,7 +195,31 @@ Page({
     }
   },
 
-  startCaptureFlow() {
+  getLaunchTicket() {
+    if (typeof getApp !== 'function') {
+      return ''
+    }
+
+    const app = getApp()
+    const ticket = app && app.globalData && app.globalData.ticket
+    return typeof ticket === 'string' ? ticket.trim() : ''
+  },
+
+  shouldBlockMissingTicket(ticket) {
+    return typeof envConfig.isRelease === 'function'
+      && envConfig.isRelease()
+      && !ticket
+  },
+
+  async startCaptureFlow(ticket = '') {
+    if (ticket) {
+      const initResponse = await auxPhotoApi.init(ticket)
+      const cache = auxPhotoMapper.buildCacheFromInit(initResponse.data || initResponse)
+      storage.saveCache(cache)
+      console.log('[index] saved aux photo cache:', storage.loadCache())
+      return this.navigateToCamera()
+    }
+
     const cache = storage.initCache()
     console.log('[index] initCache:', cache)
 
@@ -198,6 +231,10 @@ Page({
 
     console.log('[index] saved cache:', storage.loadCache())
 
+    return this.navigateToCamera()
+  },
+
+  navigateToCamera() {
     return new Promise((resolve, reject) => {
       wx.navigateTo({
         url: '/pages/camera/camera',
@@ -208,6 +245,12 @@ Page({
         fail: reject
       })
     })
+  },
+
+  showInvalidTicketToast() {
+    if (typeof wx !== 'undefined' && typeof wx.showToast === 'function') {
+      wx.showToast({ title: '链接无效，请联系工作人员重新发送', icon: 'none' })
+    }
   },
 
   showStartFailedToast() {

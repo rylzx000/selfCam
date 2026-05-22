@@ -5,6 +5,8 @@ describe('index start permission flow', () => {
   let permission
   let envConfig
   let modelCache
+  let auxPhotoApi
+  let auxPhotoMapper
   let consoleLogSpy
   let consoleWarnSpy
 
@@ -38,7 +40,8 @@ describe('index start permission flow', () => {
       canSwitchAppEnv: jest.fn(() => true),
       getAvailableAppEnvs: jest.fn(() => ['dev', 'sit']),
       saveAppEnvOverride: jest.fn(() => true),
-      clearAppEnvOverride: jest.fn()
+      clearAppEnvOverride: jest.fn(),
+      isRelease: jest.fn(() => false)
     }
     modelCache = {
       clearAiModelCache: jest.fn(() => Promise.resolve({
@@ -49,6 +52,29 @@ describe('index start permission flow', () => {
           { modelName: 'plate', path: '/user-data/plate.onnx', deleted: true, reason: 'deleted', errMsg: '' },
           { modelName: 'damage', path: '/user-data/damage.onnx', deleted: true, reason: 'deleted', errMsg: '' }
         ]
+      }))
+    }
+    auxPhotoApi = {
+      init: jest.fn()
+    }
+    auxPhotoMapper = {
+      buildCacheFromInit: jest.fn(() => ({
+        auxPhoto: {
+          enabled: true,
+          ticket: 'mock-2'
+        },
+        vehicles: [
+          {
+            id: 'LOSS_VEHICLE_100001',
+            displayName: '标的车 京A12345'
+          },
+          {
+            id: 'LOSS_VEHICLE_100002',
+            displayName: '三者车 京B12345'
+          }
+        ],
+        currentVehicleIndex: 0,
+        currentStep: 'licensePlate'
       }))
     }
 
@@ -70,6 +96,8 @@ describe('index start permission flow', () => {
     jest.doMock('../utils/permission', () => permission)
     jest.doMock('../utils/env-config', () => envConfig)
     jest.doMock('../utils/model-cache', () => modelCache)
+    jest.doMock('../utils/aux-photo-api', () => auxPhotoApi)
+    jest.doMock('../utils/aux-photo-mapper', () => auxPhotoMapper)
 
     require('../pages/index/index')
   }
@@ -83,6 +111,7 @@ describe('index start permission flow', () => {
   afterEach(() => {
     delete global.wx
     delete global.Page
+    delete global.getApp
     consoleLogSpy.mockRestore()
     consoleWarnSpy.mockRestore()
     jest.clearAllMocks()
@@ -91,6 +120,8 @@ describe('index start permission flow', () => {
     jest.dontMock('../utils/permission')
     jest.dontMock('../utils/env-config')
     jest.dontMock('../utils/model-cache')
+    jest.dontMock('../utils/aux-photo-api')
+    jest.dontMock('../utils/aux-photo-mapper')
   })
 
   test('does not initialize capture flow when camera permission is denied', async () => {
@@ -123,6 +154,66 @@ describe('index start permission flow', () => {
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/pages/camera/camera'
     }))
+  })
+
+  test('uses aux photo init and backend vehicles when ticket is present', async () => {
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        vehicles: [
+          { vehicleId: 'LOSS_VEHICLE_100001', licenseNo: '京A12345' },
+          { vehicleId: 'LOSS_VEHICLE_100002', licenseNo: '京B12345' }
+        ]
+      }
+    })
+    global.getApp = jest.fn(() => ({
+      globalData: {
+        ticket: 'mock-2'
+      }
+    }))
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
+    expect(auxPhotoMapper.buildCacheFromInit).toHaveBeenCalledWith(expect.objectContaining({
+      ticket: 'mock-2'
+    }))
+    expect(storage.createVehicle).not.toHaveBeenCalled()
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      auxPhoto: expect.objectContaining({
+        enabled: true,
+        ticket: 'mock-2'
+      }),
+      vehicles: [
+        expect.objectContaining({ displayName: '标的车 京A12345' }),
+        expect.objectContaining({ displayName: '三者车 京B12345' })
+      ]
+    }))
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/camera/camera'
+    }))
+  })
+
+  test('blocks release start when ticket is missing', async () => {
+    envConfig.isRelease.mockReturnValue(true)
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(permission.ensureStartCapturePermissions).not.toHaveBeenCalled()
+    expect(storage.initCache).not.toHaveBeenCalled()
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: '链接无效，请联系工作人员重新发送',
+      icon: 'none'
+    })
   })
 
   test('ignores duplicate start taps while capture flow is starting', async () => {

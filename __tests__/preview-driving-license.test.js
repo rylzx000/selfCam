@@ -228,6 +228,34 @@ describe('preview page driving license flow', () => {
     expect(page.data.modalConfirmText).toBe('确认提交')
   })
 
+  test('shows backend vehicle display name and disables manual vehicle changes in aux photo mode', () => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-1'
+    }
+    vehicle.vehicleRoleName = '标的车'
+    vehicle.licenseNo = '京A12345'
+    vehicle.displayName = '标的车 京A12345'
+    cache.vehicles.push(vehicle)
+    storage.saveCache(cache)
+
+    pageConfig = null
+    jest.isolateModules(() => {
+      require('../pages/preview/preview')
+    })
+    const page = createPageInstance(pageConfig)
+    page.loadData()
+
+    expect(page.data.vehicles[0]).toEqual(expect.objectContaining({
+      previewName: '标的车 京A12345',
+      previewTag: '标的车',
+      canDelete: false
+    }))
+    expect(page.data.canAddThirdVehicle).toBe(false)
+  })
+
   test('asks for third vehicle before driving license risk prompt', () => {
     const page = loadPreviewPageWithVehicles(1)
 

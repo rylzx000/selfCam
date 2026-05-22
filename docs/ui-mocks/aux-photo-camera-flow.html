@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>辅助拍照车辆卡片与下一辆车流程</title>
+  <style>
+    :root {
+      --page-bg: #edf3ef;
+      --surface: #ffffff;
+      --surface-soft: #f6faf7;
+      --line: #dfe8e2;
+      --text: #17231b;
+      --muted: #6e7d73;
+      --subtle: #9aa69e;
+      --green: #1f8f5f;
+      --green-strong: #13784e;
+      --green-soft: #e6f4ed;
+      --camera-dark: #18231d;
+      --camera-mid: #2b3d34;
+      --warn: #f2a93b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--text);
+    }
+
+    .toolbar {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 20px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .toolbar h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.3;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+
+    .toolbar p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .control {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .control.active {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+
+    .stage {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 10px 20px 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .device-wrap {
+      background: #dfe8e2;
+      border: 1px solid #ccd9d0;
+      border-radius: 10px;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .device {
+      width: 844px;
+      height: 390px;
+      margin: 0 auto;
+      background: #f7faf8;
+      border: 10px solid #111815;
+      border-radius: 26px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 44px rgba(23, 35, 27, 0.18);
+    }
+
+    .mini-page {
+      width: 100%;
+      height: 100%;
+      padding: 20px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      background: #f8fbf9;
+    }
+
+    .info-area {
+      width: 142px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .info-block {
+      background: var(--surface);
+      border: 1px solid rgba(31, 143, 95, 0.08);
+      border-radius: 8px;
+      padding: 11px 10px;
+      box-shadow: 0 2px 8px rgba(23, 35, 27, 0.07);
+      min-width: 0;
+    }
+
+    .vehicle-card {
+      padding: 12px 10px;
+    }
+
+    .label {
+      display: block;
+      color: var(--subtle);
+      font-size: 11px;
+      line-height: 14px;
+      text-align: center;
+      margin-bottom: 6px;
+      white-space: nowrap;
+    }
+
+    .vehicle-role {
+      display: block;
+      color: var(--text);
+      font-size: 17px;
+      line-height: 21px;
+      font-weight: 650;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .plate-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 8px auto 0;
+      width: 100%;
+      min-height: 24px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      color: #fff;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      text-align: center;
+      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+    }
+
+    .plate-oil {
+      background: #2369c9;
+      border-color: #1853a5;
+    }
+
+    .plate-electric {
+      background: #18a66b;
+      border-color: #0d8653;
+    }
+
+    .step-name,
+    .count-value {
+      display: block;
+      text-align: center;
+      color: var(--green);
+      font-size: 16px;
+      line-height: 22px;
+      font-weight: 650;
+    }
+
+    .damage-sub {
+      margin-top: 4px;
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .action {
+      border: 0;
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 8px 10px;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 650;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .action.primary {
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(31, 143, 95, 0.25);
+    }
+
+    .action.secondary {
+      background: #fff;
+      color: var(--green);
+      border: 1px solid rgba(31, 143, 95, 0.38);
+      box-shadow: 0 2px 8px rgba(23, 35, 27, 0.04);
+    }
+
+    .action .small {
+      display: block;
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 500;
+      color: rgba(19, 120, 78, 0.78);
+      margin-top: 1px;
+    }
+
+    .camera {
+      position: relative;
+      width: 520px;
+      height: 300px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(23, 35, 27, 0.18);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 40%),
+        radial-gradient(circle at 70% 40%, rgba(76, 105, 82, 0.65), transparent 32%),
+        linear-gradient(160deg, var(--camera-dark), var(--camera-mid));
+    }
+
+    .camera::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.28;
+    }
+
+    .guide {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 172px;
+      height: 132px;
+      transform: translate(-50%, -50%);
+      border: 4px solid rgba(46, 195, 124, 0.92);
+      border-radius: 8px;
+      box-shadow: 0 0 0 999px rgba(0,0,0,0.14);
+    }
+
+    .guide-tip {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.56);
+      color: #fff;
+      border-radius: 16px;
+      padding: 7px 16px;
+      font-size: 14px;
+      line-height: 18px;
+      white-space: nowrap;
+    }
+
+    .shutter {
+      width: 86px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .shutter-button {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 5px solid #fff;
+      background: var(--green);
+      box-shadow: 0 3px 12px rgba(31, 143, 95, 0.32);
+    }
+
+    .shutter-text {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .notes {
+      display: grid;
+      gap: 12px;
+    }
+
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 14px;
+    }
+
+    .note h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      line-height: 20px;
+    }
+
+    .note p,
+    .note li {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .note p {
+      margin: 0;
+    }
+
+    .note ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 4px;
+      background: #fff7e8;
+      color: #865a17;
+      font-size: 12px;
+      font-weight: 650;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .stage {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div>
+      <h1>辅助拍照拍照页 UI 方案</h1>
+      <p>左侧车辆信息拆成角色与车牌两层，车损完成按钮按是否还有下一辆车切换。</p>
+    </div>
+    <div class="controls" aria-label="预览状态">
+      <button class="control active" data-case="first">第 1 辆，有下一辆</button>
+      <button class="control" data-case="middle">第 2 辆，有下一辆</button>
+      <button class="control" data-case="last">最后 1 辆</button>
+      <button class="control" data-case="long">长车牌压力</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="device-wrap">
+      <div class="device" role="img" aria-label="拍照页横屏设计稿">
+        <div class="mini-page">
+          <aside class="info-area">
+            <div class="info-block vehicle-card">
+              <span class="label">当前车辆</span>
+              <span class="vehicle-role" id="vehicleRole">标的车</span>
+              <span class="plate-pill plate-oil" id="plateNo">京A12345</span>
+            </div>
+
+            <div class="info-block">
+              <span class="label">车损照片</span>
+              <span class="count-value" id="damageCount">1/5 张</span>
+              <span class="damage-sub" id="vehicleProgress">1/3 辆</span>
+            </div>
+
+            <button class="action primary" type="button">查看已拍</button>
+            <button class="action secondary" type="button" id="finishButton">
+              下一辆车
+              <span class="small" id="finishSub">完成本车，拍第 2 辆</span>
+            </button>
+          </aside>
+
+          <section class="camera">
+            <div class="guide-tip">请对准车损处，稳定后自动拍照</div>
+            <div class="guide"></div>
+          </section>
+
+          <aside class="shutter">
+            <div class="shutter-button"></div>
+            <div class="shutter-text">手动拍照</div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <aside class="notes">
+      <div class="note">
+        <span class="state-badge" id="stateBadge">推荐状态</span>
+        <h2>这版解决的问题</h2>
+        <ul>
+          <li>车牌独立成绿色浅底标签，不再和“标的车”挤在一行。</li>
+          <li>按钮文案短，主文案只放“下一辆车 / 去预览”。</li>
+          <li>辅文案说明动作结果，不让用户误以为直接提交。</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h2>交互规则</h2>
+        <p id="ruleText">当前车已拍至少 1 张车损，且还有下一辆车时，点击“下一辆车”进入下一辆车车牌步骤。</p>
+      </div>
+      <div class="note">
+        <h2>实现时的映射</h2>
+        <p>角色来自 <code>vehicleRoleName</code>，车牌来自 <code>licenseNo</code>。如果没有车牌，标签显示“车牌待确认”。</p>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const state = {
+      first: {
+        role: '标的车',
+        plate: '京A12345',
+        plateClass: 'plate-oil',
+        count: '1/5 张',
+        progress: '1/3 辆',
+        button: '下一辆车',
+        sub: '完成本车，拍第 2 辆',
+        badge: '推荐状态',
+        rule: '当前车已拍至少 1 张车损，且还有下一辆车时，点击“下一辆车”进入下一辆车车牌步骤。'
+      },
+      middle: {
+        role: '三者车',
+        plate: '京B12345',
+        plateClass: 'plate-oil',
+        count: '2/5 张',
+        progress: '2/3 辆',
+        button: '下一辆车',
+        sub: '完成本车，拍第 3 辆',
+        badge: '多车中间态',
+        rule: '第 2 辆车完成车损后仍不进预览，直接进入第 3 辆车的车牌拍摄。'
+      },
+      last: {
+        role: '三者车',
+        plate: '京C12345',
+        plateClass: 'plate-oil',
+        count: '1/5 张',
+        progress: '3/3 辆',
+        button: '去预览',
+        sub: '全部车辆已拍完',
+        badge: '最后一辆',
+        rule: '最后一辆车完成车损后，按钮切换为“去预览”，点击后才进入照片预览页。'
+      },
+      long: {
+        role: '三者车',
+        plate: '京AD12345',
+        plateClass: 'plate-electric',
+        count: '5/5 张',
+        progress: '2/3 辆',
+        button: '下一辆车',
+        sub: '满 5 张后仍等用户确认',
+        badge: '长车牌压力',
+        rule: '长车牌会在标签内自动收紧和换行，不再撑破左侧容器；辅助拍照模式满 5 张也不自动跳预览。'
+      }
+    }
+
+    function applyCase(key) {
+      const item = state[key]
+      const plateNo = document.getElementById('plateNo')
+      document.getElementById('vehicleRole').textContent = item.role
+      plateNo.textContent = item.plate
+      plateNo.className = `plate-pill ${item.plateClass}`
+      document.getElementById('damageCount').textContent = item.count
+      document.getElementById('vehicleProgress').textContent = item.progress
+      document.getElementById('finishButton').firstChild.nodeValue = item.button
+      document.getElementById('finishSub').textContent = item.sub
+      document.getElementById('stateBadge').textContent = item.badge
+      document.getElementById('ruleText').textContent = item.rule
+
+      document.querySelectorAll('.control').forEach((button) => {
+        button.classList.toggle('active', button.dataset.case === key)
+      })
+    }
+
+    document.querySelectorAll('.control').forEach((button) => {
+      button.addEventListener('click', () => applyCase(button.dataset.case))
+    })
+  </script>
+</body>
+</html>

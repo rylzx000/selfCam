@@ -108,6 +108,7 @@ describe('camera responsive layout', () => {
     expect(layout.cameraWidth / layout.cameraHeight).toBeCloseTo(4 / 3, 4)
     expect(layout.cameraWidth).toBeGreaterThanOrEqual(448)
     expect(layout.cameraHeight).toBeGreaterThanOrEqual(336)
+    expect(layout.sideWidth).toBeCloseTo(134.68, 1)
     expect(layout.sideWidth).toBeGreaterThanOrEqual(134)
     expect(layout.gap).toBeGreaterThanOrEqual(26)
     expect(pageConfig.getPlateCaptureBox()).toEqual({

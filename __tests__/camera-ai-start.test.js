@@ -50,6 +50,10 @@ describe('camera AI detection start timing', () => {
       loadCache: jest.fn(() => cache),
       loadCacheForResume: jest.fn(() => cache),
       saveCache: jest.fn(),
+      clearPreviewFlags: jest.fn((targetCache) => ({
+        ...targetCache,
+        fromPreview: false
+      })),
       isRetakeMode: jest.fn(() => false),
       normalizePhotoMeta: jest.fn((photo, meta) => ({
         ...photo,
@@ -61,10 +65,22 @@ describe('camera AI detection start timing', () => {
       getCurrentFlowContext: jest.fn((targetCache) => ({
         hasVehicles: true,
         hasRetakeContext: false,
+        auxPhotoEnabled: !!(targetCache.auxPhoto && targetCache.auxPhoto.enabled),
         currentStep: targetCache.currentStep,
         currentVehicleIndex: targetCache.currentVehicleIndex,
         currentVehicle: targetCache.vehicles[targetCache.currentVehicleIndex],
         currentVehicleType: targetCache.vehicles[targetCache.currentVehicleIndex].type,
+        currentVehicleRoleName: targetCache.vehicles[targetCache.currentVehicleIndex].vehicleRoleName || targetCache.vehicles[targetCache.currentVehicleIndex].type,
+        currentVehiclePlateNo: targetCache.vehicles[targetCache.currentVehicleIndex].licenseNo || '',
+        currentVehiclePlateTheme: targetCache.vehicles[targetCache.currentVehicleIndex].vehiclePlateTheme || 'oil',
+        currentVehicleProgressText: targetCache.auxPhoto && targetCache.auxPhoto.enabled
+          ? `${targetCache.currentVehicleIndex + 1}/${targetCache.vehicles.length} 辆`
+          : '',
+        hasNextVehicle: !!(targetCache.auxPhoto && targetCache.auxPhoto.enabled && targetCache.currentVehicleIndex < targetCache.vehicles.length - 1),
+        nextVehicleIndex: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1 ? targetCache.currentVehicleIndex + 1 : null,
+        finishDamageText: targetCache.auxPhoto && targetCache.auxPhoto.enabled && targetCache.currentVehicleIndex < targetCache.vehicles.length - 1
+          ? '下一辆车'
+          : '去预览',
         guideTip: constants.GUIDE_TIPS[targetCache.currentStep],
         damageCount: targetCache.vehicles[targetCache.currentVehicleIndex].damages.length,
         workflowState: 'CAPTURING'
@@ -114,6 +130,15 @@ describe('camera AI detection start timing', () => {
     global.wx = {
       hideLoading: jest.fn(),
       showToast: jest.fn(),
+      navigateTo: jest.fn(({ success } = {}) => {
+        if (success) success()
+      }),
+      redirectTo: jest.fn(({ success } = {}) => {
+        if (success) success()
+      }),
+      reLaunch: jest.fn(({ success } = {}) => {
+        if (success) success()
+      }),
       getSystemInfoSync: jest.fn(() => ({
         model: 'iPhone 15',
         system: 'iOS 17.0',
@@ -127,6 +152,7 @@ describe('camera AI detection start timing', () => {
       pageConfig = config
       return config
     })
+    global.getCurrentPages = jest.fn(() => [])
 
     jest.doMock('../utils/storage', () => storage)
     jest.doMock('../utils/cache-selectors', () => cacheSelectors)
@@ -265,6 +291,7 @@ describe('camera AI detection start timing', () => {
   afterEach(() => {
     delete global.wx
     delete global.Page
+    delete global.getCurrentPages
     jest.clearAllMocks()
     jest.dontMock('../utils/storage')
     jest.dontMock('../utils/cache-selectors')
@@ -306,6 +333,18 @@ describe('camera AI detection start timing', () => {
     const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
 
     expect(cameraWxml).toContain('frame-size="medium"')
+  })
+
+  test('camera component renders split vehicle role, plate and dynamic finish action fields', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).toContain('{{vehicleRoleName}}')
+    expect(cameraWxml).toContain('{{vehiclePlateNo}}')
+    expect(cameraWxml).toContain('vehicle-plate-{{vehiclePlateTheme}}')
+    expect(cameraWxml).toContain('{{vehicleProgressText}}')
+    expect(cameraWxml).toContain('{{finishDamageText}}')
   })
 
   test('starts and stops camera frame listener for AI preview frames', () => {
@@ -705,6 +744,116 @@ describe('camera AI detection start timing', () => {
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
     expect(instance.resetAIState).toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_vin_to_damage')
+  })
+
+  test('aux photo finish damage advances to next vehicle instead of preview', () => {
+    cache = {
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      currentDamageCount: 1,
+      vehicles: [
+        {
+          type: '标的车',
+          vehicleRoleName: '标的车',
+          licenseNo: '京A12345',
+          damages: [{ compressedPath: '/tmp/damage-1.jpg' }]
+        },
+        {
+          type: '三者车',
+          vehicleRoleName: '三者车',
+          licenseNo: '京B12345',
+          damages: []
+        }
+      ]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        damageCount: 1,
+        isNavigating: false,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentDamageCount).toBe(0)
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      currentVehicleIndex: 1,
+      currentStep: constants.SHOOT_STEP.LICENSE_PLATE
+    }))
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.data.vehicleRoleName).toBe('三者车')
+    expect(instance.data.vehiclePlateNo).toBe('京B12345')
+    expect(instance.data.vehicleProgressText).toBe('2/2 辆')
+    expect(instance.data.finishDamageText).toBe('去预览')
+    expect(instance.data.isNavigating).toBe(false)
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('finish_damage_next_vehicle')
+  })
+
+  test('aux photo max damage stays on current vehicle and waits for next action', () => {
+    cache = {
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      currentDamageCount: 4,
+      vehicles: [
+        {
+          type: '标的车',
+          vehicleRoleName: '标的车',
+          licenseNo: '京A12345',
+          damages: [
+            { compressedPath: '/tmp/damage-1.jpg' },
+            { compressedPath: '/tmp/damage-2.jpg' },
+            { compressedPath: '/tmp/damage-3.jpg' },
+            { compressedPath: '/tmp/damage-4.jpg' }
+          ]
+        },
+        {
+          type: '三者车',
+          vehicleRoleName: '三者车',
+          licenseNo: '京B12345',
+          damages: []
+        }
+      ]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/damage-5.jpg'
+        },
+        damageCount: 4,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cache.vehicles[0].damages).toHaveLength(5)
+    expect(instance.data.showConfirmModal).toBe(false)
+    expect(instance.data.pendingPhoto).toBeNull()
+    expect(instance.data.damageCount).toBe(5)
+    expect(instance.data.finishDamageText).toBe('下一辆车')
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
   })
 
   test('continues confirmation without saving confirmed photo to album', async () => {
