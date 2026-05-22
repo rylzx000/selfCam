@@ -156,6 +156,20 @@ function computeResponsiveCameraLayout(info = {}) {
       ['padding-bottom', 14 * uiScale],
       ['padding-left', 12 * uiScale]
     ]),
+    vehicleCardStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 10 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 10 * uiScale],
+      ['padding-left', 10 * uiScale]
+    ]),
+    damageCardStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 10 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 10 * uiScale],
+      ['padding-left', 10 * uiScale]
+    ]),
     labelTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 12 * uiScale],
       ['margin-bottom', 4 * uiScale]
@@ -172,6 +186,13 @@ function computeResponsiveCameraLayout(info = {}) {
       ['padding-right', 12 * uiScale],
       ['padding-bottom', 10 * uiScale],
       ['padding-left', 12 * uiScale]
+    ]),
+    sideActionButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 8 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 8 * uiScale],
+      ['padding-left', 10 * uiScale]
     ]),
     actionButtonTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 14 * uiScale]

@@ -347,6 +347,16 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('{{finishDamageText}}')
   })
 
+  test('camera component keeps vehicle progress out of the plate card', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).not.toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress">{{vehicleProgressText}}</text>')
+    expect(cameraWxml).toContain('class="damage-count-header"')
+    expect(cameraWxml).toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>')
+  })
+
   test('starts and stops camera frame listener for AI preview frames', () => {
     let frameHandler = null
     const start = jest.fn(({ success } = {}) => {

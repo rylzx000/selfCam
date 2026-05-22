@@ -2,11 +2,10 @@
   <view class="page-glow"></view>
 
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
-    <view class="vehicle-info" style="{{cameraLayout.cardStyle}}">
+    <view class="vehicle-info" style="{{cameraLayout.vehicleCardStyle}}">
       <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
       <view class="vehicle-main">
         <text class="vehicle-role" style="{{cameraLayout.primaryTextStyle}}">{{vehicleRoleName}}</text>
-        <text wx:if="{{vehicleProgressText}}" class="vehicle-progress">{{vehicleProgressText}}</text>
       </view>
       <text class="vehicle-plate vehicle-plate-{{vehiclePlateTheme}}">{{vehiclePlateNo}}</text>
     </view>
@@ -16,11 +15,13 @@
       <text class="step-name" style="{{cameraLayout.secondaryTextStyle}}">{{currentStep === 'licensePlate' ? '1、车牌号' : '2、VIN码'}}</text>
     </view>
 
-    <view wx:if="{{currentStep === 'damage'}}" class="damage-info" style="{{cameraLayout.cardStyle}}">
+    <view wx:if="{{currentStep === 'damage'}}" class="damage-info" style="{{cameraLayout.damageCardStyle}}">
       <view class="damage-count">
-        <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
+        <view class="damage-count-header">
+          <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
+          <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
+        </view>
         <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/5 张</text>
-        <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
       </view>
 
       <view wx:if="{{damageCount === 0}}" class="damage-tip">
@@ -28,11 +29,11 @@
       </view>
     </view>
 
-    <view class="preview-btn" style="{{cameraLayout.actionButtonStyle}}" bindtap="onGoPreview">
+    <view class="preview-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onGoPreview">
       <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">查看已拍</text>
     </view>
 
-    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.actionButtonStyle}}" bindtap="onFinishDamage">
+    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
       <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
     </view>
   </view>
