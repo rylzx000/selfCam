@@ -34,6 +34,36 @@ page {
   pointer-events: none;
 }
 
+.vehicle-switch-mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(247, 250, 248, 0.16);
+}
+
+.vehicle-switch-card {
+  max-width: 520rpx;
+  box-sizing: border-box;
+  padding: 12rpx 22rpx;
+  border-radius: 18rpx;
+  background-color: rgba(33, 33, 33, 0.78);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.18);
+}
+
+.vehicle-switch-text {
+  color: #FFFFFF;
+  font-size: 16rpx;
+  font-weight: 500;
+  line-height: 24rpx;
+  white-space: nowrap;
+}
+
 /* 宸︿晶淇℃伅鍖?*/
 .info-area {
   position: relative;

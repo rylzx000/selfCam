@@ -44,6 +44,7 @@ const CAMERA_BASE_RPX_WIDTH = 750
 const CAMERA_BASE_TOTAL_RPX_WIDTH = 32 * 2 + 120 * 2 + 24 * 2 + CAMERA_VIRTUAL_WIDTH
 const CAMERA_BASE_TOTAL_RPX_HEIGHT = 20 * 2 + CAMERA_VIRTUAL_HEIGHT
 const AUTO_CAPTURE_GATE_LOG_INTERVAL_MS = 4000
+const VEHICLE_SWITCH_DELAY_MS = 600
 const CAPTURE_BOX = {
   plate: {
     widthRatio: 0.5,
@@ -343,6 +344,17 @@ function buildCameraVehicleFields(flowContext = {}) {
   }
 }
 
+function buildVehicleSwitchText(flowContext = {}) {
+  const currentVehicleNo = Number.isInteger(flowContext.currentVehicleIndex)
+    ? flowContext.currentVehicleIndex + 1
+    : 1
+  const nextVehicleNo = Number.isInteger(flowContext.nextVehicleIndex)
+    ? flowContext.nextVehicleIndex + 1
+    : currentVehicleNo + 1
+
+  return `第 ${currentVehicleNo} 辆已完成，进入第 ${nextVehicleNo} 辆车`
+}
+
 function getSystemInfoSnapshot() {
   try {
     if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
@@ -383,6 +395,8 @@ Page({
     vehiclePlateTheme: 'unknown',
     vehicleProgressText: '',
     finishDamageText: '完成拍摄',
+    vehicleSwitching: false,
+    vehicleSwitchText: '',
     damageCount: 0,
     showConfirmModal: false,
     qualityHintText: '',
@@ -409,6 +423,7 @@ Page({
   },
 
   cameraContext: null,
+  vehicleSwitchTimer: null,
   isLeaving: false,  // 闂傚倸鍊搁崐鎼佸磹妞嬪海鐭嗗〒姘ｅ亾妤犵偞鐗犻、鏇㈠Χ閸屾矮澹曞┑顔矫畷顒勫储鐎电硶鍋撶憴鍕妞ゎ偄顦遍埀顒勬涧閵堢顕ｉ崼鏇炵闁绘ê鐏氬В搴㈢節閻㈤潧浠╅柟娲讳簽瀵板﹪鎳為妷褏褰炬繝鐢靛Т閸嬪棝鎮為挊澹濆綊鎮℃惔锝嗘喖闂佺粯鎸堕崕鑼崲濠靛顥堟繛鎴炵懐濡繝姊洪棃鈺冪ɑ婵＄偠妫勮灋闁告稒鎯岄弫鍡楊熆鐠虹尨宸ユい顐亞缁辨挻鎷呮禒瀣懙闁汇埄鍨埀顒€纾弳锕傛煙閻戞ê鐏嶉柡鈧禒瀣厵闂侇叏绠戞晶顖涖亜閺傚灝顏紒杈ㄦ崌瀹曟帒鈻庨幇顔哄仒濠碉紕鍋涢悺銊╁箖閸屾氨鏆︾憸鐗堝笒闁卞洭鏌￠崶鈺佲偓锝夋晝閸屾稓鍘遍梺鍝勬储閸斿矂鎮橀敓鐘崇厱閻庯絻鍔屾慨鍌炴煛鐏炲墽鈽夐柍钘夘槸椤粓宕奸悢鍛婃瘞闂?
   detectTimer: null,
   plateBlinkTimer: null,
@@ -480,6 +495,7 @@ Page({
   },
 
   onHide() {
+    this.cancelVehicleSwitchTransition(true)
     this.cancelPlateHintClear()
     this.stopPlateBlink()
     this.stopAIFrameListener('page_hide')
@@ -491,6 +507,7 @@ Page({
       hasPendingPhoto: !!this.data.pendingPhoto,
       showConfirmModal: this.data.showConfirmModal
     })
+    this.cancelVehicleSwitchTransition(false)
     this.cancelPlateHintClear()
     this.stopPlateBlink()
     this.stopAIDetectionLoop()
@@ -501,6 +518,25 @@ Page({
       this.savePendingPhotoBeforeLeave()
     }
     runtimeLogger.endSession('camera', { reason: 'page_unload' })
+  },
+
+  clearVehicleSwitchTimer() {
+    if (this.vehicleSwitchTimer) {
+      clearTimeout(this.vehicleSwitchTimer)
+      this.vehicleSwitchTimer = null
+    }
+  },
+
+  cancelVehicleSwitchTransition(resetData = false) {
+    this.clearVehicleSwitchTimer()
+    if (resetData && this.data.vehicleSwitching) {
+      this.isLeaving = false
+      this.setData({
+        vehicleSwitching: false,
+        vehicleSwitchText: '',
+        isNavigating: false
+      })
+    }
   },
 
   shouldShowAIDebug() {
@@ -2260,37 +2296,48 @@ Page({
       && flowContext.hasNextVehicle
       && Number.isInteger(flowContext.nextVehicleIndex)
     ) {
-      cache.currentVehicleIndex = flowContext.nextVehicleIndex
-      cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
-      cache.currentDamageCount = 0
-      const nextCache = storage.clearPreviewFlags(cache)
-      storage.saveCache(nextCache)
-      const nextFlowContext = cacheSelectors.getCurrentFlowContext(nextCache)
-
-      this.isLeaving = false
-      this.resetAIState()
+      this.clearVehicleSwitchTimer()
       this.setData({
-        ...buildCameraVehicleFields(nextFlowContext),
-        isNavigating: false,
-        showConfirmModal: false,
-        pendingPhoto: null,
-        qualityHintText: '',
-        currentStep: nextFlowContext.currentStep,
-        guideTip: nextFlowContext.guideTip,
-        damageCount: nextFlowContext.damageCount,
-        plateFrameState: 'normal',
-        plateDistanceHint: '',
-        damageDistanceHint: '',
-        damageFrameState: 'normal',
-        damagePhaseLabel: '',
-        damageAreaRatioText: ''
-      }, () => {
-        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-          page: 'camera',
-          step: nextFlowContext.currentStep
-        })
-        this.resumeAIDetectionAfterStepReady('finish_damage_next_vehicle')
+        vehicleSwitching: true,
+        vehicleSwitchText: buildVehicleSwitchText(flowContext)
       })
+
+      this.vehicleSwitchTimer = setTimeout(() => {
+        this.vehicleSwitchTimer = null
+        cache.currentVehicleIndex = flowContext.nextVehicleIndex
+        cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+        cache.currentDamageCount = 0
+        const nextCache = storage.clearPreviewFlags(cache)
+        storage.saveCache(nextCache)
+        const nextFlowContext = cacheSelectors.getCurrentFlowContext(nextCache)
+
+        this.isLeaving = false
+        this.resetAIState()
+        this.setData({
+          ...buildCameraVehicleFields(nextFlowContext),
+          isNavigating: false,
+          vehicleSwitching: false,
+          vehicleSwitchText: '',
+          showConfirmModal: false,
+          pendingPhoto: null,
+          qualityHintText: '',
+          currentStep: nextFlowContext.currentStep,
+          guideTip: nextFlowContext.guideTip,
+          damageCount: nextFlowContext.damageCount,
+          plateFrameState: 'normal',
+          plateDistanceHint: '',
+          damageDistanceHint: '',
+          damageFrameState: 'normal',
+          damagePhaseLabel: '',
+          damageAreaRatioText: ''
+        }, () => {
+          workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+            page: 'camera',
+            step: nextFlowContext.currentStep
+          })
+          this.resumeAIDetectionAfterStepReady('finish_damage_next_vehicle')
+        })
+      }, VEHICLE_SWITCH_DELAY_MS)
       return
     }
 

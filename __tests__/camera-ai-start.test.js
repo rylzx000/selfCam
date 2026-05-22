@@ -255,6 +255,7 @@ describe('camera AI detection start timing', () => {
       isLeaving: false,
       cameraInitialized: true,
       cameraContext: {},
+      vehicleSwitchTimer: null,
       detectTimer: null,
       aiBusy: false,
       setData(updates, callback) {
@@ -278,6 +279,8 @@ describe('camera AI detection start timing', () => {
       logAutoCaptureReady: pageConfig.logAutoCaptureReady,
       logAiModelConfig: pageConfig.logAiModelConfig,
       reportAiUnavailable: pageConfig.reportAiUnavailable,
+      clearVehicleSwitchTimer: pageConfig.clearVehicleSwitchTimer,
+      cancelVehicleSwitchTransition: pageConfig.cancelVehicleSwitchTransition,
       resumeAIDetectionAfterStepReady: jest.fn(),
       resetAIState: jest.fn(),
       ...overrides
@@ -355,6 +358,15 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).not.toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress">{{vehicleProgressText}}</text>')
     expect(cameraWxml).toContain('class="damage-count-header"')
     expect(cameraWxml).toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>')
+  })
+
+  test('camera component renders vehicle switch transition copy', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).toContain('wx:if="{{vehicleSwitching}}"')
+    expect(cameraWxml).toContain('{{vehicleSwitchText}}')
   })
 
   test('starts and stops camera frame listener for AI preview frames', () => {
@@ -756,7 +768,8 @@ describe('camera AI detection start timing', () => {
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_vin_to_damage')
   })
 
-  test('aux photo finish damage advances to next vehicle instead of preview', () => {
+  test('aux photo finish damage shows transition before advancing to next vehicle', () => {
+    jest.useFakeTimers()
     cache = {
       auxPhoto: {
         enabled: true,
@@ -792,23 +805,39 @@ describe('camera AI detection start timing', () => {
       }
     })
 
-    pageConfig.onFinishDamage.call(instance)
+    try {
+      pageConfig.onFinishDamage.call(instance)
 
-    expect(cache.currentVehicleIndex).toBe(1)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
-    expect(cache.currentDamageCount).toBe(0)
-    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
-      currentVehicleIndex: 1,
-      currentStep: constants.SHOOT_STEP.LICENSE_PLATE
-    }))
-    expect(global.wx.navigateTo).not.toHaveBeenCalled()
-    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
-    expect(instance.data.vehicleRoleName).toBe('三者车')
-    expect(instance.data.vehiclePlateNo).toBe('京B12345')
-    expect(instance.data.vehicleProgressText).toBe('2/2 辆')
-    expect(instance.data.finishDamageText).toBe('去预览')
-    expect(instance.data.isNavigating).toBe(false)
-    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('finish_damage_next_vehicle')
+      expect(cache.currentVehicleIndex).toBe(0)
+      expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+      expect(instance.data.vehicleSwitching).toBe(true)
+      expect(instance.data.vehicleSwitchText).toBe('第 1 辆已完成，进入第 2 辆车')
+      expect(instance.data.isNavigating).toBe(true)
+      expect(storage.saveCache).not.toHaveBeenCalled()
+      expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
+
+      jest.advanceTimersByTime(600)
+
+      expect(cache.currentVehicleIndex).toBe(1)
+      expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+      expect(cache.currentDamageCount).toBe(0)
+      expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+        currentVehicleIndex: 1,
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE
+      }))
+      expect(global.wx.navigateTo).not.toHaveBeenCalled()
+      expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+      expect(instance.data.vehicleRoleName).toBe('三者车')
+      expect(instance.data.vehiclePlateNo).toBe('京B12345')
+      expect(instance.data.vehicleProgressText).toBe('2/2 辆')
+      expect(instance.data.finishDamageText).toBe('去预览')
+      expect(instance.data.vehicleSwitching).toBe(false)
+      expect(instance.data.vehicleSwitchText).toBe('')
+      expect(instance.data.isNavigating).toBe(false)
+      expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('finish_damage_next_vehicle')
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   test('aux photo max damage stays on current vehicle and waits for next action', () => {

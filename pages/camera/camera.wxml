@@ -1,6 +1,12 @@
 <view class="container" style="{{cameraLayout.containerStyle}}">
   <view class="page-glow"></view>
 
+  <view wx:if="{{vehicleSwitching}}" class="vehicle-switch-mask">
+    <view class="vehicle-switch-card">
+      <text class="vehicle-switch-text">{{vehicleSwitchText}}</text>
+    </view>
+  </view>
+
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
     <view class="vehicle-info" style="{{cameraLayout.vehicleCardStyle}}">
       <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
