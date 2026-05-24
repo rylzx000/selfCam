@@ -14,11 +14,15 @@ Component({
     },
     confirmText: {
       type: String,
-      value: '确定'
+      value: '\u786e\u5b9a'
     },
     cancelText: {
       type: String,
-      value: '取消'
+      value: '\u53d6\u6d88'
+    },
+    showCancel: {
+      type: Boolean,
+      value: true
     }
   },
 

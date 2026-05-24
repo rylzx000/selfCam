@@ -2,9 +2,12 @@
   <view class="page-glow"></view>
 
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
-    <view class="vehicle-info" style="{{cameraLayout.cardStyle}}">
+    <view class="vehicle-info" style="{{cameraLayout.vehicleCardStyle}}">
       <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
-      <text class="vehicle-name" style="{{cameraLayout.primaryTextStyle}}">{{vehicleType}}</text>
+      <view class="vehicle-main">
+        <text class="vehicle-role" style="{{cameraLayout.primaryTextStyle}}">{{vehicleRoleName}}</text>
+      </view>
+      <text class="vehicle-plate vehicle-plate-{{vehiclePlateTheme}}">{{vehiclePlateNo}}</text>
     </view>
 
     <view wx:if="{{currentStep !== 'damage'}}" class="step-info" style="{{cameraLayout.cardStyle}}">
@@ -12,9 +15,12 @@
       <text class="step-name" style="{{cameraLayout.secondaryTextStyle}}">{{currentStep === 'licensePlate' ? '1、车牌号' : '2、VIN码'}}</text>
     </view>
 
-    <view wx:if="{{currentStep === 'damage'}}" class="damage-info" style="{{cameraLayout.cardStyle}}">
+    <view wx:if="{{currentStep === 'damage'}}" class="damage-info" style="{{cameraLayout.damageCardStyle}}">
       <view class="damage-count">
-        <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
+        <view class="damage-count-header">
+          <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
+          <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
+        </view>
         <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/5 张</text>
       </view>
 
@@ -23,18 +29,18 @@
       </view>
     </view>
 
-    <view class="preview-btn" style="{{cameraLayout.actionButtonStyle}}" bindtap="onGoPreview">
+    <view class="preview-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onGoPreview">
       <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">查看已拍</text>
     </view>
 
-    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.actionButtonStyle}}" bindtap="onFinishDamage">
-      <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">完成拍摄</text>
+    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
+      <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
     </view>
   </view>
 
   <view class="camera-wrapper" style="{{cameraLayout.cameraWrapperStyle}}">
     <camera
-      wx:if="{{!showConfirmModal}}"
+      wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"
       class="camera"
       device-position="back"
       flash="auto"
@@ -205,7 +211,7 @@
   </view>
 
   <view class="action-area" style="{{cameraLayout.actionAreaStyle}}">
-    <view wx:if="{{!showConfirmModal}}" class="capture-section">
+    <view wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}" class="capture-section">
       <view class="capture-btn" style="{{cameraLayout.captureButtonStyle}}" bindtap="onCapture">
         <view class="capture-inner" style="{{cameraLayout.captureInnerStyle}}"></view>
       </view>
@@ -224,6 +230,17 @@
       </view>
     </view>
   </view>
+
+  <confirm-modal
+    visible="{{showDamageCompleteModal}}"
+    content="{{damageCompleteModalContent}}"
+    confirm-text="{{damageCompleteConfirmText}}"
+    cancel-text="{{damageCompleteCancelText}}"
+    show-cancel="{{damageCompleteShowCancel}}"
+    bind:confirm="onDamageCompleteModalConfirm"
+    bind:cancel="onDamageCompleteModalCancel"
+    bind:masktap="onDamageCompleteModalMaskTap"
+  />
 
   <view wx:if="{{appEnvBadgeText}}" class="env-badge">{{appEnvBadgeText}}</view>
 </view>

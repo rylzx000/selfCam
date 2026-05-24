@@ -229,6 +229,7 @@ damage-pilot-<urlHash>.onnx
 - 是否记录、记录到什么级别、是否允许上传，统一走 `getDebugConfig()`
 - 生产环境默认关闭上传，并收紧日志级别
 - 即使日志写入或上传失败，也不能阻断拍照主流程
+- 后续在线平台错误日志上传应作为独立通道配置，区别于当前调试上传；只允许明确报错事件进入后台错误日志队列
 
 ### quality-config
 
@@ -252,6 +253,19 @@ damage-pilot-<urlHash>.onnx
 5. 远程配置读取失败时，继续回退到本地默认策略
 
 这样后续即使接入在线平台，也不会破坏当前“配置失败不能阻断主流程”的原则。
+
+在线平台错误日志接口单独按 `docs/backend-integration/error-log-api.md` 设计，不复用调试日志上传语义。后续实现时建议在 `env-config` 中补充以下独立配置：
+
+- `errorLogUploadEnabled`：是否启用在线平台错误日志上传
+- `errorLogUploadUrl`：在线平台错误日志批量上报地址
+- `errorLogBatchSize`：单批错误日志数量，默认不超过 20
+- `errorLogRequestTimeoutMs`：错误日志上传超时时间
+
+错误日志配置必须满足：
+
+- 缺少启动参数 `reportNo` 时不上报后台，只保留本地日志
+- 只上传错误事件白名单内的报错，不上传正常状态和诊断快照
+- 上传失败静默处理，不阻断拍照和完成采集主流程
 
 ## 10. 注意事项
 

@@ -16,6 +16,8 @@ const {
 } = require('../../utils/responsive-ui')
 
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
+const MAX_DAMAGES = (constants.LIMITS && constants.LIMITS.MAX_DAMAGES) || 5
+const DAMAGE_PHOTO_LIMIT_TIP = `最多${MAX_DAMAGES}张车损，请先删除`
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
 const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
 
@@ -324,11 +326,22 @@ function showTotalPhotoLimitToast() {
   })
 }
 
+function getVehicleDamageCount(vehicle) {
+  return Array.isArray(vehicle && vehicle.damages) ? vehicle.damages.length : 0
+}
+
+function showDamagePhotoLimitToast() {
+  wx.showToast({
+    title: DAMAGE_PHOTO_LIMIT_TIP,
+    icon: 'none'
+  })
+}
+
 function buildDrivingLicensePreview(vehicle, index) {
   return {
     ...vehicle,
-    previewName: index === 0 ? '您的车' : `其他出险车辆 ${index}`,
-    previewTag: index === 0 ? '标的车' : '三者车',
+    previewName: vehicle.displayName || (index === 0 ? '您的车' : `其他出险车辆 ${index}`),
+    previewTag: vehicle.vehicleRoleName || (index === 0 ? '标的车' : '三者车'),
     drivingLicensePreview: vehicleDocuments.buildDrivingLicensePreview(vehicle)
   }
 }
@@ -783,6 +796,12 @@ Page({
     if (!cache) {
       this.isLeaving = true
       wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    const targetVehicle = cache.vehicles && cache.vehicles[vehicle]
+    if (targetVehicle && getVehicleDamageCount(targetVehicle) >= MAX_DAMAGES) {
+      showDamagePhotoLimitToast()
       return
     }
 

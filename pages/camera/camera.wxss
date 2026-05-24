@@ -40,7 +40,7 @@ page {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 12rpx;
   flex-shrink: 0;
   width: 120rpx;
 }
@@ -49,7 +49,7 @@ page {
 .step-info {
   background-color: #FFFFFF;
   border-radius: 8rpx;
-  padding: 14rpx 12rpx;
+  padding: 10rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
@@ -67,7 +67,75 @@ page {
   font-size: 18rpx;
   color: #212121;
   font-weight: 500;
+  max-width: 100%;
+  line-height: 22rpx;
+  text-align: center;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.vehicle-role {
+  font-size: 18rpx;
+  color: #212121;
+  font-weight: 600;
+  max-width: 100%;
+  line-height: 22rpx;
+  text-align: center;
   white-space: nowrap;
+}
+
+.vehicle-progress {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 2rpx 6rpx;
+  border-radius: 999rpx;
+  background-color: #EEF7F0;
+  color: #2E7D32;
+  font-size: 11rpx;
+  line-height: 15rpx;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vehicle-plate {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 6rpx;
+  padding: 2rpx 6rpx;
+  border-radius: 4rpx;
+  color: #FFFFFF;
+  font-size: 14rpx;
+  line-height: 18rpx;
+  font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-plate-oil {
+  background-color: #1565C0;
+}
+
+.vehicle-plate-electric {
+  background-color: #1B8F4A;
+}
+
+.vehicle-plate-unknown {
+  background-color: #E0E0E0;
+  color: #424242;
 }
 
 .step-name {
@@ -81,7 +149,7 @@ page {
 .preview-btn {
   background-color: #4CAF50;
   border-radius: 8rpx;
-  padding: 10rpx 12rpx;
+  padding: 8rpx 10rpx;
   box-shadow: 0 2rpx 8rpx rgba(76, 175, 80, 0.3);
   display: flex;
   align-items: center;
@@ -104,7 +172,7 @@ page {
 .damage-info {
   background-color: #FFFFFF;
   border-radius: 8rpx;
-  padding: 14rpx 12rpx;
+  padding: 10rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
@@ -112,10 +180,19 @@ page {
 }
 
 .damage-count {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
+}
+
+.damage-count-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
 }
 
 .count-label {
@@ -127,6 +204,10 @@ page {
   font-size: 18rpx;
   color: #4CAF50;
   font-weight: 600;
+}
+
+.damage-progress {
+  margin-top: 0;
 }
 
 .damage-tip {
@@ -143,7 +224,7 @@ page {
   background-color: #FFFFFF;
   border: 2rpx solid #4CAF50;
   border-radius: 8rpx;
-  padding: 10rpx 12rpx;
+  padding: 8rpx 10rpx;
   display: flex;
   align-items: center;
   justify-content: center;

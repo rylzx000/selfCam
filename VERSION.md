@@ -2,45 +2,52 @@
 
 ## 当前版本
 
-**版本号**: v1.4.1
-**发布日期**: 2026-05-11
-**状态**: SIT 体验版 nova13 横屏相机适配修复
+**版本号**: v1.4.2
+**发布日期**: 2026-05-22
+**状态**: SIT 体验版辅助拍照后端初始化接入
 
 ---
 
 ## 版本概述
 
-`v1.4.1` 是基于 `v1.4.0` 的真机适配修复版本。本轮针对 nova13 / OpenHarmony 类横屏设备处理拍照页、预览页显示和 AI 自动拍照坐标问题：正常横屏机型继续沿用原有 `rpx` 样式和自动拍照手感；高分辨率或 OHOS 横屏分支才同步放大文字、按钮、提示条、缩略图和取景框边框；实时帧会先映射回固定虚拟 `400 x 300` 坐标，再进入自动拍照判定。
+`v1.4.2` 是基于 `v1.4.1` 的辅助拍照后端初始化接入版本。本轮先落地 ticket 初始化、后端车辆控制、mock 联调入口、拍照页车辆展示和多车辆拍摄流转，并补齐在线平台错误日志上传通道与接口文档。图片最终上传和完成接口仍按后续阶段继续拆分实现。
 
 ### 本版本重点
 
-- 正常机型不启用额外 UI 缩放，避免影响已验证过的展示和拍摄手感。
-- nova13 / OHOS 横屏机型启用专用 `px` 缩放，解决拍照页和预览页文字、图标、按钮、缩略图偏小问题。
-- 车牌和车损检测框先映射回虚拟 `400 x 300` 取景坐标，再复用原自动拍照阈值；正方形/窄帧按高度贴合并左右补边，宽帧继续按 aspect-fill 裁剪。
-- 新增低频实时日志，业务真机测试可在微信小程序管理后台按 `selfCam_${sessionId}` 过滤定位布局、帧映射、gate 状态和失败原因。
-- 2026-05-12 根据 nova13 业务复测日志继续修正 UI 缩放和 `480 x 480` 实时帧映射。
+- 小程序可通过启动参数 `ticket` 初始化辅助拍照任务，车辆数量、车牌号和拍照项以后端返回为准。
+- 开发/体验环境支持 `mock-1`、`mock-2`、`mock-3` 模拟不同车辆数，便于未联调时验证前端受接口控制。
+- 辅助拍照链路不允许前端新增或删除三者车；拍照页展示车辆角色、车牌标签和当前车辆进度。
+- 车损阶段支持“下一辆车”直接切换到下一辆车车牌拍摄，最后一辆再进入预览。
+- 错误日志上传按 `reportNo` 关联，只上传白名单内明确报错，不影响主流程。
 
-## v1.4.1 变更摘要
+## v1.4.2 变更摘要
 
-### nova13 横屏 UI 与自动拍照
+### 辅助拍照初始化与车辆控制
 
-- `pages/camera/camera.js` 新增高分辨率/OHOS 横屏 UI 缩放分支，普通 iOS/Android 横屏仍保持原 WXSS 表现。
-- `pages/camera/camera.wxml` 将缩放 style 绑定到现有文字、按钮、提示条和取景框元素。
-- `pages/preview/preview.js` 与 `pages/preview/preview.wxml` 接入同一套缩放规则，覆盖预览页主列表、行驶证面板和全屏预览浮层。
-- `utils/frame-utils.js` 新增实时帧到虚拟相机坐标的映射工具，4:3 帧沿用旧逻辑，宽帧按 aspect-fill 裁剪换算，正方形/窄帧按高度贴合并左右补边。
-- `utils/damage-tracker.js` 与 `utils/damage-auto-capture-engine.js` 接入映射后的车损框坐标。
-- `utils/runtime-logger.js` 扩展实时日志白名单，支持低频上报布局、帧映射和自动拍照 gate 诊断字段。
+- `app.js` 读取并缓存启动参数中的 `reportNo` 与 `ticket`。
+- `pages/index/index.js` 在有 `ticket` 时调用辅助拍照初始化接口，并将后端车辆映射为本地缓存。
+- `utils/aux-photo-api.js`、`utils/aux-photo-mapper.js`、`utils/aux-photo-mock.js` 新增辅助拍照 init、mock 和车辆字段映射能力。
+- `utils/cache-selectors.js` 新增辅助拍照车辆锁定、后端显示名、车牌主题、车辆进度和动态按钮文案。
 
-### 版本与文档同步
+### 拍照页与预览页
 
-- `package.json` 与 `package-lock.json` 版本号提升到 `1.4.1`。
-- `CHANGELOG.md`、`PRDS/` 与 `docs/` 已同步本轮 nova13 横屏适配、AI 坐标映射和实时日志诊断说明。
+- `pages/camera/camera.wxml`、`pages/camera/camera.wxss` 拆分车辆角色和车牌标签，油车蓝底、电车绿底，避免角色和车牌拼接溢出。
+- `pages/camera/camera.js` 在辅助拍照模式下支持车损完成后直接进入下一辆车；最后一辆再进入预览，拍满 5 张车损时不自动跳走。
+- `pages/preview/preview.js` 与 `pages/preview/preview.wxml` 优先展示后端车辆显示名，继续兼容车辆级行驶证资料。
+
+### 错误日志与后台文档
+
+- `utils/runtime-logger.js` 增加在线平台错误上传队列、白名单过滤、`reportNo` 关联和批量请求构造。
+- `utils/env-config.js` 增加辅助拍照接口与错误日志接口配置入口。
+- 新增 `docs/backend-integration/` 和辅助拍照接口对接文档，覆盖错误日志、ticket 初始化、车辆拍照项、上传和完成接口约定。
+- `package.json` 与 `package-lock.json` 版本号提升到 `1.4.2`。
 
 ### 测试与验证
 
-- `node --check pages\camera\camera.js pages\preview\preview.js utils\frame-utils.js utils\runtime-logger.js utils\responsive-ui.js`：通过。
-- `npm test -- --runInBand`：23 个测试套件、229 个用例通过。
-- `npm run test:automator`：本机微信开发者工具自动化连接异常，命令 244 秒超时；`node e2e\test-launch.js` 报无法拉起微信开发者工具，单条 smoke 报 `Connection closed, check if wechat web devTools is still running`。
+- `node --check` 覆盖辅助拍照、相机页、首页、预览页、环境配置和运行日志核心 JS 文件：通过。
+- `npm test -- --runInBand`：27 个测试套件、254 个用例通过。
+- `npm run test:automator:smoke`：微信开发者工具自动化关键链路通过。
+- 微信开发者工具临时 mock ticket 验证：`mock-2` 第一辆车切第二辆车通过，`mock-3` 绿牌和最后 `去预览` 通过。
 
 ---
 
@@ -48,6 +55,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.2 | 2026-05-22 | SIT 体验版辅助拍照后端初始化接入 | ticket 初始化、后端车辆控制、相机多车辆流转、错误日志上传和接口文档同步 |
 | v1.4.1 | 2026-05-11 | SIT 体验版 nova13 横屏相机适配修复 | OpenHarmony 横屏 UI 缩放、拍照页/预览页适配、实时帧坐标映射和低频 AI 几何诊断日志 |
 | v1.4.0 | 2026-05-10 | SIT 体验版图片本机保存模式调整 | 相册保存后移到完成采集最终确认，支持保存记录、增量保存和完成页结果提示 |
 | v1.3.8 | 2026-05-09 | SIT 体验版模型加载修复 | 车牌/车损推理创建前记录推理环境，并统一使用 `precisionLevel=0`、禁用 NPU 与量化 |

@@ -25,6 +25,76 @@ function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0
 }
 
+function isAuxPhotoEnabled(cache) {
+  return !!(cache && cache.auxPhoto && cache.auxPhoto.enabled === true)
+}
+
+function getVehicleDisplayName(vehicle, fallback = constants.VEHICLE_TYPE.TARGET) {
+  if (isNonEmptyString(vehicle && vehicle.displayName)) {
+    return vehicle.displayName
+  }
+
+  if (isNonEmptyString(vehicle && vehicle.type)) {
+    return vehicle.type
+  }
+
+  return fallback
+}
+
+function getVehicleRoleName(vehicle, fallback = constants.VEHICLE_TYPE.TARGET) {
+  if (isNonEmptyString(vehicle && vehicle.vehicleRoleName)) {
+    return vehicle.vehicleRoleName
+  }
+
+  if (isNonEmptyString(vehicle && vehicle.type)) {
+    return vehicle.type
+  }
+
+  return fallback
+}
+
+function getVehiclePlateNo(vehicle) {
+  return isNonEmptyString(vehicle && vehicle.licenseNo)
+    ? vehicle.licenseNo
+    : '车牌待确认'
+}
+
+function normalizePlateTheme(value) {
+  const normalized = isNonEmptyString(value) ? value.trim().toLowerCase() : ''
+
+  if (['green', 'electric', 'new_energy', 'new-energy'].indexOf(normalized) >= 0) {
+    return 'electric'
+  }
+
+  if (['blue', 'oil', 'fuel'].indexOf(normalized) >= 0) {
+    return 'oil'
+  }
+
+  return ''
+}
+
+function resolveVehiclePlateTheme(vehicle) {
+  const plateColorTheme = normalizePlateTheme(vehicle && vehicle.plateColor)
+  if (plateColorTheme) {
+    return plateColorTheme
+  }
+
+  const energyTypeTheme = normalizePlateTheme(vehicle && vehicle.energyType)
+  if (energyTypeTheme) {
+    return energyTypeTheme
+  }
+
+  const licenseNo = isNonEmptyString(vehicle && vehicle.licenseNo)
+    ? vehicle.licenseNo.replace(/\s+/g, '')
+    : ''
+
+  if (!licenseNo) {
+    return 'unknown'
+  }
+
+  return licenseNo.length >= 8 ? 'electric' : 'oil'
+}
+
 function isCompletedPhoto(photo) {
   return !!photo && photo.status === 'completed' && !!photo.compressedPath
 }
@@ -139,6 +209,7 @@ function getSafeCurrentStep(cache) {
 
 function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
   const photoEntries = []
+  const vehicleDisplayName = getVehicleDisplayName(vehicle)
 
   if (isCompletedPhoto(vehicle.licensePlate)) {
     photoEntries.push({
@@ -147,7 +218,7 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
       vehicle: vehicleIndex,
       type: constants.PHOTO_TYPE.LICENSE_PLATE,
       damage: null,
-      label: `${vehicle.type} - 车牌`,
+      label: `${vehicleDisplayName} - 车牌`,
       captureMode: vehicle.licensePlate.captureMode || 'manual'
     })
   }
@@ -159,7 +230,7 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
       vehicle: vehicleIndex,
       type: constants.PHOTO_TYPE.VIN_CODE,
       damage: null,
-      label: `${vehicle.type} - VIN码`,
+      label: `${vehicleDisplayName} - VIN码`,
       captureMode: vehicle.vinCode.captureMode || 'manual'
     })
   }
@@ -172,7 +243,7 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
       vehicle: vehicleIndex,
       type: constants.PHOTO_TYPE.DAMAGE,
       damage: damageIndex,
-      label: `${vehicle.type} - 车损${damageIndex + 1}`,
+      label: `${vehicleDisplayName} - 车损${damageIndex + 1}`,
       captureMode: damage.captureMode || 'manual'
     })
   })
@@ -191,7 +262,7 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
       documentIndex,
       docType: document.docType,
       docSide: document.docSide,
-      label: `${vehicle.type} - ${document.label || '单证资料'}`
+      label: `${vehicleDisplayName} - ${document.label || '单证资料'}`
     })
   })
 
@@ -231,6 +302,7 @@ function getThirdVehicleProgress(thirdVehicles) {
 }
 
 function getVehicleSummary(cache) {
+  const auxPhotoEnabled = isAuxPhotoEnabled(cache)
   const vehicles = getVehicles(cache).map((vehicle, index) => {
     const hasLicensePlate = isCompletedPhoto(vehicle.licensePlate)
     const hasVinCode = isCompletedPhoto(vehicle.vinCode)
@@ -242,11 +314,23 @@ function getVehicleSummary(cache) {
     const isPreviewProgressComplete = hasLicensePlate
       && hasVinCode
       && damageCount >= constants.LIMITS.MAX_DAMAGES
+    const vehicleRoleName = getVehicleRoleName(vehicle, index === 0 ? constants.VEHICLE_TYPE.TARGET : `三者车${index}`)
+    const vehiclePlateNo = getVehiclePlateNo(vehicle)
+    const vehiclePlateTheme = resolveVehiclePlateTheme(vehicle)
+    const displayName = getVehicleDisplayName(vehicle, index === 0 ? constants.VEHICLE_TYPE.TARGET : `三者车${index}`)
+    const normalizedVehicle = {
+      ...vehicle,
+      displayName,
+      vehicleRoleName,
+      vehiclePlateNo,
+      vehiclePlateTheme
+    }
 
     return {
-      ...vehicle,
+      ...normalizedVehicle,
       index,
       isMainVehicle: index === 0,
+      canDelete: !auxPhotoEnabled && index > 0,
       hasLicensePlate,
       hasVinCode,
       damageCount,
@@ -261,7 +345,7 @@ function getVehicleSummary(cache) {
         hasVinCode ? null : constants.PHOTO_TYPE.VIN_CODE,
         damageCount > 0 ? null : constants.PHOTO_TYPE.DAMAGE
       ].filter(Boolean),
-      photoEntries: buildVehiclePhotoEntries(vehicle, index)
+      photoEntries: buildVehiclePhotoEntries(normalizedVehicle, index)
     }
   })
 
@@ -269,6 +353,7 @@ function getVehicleSummary(cache) {
   const currentVehicle = vehicles[currentVehicleIndex] || null
   const mainVehicle = vehicles[0] || null
   const thirdVehicles = vehicles.slice(1)
+  const hasNextVehicle = auxPhotoEnabled && currentVehicleIndex < vehicles.length - 1
 
   const photoCounts = vehicles.reduce((result, vehicle) => {
     if (vehicle.hasLicensePlate) {
@@ -297,13 +382,25 @@ function getVehicleSummary(cache) {
     thirdVehicleCount: thirdVehicles.length,
     currentVehicleIndex,
     currentVehicle,
-    currentVehicleType: currentVehicle ? currentVehicle.type : constants.VEHICLE_TYPE.TARGET,
+    currentVehicleType: currentVehicle ? getVehicleDisplayName(currentVehicle) : constants.VEHICLE_TYPE.TARGET,
+    auxPhotoEnabled,
+    hasNextVehicle,
+    nextVehicleIndex: hasNextVehicle ? currentVehicleIndex + 1 : null,
+    currentVehicleRoleName: currentVehicle ? currentVehicle.vehicleRoleName : constants.VEHICLE_TYPE.TARGET,
+    currentVehiclePlateNo: currentVehicle ? currentVehicle.vehiclePlateNo : '',
+    currentVehiclePlateTheme: currentVehicle ? currentVehicle.vehiclePlateTheme : 'unknown',
+    currentVehicleProgressText: auxPhotoEnabled && vehicles.length > 0
+      ? `${currentVehicleIndex + 1}/${vehicles.length} 辆`
+      : '',
+    finishDamageText: auxPhotoEnabled
+      ? (hasNextVehicle ? '下一辆车' : '去预览')
+      : '完成拍摄',
     photoCounts,
     photoEntries: vehicles.flatMap((vehicle) => vehicle.photoEntries),
     completedVehicleCount: vehicles.filter((vehicle) => vehicle.isCoreComplete).length,
     hasIncompleteVehicles: vehicles.some((vehicle) => vehicle.isStarted && !vehicle.isCoreComplete),
     hasPreviewIncompleteVehicles: vehicles.some((vehicle) => vehicle.isStarted && !vehicle.isPreviewProgressComplete),
-    canAddThirdVehicle: thirdVehicles.length < constants.LIMITS.MAX_THIRD_VEHICLES,
+    canAddThirdVehicle: !auxPhotoEnabled && thirdVehicles.length < constants.LIMITS.MAX_THIRD_VEHICLES,
     progress: {
       step1: getMainVehicleProgress(mainVehicle),
       step2: getThirdVehicleProgress(thirdVehicles)
@@ -375,9 +472,7 @@ function collectQualityPhotoRecords(cache) {
   let seqNo = 0
 
   getVehicles(cache).forEach((vehicle, vehicleIndex) => {
-    const vehicleType = isNonEmptyString(vehicle && vehicle.type)
-      ? vehicle.type
-      : constants.VEHICLE_TYPE.TARGET
+    const vehicleType = getVehicleDisplayName(vehicle)
 
     if (isCompletedPhoto(vehicle && vehicle.licensePlate)) {
       seqNo += 1
@@ -449,9 +544,7 @@ function getAlbumSaveCandidates(cache) {
   const savedPaths = getSavedAlbumPathMap(records)
 
   getVehicles(cache).forEach((vehicle, vehicleIndex) => {
-    const vehicleType = isNonEmptyString(vehicle && vehicle.type)
-      ? vehicle.type
-      : constants.VEHICLE_TYPE.TARGET
+    const vehicleType = getVehicleDisplayName(vehicle)
 
     if (isCompletedPhoto(vehicle && vehicle.licensePlate)) {
       pushAlbumCandidate(candidates, seenPaths, vehicle.licensePlate, {
@@ -621,7 +714,7 @@ function getRetakeContext(cache, vehicles) {
   return {
     vehicleIndex,
     vehicle,
-    vehicleType: vehicle.type,
+    vehicleType: getVehicleDisplayName(vehicle),
     photoType,
     damageIndex: photoType === constants.PHOTO_TYPE.DAMAGE ? damageIndex : null,
     currentStep: photoType
@@ -647,6 +740,8 @@ function getCurrentFlowContext(cache) {
     : cache && cache.workflowState && cache.workflowState.current
       ? cache.workflowState.current
       : 'IDLE'
+  const auxPhotoEnabled = vehicleSummary.auxPhotoEnabled
+  const hasNextVehicle = auxPhotoEnabled && currentVehicleIndex < vehicleSummary.count - 1
 
   return {
     hasCache: !!cache,
@@ -654,7 +749,19 @@ function getCurrentFlowContext(cache) {
     currentStep,
     currentVehicleIndex,
     currentVehicle,
-    currentVehicleType: currentVehicle ? currentVehicle.type : constants.VEHICLE_TYPE.TARGET,
+    currentVehicleType: currentVehicle ? getVehicleDisplayName(currentVehicle) : constants.VEHICLE_TYPE.TARGET,
+    auxPhotoEnabled,
+    currentVehicleRoleName: currentVehicle ? currentVehicle.vehicleRoleName : constants.VEHICLE_TYPE.TARGET,
+    currentVehiclePlateNo: currentVehicle ? currentVehicle.vehiclePlateNo : '',
+    currentVehiclePlateTheme: currentVehicle ? currentVehicle.vehiclePlateTheme : 'unknown',
+    currentVehicleProgressText: auxPhotoEnabled && vehicleSummary.count > 0
+      ? `${currentVehicleIndex + 1}/${vehicleSummary.count} 辆`
+      : '',
+    hasNextVehicle,
+    nextVehicleIndex: hasNextVehicle ? currentVehicleIndex + 1 : null,
+    finishDamageText: auxPhotoEnabled
+      ? (hasNextVehicle ? '下一辆车' : '去预览')
+      : '完成拍摄',
     damageCount: currentVehicle ? currentVehicle.damageCount : 0,
     fromPreview: !!(cache && cache.fromPreview),
     workflowState,

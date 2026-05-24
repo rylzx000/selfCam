@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.4.1（`package.json`）
+> 代码基线：v1.4.2（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-11
+> 最后更新：2026-05-18
 
 ---
 
@@ -20,6 +20,7 @@
 | AI 推理 | `wx.createInferenceSession` + ONNX | 车牌 / 车损检测 |
 | AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 按业务环境和模型 URL 隔离缓存 |
 | 实时日志 | `wx.getRealtimeLogManager()` | 仅上报 AI 排障关键事件，本地 runtime 日志保留完整 |
+| 后台错误日志（待实现） | 在线平台错误日志接口 + Oracle | 只上传明确报错事件，按 `reportNo` 落库排障 |
 
 ---
 
@@ -69,6 +70,7 @@ selfCam/
 ├─ __tests__/        # 纯 Jest 单元/逻辑测试
 ├─ e2e/              # 微信开发者工具 miniprogram-automator + Jest 页面自动化
 └─ docs/
+   └─ backend-integration/ # 后台对接设计文档
 ```
 
 ---
@@ -460,6 +462,31 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - `dev / sit / pilot` 在首页、拍照页、预览页显示低权重环境标识，`prod` 不显示
 - `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
 - `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断
+
+---
+
+### 5. 在线平台错误日志对接（待实现）
+
+- 小程序启动参数中的报案号字段名为 `reportNo`。
+- 当前阶段不新增缺少 `reportNo` 的入口阻断；接口闭环前，缺少 `reportNo` 时只保留本地日志，不调用后台错误日志接口。
+- 后续在 `runtime-logger` 内部增加在线平台错误上传通道，不在每个页面报错点直接调用后台接口。
+- 页面和工具模块仍只调用 `runtimeLogger.error(...)` 或 `runtimeLogger.forceError(...)`，由 `runtime-logger` 统一按错误事件白名单过滤、入队和上传。
+- 后台错误日志只上传明确失败事件，不上传页面生命周期、正常拍照流程、AI 几何诊断快照或普通调试日志。
+- 首批上报事件限定为：
+  - `ai_model/download_failed`
+  - `ai_model/download_status_failed`
+  - `ai_model/cache_copy_failed`
+  - `ai_model/model_file_invalid`
+  - `ai_model/session_create_failed`
+  - `ai_model/session_load_failed`
+  - `ai/ai_unavailable`
+  - `ai/detector_init_failed`
+  - `ai/detect_loop_error`
+  - `capture/auto_capture_failed`
+  - `camera/camera_error`
+  - `api/request_failed`
+- 接口按批量设计，前端第一版可单条或小批量发送，最多缓存 20 条待上传错误；失败静默处理，不阻断主流程。
+- 详细接口和 Oracle 表设计见 `docs/backend-integration/error-log-api.md`。
 
 ---
 

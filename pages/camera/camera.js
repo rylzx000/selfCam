@@ -35,8 +35,17 @@ const DAMAGE_DISTANCE_HINT_TEXT = {
 const VIN_GUIDE_TIP = '\u8bf7\u5bf9\u51c6\u524d\u6321\u98ce\u73bb\u7483\u5de6\u4e0b\u89d2VIN\u7801\uff0c\u62cd\u6e05\u5b8c\u6574\u5b57\u7b26'
 const CONFIRM_USE_TEXT = '\u786e\u8ba4\u4f7f\u7528'
 const RETAKE_TEXT = '\u91cd\u65b0\u62cd\u6444'
+const MAX_DAMAGES = (constants.LIMITS && constants.LIMITS.MAX_DAMAGES) || 5
 const MAX_TOTAL_PHOTOS = (constants.LIMITS && constants.LIMITS.MAX_TOTAL_PHOTOS) || 50
+const DAMAGE_PHOTO_LIMIT_TIP = `最多${MAX_DAMAGES}张车损，请先删除`
 const TOTAL_PHOTO_LIMIT_TIP = `最多${MAX_TOTAL_PHOTOS}张，请先删除`
+const DAMAGE_COMPLETE_NEXT_CONTENT = `\u672c\u8f66\u8f66\u635f\u7167\u7247\u5df2\u62cd\u6ee1 ${MAX_DAMAGES} \u5f20\uff0c\u8bf7\u786e\u8ba4\u662f\u5426\u8fdb\u5165\u4e0b\u4e00\u8f86\u8f66\u7ee7\u7eed\u62cd\u6444\u3002`
+const DAMAGE_COMPLETE_PREVIEW_CONTENT = `\u672c\u8f66\u8f66\u635f\u7167\u7247\u5df2\u62cd\u6ee1 ${MAX_DAMAGES} \u5f20\uff0c\u8bf7\u524d\u5f80\u9884\u89c8\u786e\u8ba4\u7167\u7247\u3002`
+const DAMAGE_PARTIAL_NEXT_CONTENT = (count) => `\u672c\u8f66\u5df2\u62cd\u6444 ${count} \u5f20\u8f66\u635f\u7167\u7247\uff0c\u8bf7\u786e\u8ba4\u662f\u5426\u8fdb\u5165\u4e0b\u4e00\u8f86\u8f66\u7ee7\u7eed\u62cd\u6444\u3002`
+const DAMAGE_PARTIAL_PREVIEW_CONTENT = (count) => `\u672c\u8f66\u5df2\u62cd\u6444 ${count} \u5f20\u8f66\u635f\u7167\u7247\uff0c\u8bf7\u524d\u5f80\u9884\u89c8\u786e\u8ba4\u7167\u7247\u3002`
+const NEXT_VEHICLE_TEXT = '\u4e0b\u4e00\u8f86\u8f66'
+const VIEW_CAPTURED_TEXT = '\u67e5\u770b\u5df2\u62cd'
+const GO_PREVIEW_TEXT = '\u53bb\u9884\u89c8'
 const CAMERA_VIRTUAL_WIDTH = 400
 const CAMERA_VIRTUAL_HEIGHT = 300
 const CAMERA_ASPECT_RATIO = CAMERA_VIRTUAL_WIDTH / CAMERA_VIRTUAL_HEIGHT
@@ -44,6 +53,7 @@ const CAMERA_BASE_RPX_WIDTH = 750
 const CAMERA_BASE_TOTAL_RPX_WIDTH = 32 * 2 + 120 * 2 + 24 * 2 + CAMERA_VIRTUAL_WIDTH
 const CAMERA_BASE_TOTAL_RPX_HEIGHT = 20 * 2 + CAMERA_VIRTUAL_HEIGHT
 const AUTO_CAPTURE_GATE_LOG_INTERVAL_MS = 4000
+const CAMERA_REMOUNT_FALLBACK_MS = 500
 const CAPTURE_BOX = {
   plate: {
     widthRatio: 0.5,
@@ -156,6 +166,20 @@ function computeResponsiveCameraLayout(info = {}) {
       ['padding-bottom', 14 * uiScale],
       ['padding-left', 12 * uiScale]
     ]),
+    vehicleCardStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 10 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 10 * uiScale],
+      ['padding-left', 10 * uiScale]
+    ]),
+    damageCardStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 10 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 10 * uiScale],
+      ['padding-left', 10 * uiScale]
+    ]),
     labelTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 12 * uiScale],
       ['margin-bottom', 4 * uiScale]
@@ -172,6 +196,13 @@ function computeResponsiveCameraLayout(info = {}) {
       ['padding-right', 12 * uiScale],
       ['padding-bottom', 10 * uiScale],
       ['padding-left', 12 * uiScale]
+    ]),
+    sideActionButtonStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['border-radius', 8 * uiScale],
+      ['padding-top', 8 * uiScale],
+      ['padding-right', 10 * uiScale],
+      ['padding-bottom', 8 * uiScale],
+      ['padding-left', 10 * uiScale]
     ]),
     actionButtonTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 14 * uiScale]
@@ -309,6 +340,44 @@ function showTotalPhotoLimitToast() {
   })
 }
 
+function getVehicleDamageCount(vehicle) {
+  return Array.isArray(vehicle && vehicle.damages) ? vehicle.damages.length : 0
+}
+
+function isVehicleDamageLimitReached(vehicle) {
+  return getVehicleDamageCount(vehicle) >= MAX_DAMAGES
+}
+
+function showDamagePhotoLimitToast() {
+  wx.showToast({
+    title: DAMAGE_PHOTO_LIMIT_TIP,
+    icon: 'none'
+  })
+}
+
+function buildDamageCompleteContent(damageCount, hasNextVehicle) {
+  if (damageCount >= MAX_DAMAGES) {
+    return hasNextVehicle ? DAMAGE_COMPLETE_NEXT_CONTENT : DAMAGE_COMPLETE_PREVIEW_CONTENT
+  }
+
+  return hasNextVehicle
+    ? DAMAGE_PARTIAL_NEXT_CONTENT(damageCount)
+    : DAMAGE_PARTIAL_PREVIEW_CONTENT(damageCount)
+}
+
+function buildCameraVehicleFields(flowContext = {}) {
+  const vehicleType = flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET
+
+  return {
+    vehicleType,
+    vehicleRoleName: flowContext.currentVehicleRoleName || vehicleType,
+    vehiclePlateNo: flowContext.currentVehiclePlateNo || '',
+    vehiclePlateTheme: flowContext.currentVehiclePlateTheme || 'unknown',
+    vehicleProgressText: flowContext.currentVehicleProgressText || '',
+    finishDamageText: flowContext.finishDamageText || '完成拍摄'
+  }
+}
+
 function getSystemInfoSnapshot() {
   try {
     if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
@@ -344,8 +413,19 @@ Page({
     confirmUseText: CONFIRM_USE_TEXT,
     retakeText: RETAKE_TEXT,
     vehicleType: constants.VEHICLE_TYPE.TARGET,
+    vehicleRoleName: constants.VEHICLE_TYPE.TARGET,
+    vehiclePlateNo: '',
+    vehiclePlateTheme: 'unknown',
+    vehicleProgressText: '',
+    finishDamageText: '完成拍摄',
     damageCount: 0,
     showConfirmModal: false,
+    showDamageCompleteModal: false,
+    cameraMounted: true,
+    damageCompleteModalContent: '',
+    damageCompleteConfirmText: '',
+    damageCompleteCancelText: '',
+    damageCompleteShowCancel: true,
     qualityHintText: '',
     pendingPhoto: null,
     isNavigating: false,  // 闂傚倸鍊搁崐鎼佸磹閹间礁纾归柟闂寸绾惧綊鏌熼梻瀵割槮闁汇値鍠楅妵鍕箛閳轰胶鍔撮梺鎼炲€栧ú鐔煎蓟濞戙埄鏁冮柨婵嗘椤︹晠姊烘潪鎵槮婵☆偅鐟ч幑銏犫槈閵忕姷顓哄┑鐐叉缁绘帗绂掓ィ鍐┾拺缂備焦蓱鐏忣參鏌涙繝鍌ょ吋闁糕斁鍋撳銈嗗坊閸嬫挾绱掗悩鑼х€规洘娲熼弻鍡楊吋閸涱垼鍞甸梺璇插嚱缂嶅棝鍩€椤掑寮跨紒鎻掑⒔閹广垹鈹戦崱鈺傚兊濡炪倖鎸炬慨鎾嵁濡ゅ懏鈷掑ù锝呮憸缁夋椽鏌涚€ｎ亷韬€规洘婢樿灃闁告侗鍘奸幆鐐烘⒑闁偛鑻晶瀛樻叏?
@@ -385,6 +465,9 @@ Page({
   latestAIFrame: null,
   aiPreviewTakePhotoRemovedLogged: false,
   aiDetectionRunId: 0,
+  pendingCameraInitResumeReason: '',
+  pendingCameraRemountReason: '',
+  cameraRestartTimer: null,
   cameraLayoutLogKey: '',
   cameraLayoutRealtimeLogKey: '',
   aiGeometryLogKeys: null,
@@ -454,6 +537,7 @@ Page({
     })
     this.cancelPlateHintClear()
     this.stopPlateBlink()
+    this.clearCameraRestartTimer()
     this.stopAIDetectionLoop()
     this.stopAIFrameListener('page_unload')
     this.destroyDetectors()
@@ -784,7 +868,8 @@ Page({
   },
 
   resumeAIDetection(reason = 'manual') {
-    const { currentStep, showConfirmModal } = this.data
+    const { currentStep, showConfirmModal, showDamageCompleteModal } = this.data
+    const capturePausedByModal = showConfirmModal || showDamageCompleteModal
     const aiSupportedStep = [constants.SHOOT_STEP.LICENSE_PLATE, constants.SHOOT_STEP.DAMAGE].includes(currentStep)
     const detectionRunning = !!this.detectTimer || this.aiBusy
 
@@ -792,6 +877,7 @@ Page({
       reason,
       currentStep,
       showConfirmModal,
+      showDamageCompleteModal,
       isLeaving: this.isLeaving,
       cameraInitialized: this.cameraInitialized,
       hasCameraContext: !!this.cameraContext,
@@ -804,7 +890,7 @@ Page({
 
     this.stopAIDetectionLoop()
 
-    if (!aiSupportedStep || showConfirmModal || this.isLeaving || !this.cameraInitialized) {
+    if (!aiSupportedStep || capturePausedByModal || this.isLeaving || !this.cameraInitialized) {
       this.stopAIFrameListener(`resume_skipped_${reason}`)
       this.setData({ aiStatusText: this.getAIStatusByStep(currentStep), aiLocked: false })
       runtimeLogger.info('ai', 'resume_detection_skipped', {
@@ -812,6 +898,7 @@ Page({
         currentStep,
         aiSupportedStep,
         showConfirmModal,
+        showDamageCompleteModal,
         isLeaving: this.isLeaving,
         cameraInitialized: this.cameraInitialized
       })
@@ -1055,7 +1142,7 @@ Page({
       const activeHint = this.getActiveDistanceHint()
       const supportDistanceHint = currentStep === constants.SHOOT_STEP.LICENSE_PLATE || currentStep === constants.SHOOT_STEP.DAMAGE
 
-      if (this.isLeaving || this.data.showConfirmModal || !supportDistanceHint || !activeHint) {
+      if (this.isLeaving || this.data.showConfirmModal || this.data.showDamageCompleteModal || !supportDistanceHint || !activeHint) {
         this.stopPlateBlink()
         return
       }
@@ -1101,6 +1188,7 @@ Page({
     const shouldBlink = !!direction
       && !this.isLeaving
       && !this.data.showConfirmModal
+      && !this.data.showDamageCompleteModal
       && (this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE || this.data.currentStep === constants.SHOOT_STEP.DAMAGE)
 
     if (shouldBlink) {
@@ -1468,7 +1556,7 @@ Page({
     })
 
     const scheduleNext = () => {
-      if (runId === this.aiDetectionRunId && !this.isLeaving && !this.data.showConfirmModal) {
+      if (runId === this.aiDetectionRunId && !this.isLeaving && !this.data.showConfirmModal && !this.data.showDamageCompleteModal) {
         this.detectTimer = setTimeout(loop, this.getDetectInterval(step))
       }
     }
@@ -1482,7 +1570,7 @@ Page({
       if (this.isLeaving) {
         return
       }
-      if (this.aiBusy || this.data.showConfirmModal) {
+      if (this.aiBusy || this.data.showConfirmModal || this.data.showDamageCompleteModal) {
         scheduleNext()
         return
       }
@@ -1788,10 +1876,12 @@ Page({
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘搁悗鍏夊亾閻庯綆鍓涢敍鐔哥箾鐎电顎撳┑鈥虫喘楠炲繘鎮╃拠鑼唽闂佸湱鍎ら崺鍫濐焽閵夈儮鏀介柣妯活問閺嗩垶鏌嶈閸撴瑩宕捄銊ф／鐟滄棃寮婚悢纰辨晩闁绘挸绨堕崑鎾诲箹娴ｇ懓浠奸梺缁樺灱濡嫬鏁梻浣稿暱閹碱偊宕愰悷鎵虫瀺闁糕剝绋掗埛鎴︽煕韫囨稒锛熼柤鍓蹭邯閺屾稒鎯旈姀銏″垱闂佽桨绀侀崯鏉戠暦閹烘垟妲堥柟鐑樻尭椤忓綊姊婚崒娆戭槮婵犫偓鏉堚晛鍨濇い鏍ㄧ矋閺嗘粓鏌ｉ幇顒夊殶濠⒀€鍓濈换婵嬫偨闂堟刀锝嗐亜閺冣偓閻楃姴鐣风憴鍕嚤閻庢稒锚閳ь剝鍩栫换婵嬫濞戝啿濮涙繛瀛樼矆缁瑥顫忕紒妯诲闁告繂瀚紓鎾绘⒑缁嬫寧鍞夊ù婊庡墯缁旂喖寮撮姀鈺傛櫍闂佺粯锚閸熷潡宕㈣ぐ鎺撯拺?
     if (flowContext.hasRetakeContext) {
       const { currentStep, vehicleType } = flowContext.retakeContext
+      const vehicleFields = buildCameraVehicleFields(flowContext)
       this.setData({
+        ...vehicleFields,
         currentStep,
         guideTip: flowContext.guideTip,
-        vehicleType: vehicleType || constants.VEHICLE_TYPE.TARGET,
+        vehicleType: vehicleType || vehicleFields.vehicleType,
         damageCount,
         damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
@@ -1814,9 +1904,9 @@ Page({
       })
     } else {
       this.setData({
+        ...buildCameraVehicleFields(flowContext),
         currentStep: flowContext.currentStep,
         guideTip: flowContext.guideTip,
-        vehicleType: flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET,
         damageCount,
         damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
@@ -1847,6 +1937,10 @@ Page({
   },
 
   onCapture() {
+    if (this.data.showDamageCompleteModal) {
+      return
+    }
+
     runtimeLogger.info('capture', 'manual_capture_pressed', {
       currentStep: this.data.currentStep,
       cameraInitialized: this.cameraInitialized,
@@ -1876,7 +1970,7 @@ Page({
       fail: (err) => {
         wx.hideLoading()
         wx.showToast({ title: '\u62cd\u7167\u5931\u8d25', icon: 'none' })
-        console.error('闂傚倸鍊搁崐鎼佸磹閻戣姤鍤勯柛顐ｆ礀缁犵娀鏌熼幑鎰靛殭閹兼潙锕弻銈囧枈閸楃偛顫梺娲诲幗閹瑰洭寮诲☉銏╂晝闁挎繂妫涢ˇ銉╂⒑濞茶骞楁い銊ワ躬閻涱噣寮介‖銉ラ叄椤㈡鍩€椤掑嫭鍊堕柍鍝勫暟绾惧ジ鏌涢幘鑼槮濞寸姾浜埀顒侇問閸犳牠鎮ラ悡搴ｆ殾濠靛倸澹婇弫鍐┿亜椤愵偄骞栭柛銈変憾閺?', err)
+        console.error('[camera] takePhoto failed', err)
       }
     })
   },
@@ -1906,7 +2000,7 @@ Page({
     } catch (err) {
       wx.hideLoading()
       wx.showToast({ title: '\u56fe\u7247\u5904\u7406\u5931\u8d25', icon: 'none' })
-      console.error('闂傚倸鍊搁崐鎼佸磹閻戣姤鍊块柨鏇炲€哥粻鏍煕椤愶絾绀€缁炬儳娼″鍫曞醇濞戞ê顬夊┑鐐叉噽婵炩偓闁哄被鍊濋獮渚€骞掗幋婵嗩潥婵犵數鍋涢幊鎰箾閳ь剟鏌＄仦绯曞亾閹颁礁鎮戦梺鍛婂姂閸斿矂鈥栭崼銏㈢＝濞达絿顭堥。鎶芥煕鐎ｃ劌鈧繂顕ｇ拠娴嬫闁靛繒濮村畵鍡涙⒑闂堟侗鐒鹃柛搴や含缁煤椤忓應鎷虹紓浣割儏鐏忓懘宕濋悢鍏肩厱閻庯綆鍋嗗ú鎾煃閵夘垳鐣电€规洜顭堣灃闁逞屽墰缁顫濋懜鐢靛幍濠电偛鐗嗛悘婵嬪几閵堝洨纾介柛顐犲劙閹查箖鏌?', err)
+      console.error('[camera] photo process failed', err)
       this.resumeAIDetection()
     }
   },
@@ -1972,6 +2066,278 @@ Page({
     })
   },
 
+  clearCameraRestartTimer() {
+    if (this.cameraRestartTimer) {
+      clearTimeout(this.cameraRestartTimer)
+      this.cameraRestartTimer = null
+    }
+  },
+
+  mountPendingCamera(reason, source = 'manual') {
+    if (!reason || this.pendingCameraRemountReason !== reason) {
+      return
+    }
+
+    this.clearCameraRestartTimer()
+    if (this.isLeaving) {
+      this.pendingCameraRemountReason = ''
+      this.pendingCameraInitResumeReason = ''
+      return
+    }
+
+    this.pendingCameraRemountReason = ''
+    runtimeLogger.info('camera', 'camera_remount_requested', {
+      reason,
+      source
+    })
+    this.setData({ cameraMounted: true })
+  },
+
+  requestCameraRemountAfterStop(reason) {
+    this.pendingCameraInitResumeReason = reason
+    this.pendingCameraRemountReason = reason
+    this.clearCameraRestartTimer()
+    this.cameraRestartTimer = setTimeout(() => {
+      this.mountPendingCamera(reason, 'fallback_timer')
+    }, CAMERA_REMOUNT_FALLBACK_MS)
+  },
+
+  navigateToPreviewPage(cache) {
+    this.clearCameraRestartTimer()
+    this.pendingCameraInitResumeReason = ''
+    this.pendingCameraRemountReason = ''
+    if (cache) {
+      storage.saveCache(storage.clearPreviewFlags(cache))
+    }
+
+    this.isLeaving = true
+    this.closeDamageCompleteModal({ isNavigating: true })
+    wx.navigateTo({
+      url: '/pages/preview/preview',
+      fail: (err) => {
+        runtimeLogger.warn('camera', 'navigate_preview_failed', {
+          message: err?.errMsg || ''
+        })
+        wx.redirectTo({
+          url: '/pages/preview/preview',
+          fail: () => {
+            wx.reLaunch({ url: '/pages/preview/preview' })
+          }
+        })
+      }
+    })
+  },
+
+  navigateBackToPreviewPage(cache) {
+    this.clearCameraRestartTimer()
+    this.pendingCameraInitResumeReason = ''
+    this.pendingCameraRemountReason = ''
+    if (cache) {
+      storage.saveCache(storage.clearPreviewFlags(cache))
+    }
+
+    this.isLeaving = true
+    this.closeDamageCompleteModal({ isNavigating: true })
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
+
+    if (hasPreviewInStack) {
+      wx.navigateBack({
+        fail: () => {
+          runtimeLogger.warn('camera', 'navigate_back_preview_failed')
+          wx.redirectTo({
+            url: '/pages/preview/preview',
+            fail: () => {
+              wx.reLaunch({ url: '/pages/preview/preview' })
+            }
+          })
+        }
+      })
+      return
+    }
+
+    wx.redirectTo({
+      url: '/pages/preview/preview',
+      fail: () => {
+        wx.reLaunch({ url: '/pages/preview/preview' })
+      }
+    })
+  },
+
+  goToPreviewPage(cache, flowContext = null) {
+    const currentFlowContext = flowContext || cacheSelectors.getCurrentFlowContext(cache)
+
+    if (currentFlowContext && currentFlowContext.fromPreview) {
+      this.navigateBackToPreviewPage(cache)
+      return
+    }
+
+    this.navigateToPreviewPage(cache)
+  },
+
+  advanceToNextAuxVehicle(cache, flowContext) {
+    if (
+      !cache
+      || !flowContext
+      || !flowContext.hasNextVehicle
+      || !Number.isInteger(flowContext.nextVehicleIndex)
+    ) {
+      this.goToPreviewPage(cache, flowContext)
+      return
+    }
+
+    cache.currentVehicleIndex = flowContext.nextVehicleIndex
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    cache.currentDamageCount = 0
+    const nextCache = storage.clearPreviewFlags(cache)
+    storage.saveCache(nextCache)
+    const nextFlowContext = cacheSelectors.getCurrentFlowContext(nextCache)
+
+    this.isLeaving = false
+    this.resetAIState()
+    this.setData({
+      ...buildCameraVehicleFields(nextFlowContext),
+      isNavigating: false,
+      showConfirmModal: false,
+      showDamageCompleteModal: false,
+      cameraMounted: false,
+      damageCompleteModalContent: '',
+      damageCompleteConfirmText: '',
+      damageCompleteCancelText: '',
+      damageCompleteShowCancel: true,
+      pendingPhoto: null,
+      qualityHintText: '',
+      currentStep: nextFlowContext.currentStep,
+      guideTip: nextFlowContext.guideTip,
+      damageCount: 0,
+      plateFrameState: 'normal',
+      plateDistanceHint: '',
+      damageDistanceHint: '',
+      damageFrameState: 'normal',
+      damagePhaseLabel: '',
+      damageAreaRatioText: ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: nextFlowContext.currentStep
+      })
+    })
+    this.requestCameraRemountAfterStop('finish_damage_next_vehicle')
+  },
+
+  closeDamageCompleteModal(extraData = {}) {
+    this.setData({
+      showDamageCompleteModal: false,
+      damageCompleteModalContent: '',
+      damageCompleteConfirmText: '',
+      damageCompleteCancelText: '',
+      damageCompleteShowCancel: true,
+      ...extraData
+    })
+  },
+
+  pauseCaptureForDamageCompleteModal() {
+    this.cameraInitialized = false
+    this.stopAIDetectionLoop()
+    this.stopAIFrameListener('damage_complete_modal')
+    this.stopPlateBlink()
+  },
+
+  showAuxDamageCompleteModal(cache, flowContext) {
+    const hasNextVehicle = !!(
+      flowContext
+      && flowContext.hasNextVehicle
+      && Number.isInteger(flowContext.nextVehicleIndex)
+    )
+    const currentVehicle = cache.vehicles && cache.vehicles[flowContext.currentVehicleIndex]
+    const damageCount = getVehicleDamageCount(currentVehicle)
+
+    this.isLeaving = false
+    this.pauseCaptureForDamageCompleteModal()
+    this.setData({
+      showDamageCompleteModal: true,
+      cameraMounted: false,
+      damageCompleteModalContent: buildDamageCompleteContent(damageCount, hasNextVehicle),
+      damageCompleteConfirmText: hasNextVehicle ? NEXT_VEHICLE_TEXT : GO_PREVIEW_TEXT,
+      damageCompleteCancelText: hasNextVehicle ? VIEW_CAPTURED_TEXT : '',
+      damageCompleteShowCancel: hasNextVehicle
+    })
+  },
+
+  onDamageCompleteModalConfirm() {
+    const cache = storage.loadCache()
+    if (!cache) {
+      this.closeDamageCompleteModal({ isNavigating: false })
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    if (
+      flowContext.auxPhotoEnabled
+      && flowContext.hasNextVehicle
+      && Number.isInteger(flowContext.nextVehicleIndex)
+    ) {
+      this.advanceToNextAuxVehicle(cache, flowContext)
+      return
+    }
+
+    this.closeDamageCompleteModal()
+    this.goToPreviewPage(cache, flowContext)
+  },
+
+  onDamageCompleteModalCancel() {
+    const cache = storage.loadCache()
+    if (!cache) {
+      this.closeDamageCompleteModal({ isNavigating: false })
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    this.closeDamageCompleteModal()
+    this.goToPreviewPage(cache, flowContext)
+  },
+
+  onDamageCompleteModalMaskTap() {
+    runtimeLogger.info('damage_flow', 'damage_complete_modal_mask_tap_ignored')
+  },
+
+  handleDamageCompletedFlow(cache, flowContext) {
+    if (!cache || !flowContext) return
+
+    const currentVehicle = cache.vehicles && cache.vehicles[flowContext.currentVehicleIndex]
+    const damageCount = getVehicleDamageCount(currentVehicle)
+    cache.currentDamageCount = damageCount
+
+    this.setData({
+      ...buildCameraVehicleFields(flowContext),
+      isNavigating: true,
+      showConfirmModal: false,
+      cameraMounted: false,
+      pendingPhoto: null,
+      qualityHintText: '',
+      currentStep: flowContext.currentStep,
+      guideTip: flowContext.guideTip,
+      damageCount,
+      damageFrameState: 'normal',
+      damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : '',
+      damageAreaRatioText: ''
+    })
+
+    if (flowContext.fromPreview) {
+      this.goToPreviewPage(cache, flowContext)
+      return
+    }
+
+    if (flowContext.auxPhotoEnabled) {
+      this.showAuxDamageCompleteModal(cache, flowContext)
+      return
+    }
+
+    this.goToPreviewPage(cache, flowContext)
+  },
+
   onConfirmPhoto() {
     const cachedFlowContext = cacheSelectors.getCurrentFlowContext(storage.loadCache())
     runtimeLogger.info('capture', 'confirm_photo', {
@@ -2002,8 +2368,10 @@ Page({
       }
       cache.currentStep = constants.SHOOT_STEP.VIN_CODE
       storage.saveCache(cache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
 
       this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
         showConfirmModal: false,
         pendingPhoto: null,
         qualityHintText: '',
@@ -2032,8 +2400,10 @@ Page({
       cache.currentDamageCount = 0
       const damageCount = currentVehicle.damages?.length || 0
       storage.saveCache(cache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
 
       this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
         showConfirmModal: false,
         pendingPhoto: null,
         qualityHintText: '',
@@ -2055,68 +2425,33 @@ Page({
     if (!currentVehicle.damages) {
       currentVehicle.damages = []
     }
+
+    if (isVehicleDamageLimitReached(currentVehicle)) {
+      cache.currentDamageCount = getVehicleDamageCount(currentVehicle)
+      storage.saveCache(cache)
+      const limitedFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+      showDamagePhotoLimitToast()
+      this.handleDamageCompletedFlow(cache, limitedFlowContext)
+      return
+    }
+
     currentVehicle.damages.push(pendingPhoto)
     cache.currentDamageCount = currentVehicle.damages.length
     storage.saveCache(cache)
+    const updatedFlowContext = cacheSelectors.getCurrentFlowContext(cache)
     runtimeLogger.info('damage_flow', 'damage_photo_saved', {
       damageCount: currentVehicle.damages.length,
       captureMode: pendingPhoto.captureMode,
       captureTrigger: pendingPhoto.captureTrigger
     })
 
-    if (currentVehicle.damages.length >= constants.LIMITS.MAX_DAMAGES) {
-      this.isLeaving = true
-      this.setData({
-        showConfirmModal: false,
-        pendingPhoto: null,
-        qualityHintText: '',
-        damageCount: currentVehicle.damages.length,
-        damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
-        damageAreaRatioText: ''
-      })
-
-      if (cache.fromPreview) {
-        storage.saveCache(storage.clearPreviewFlags(cache))
-        const pages = getCurrentPages()
-        const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
-
-        if (hasPreviewInStack) {
-          wx.navigateBack({
-            fail: () => {
-              wx.redirectTo({
-                url: '/pages/preview/preview',
-                fail: () => {
-                  wx.reLaunch({ url: '/pages/preview/preview' })
-                }
-              })
-            }
-          })
-        } else {
-          wx.redirectTo({
-            url: '/pages/preview/preview',
-            fail: () => {
-              wx.reLaunch({ url: '/pages/preview/preview' })
-            }
-          })
-        }
-      } else {
-        storage.saveCache(storage.clearPreviewFlags(cache))
-        wx.navigateTo({
-          url: '/pages/preview/preview',
-          fail: () => {
-            wx.redirectTo({
-              url: '/pages/preview/preview',
-              fail: () => {
-                wx.reLaunch({ url: '/pages/preview/preview' })
-              }
-            })
-          }
-        })
-      }
+    if (currentVehicle.damages.length >= MAX_DAMAGES) {
+      this.handleDamageCompletedFlow(cache, updatedFlowContext)
       return
     }
 
     this.setData({
+      ...buildCameraVehicleFields(updatedFlowContext),
       showConfirmModal: false,
       pendingPhoto: null,
       qualityHintText: '',
@@ -2147,9 +2482,6 @@ Page({
       this.savePendingPhotoBeforeLeave()
     }
 
-    this.setData({ isNavigating: true })
-    this.isLeaving = true
-
     const cache = storage.loadCache()
     if (!cache) {
       runtimeLogger.warn('camera', 'finish_damage_without_cache')
@@ -2159,49 +2491,7 @@ Page({
       return
     }
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
-
-    if (flowContext.fromPreview) {
-      storage.saveCache(storage.clearPreviewFlags(cache))
-      const pages = getCurrentPages()
-      const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
-      if (hasPreviewInStack) {
-        wx.navigateBack({
-          fail: () => {
-            runtimeLogger.warn('camera', 'navigate_back_preview_failed')
-            wx.redirectTo({
-              url: '/pages/preview/preview',
-              fail: () => {
-                wx.reLaunch({ url: '/pages/preview/preview' })
-              }
-            })
-          }
-        })
-      } else {
-        wx.redirectTo({
-          url: '/pages/preview/preview',
-          fail: () => {
-            wx.reLaunch({ url: '/pages/preview/preview' })
-          }
-        })
-      }
-      return
-    }
-
-    storage.saveCache(storage.clearPreviewFlags(cache))
-    wx.navigateTo({
-      url: '/pages/preview/preview',
-      fail: (err) => {
-        runtimeLogger.warn('camera', 'navigate_preview_failed', {
-          message: err?.errMsg || ''
-        })
-        wx.redirectTo({
-          url: '/pages/preview/preview',
-          fail: () => {
-            wx.reLaunch({ url: '/pages/preview/preview' })
-          }
-        })
-      }
-    })
+    this.handleDamageCompletedFlow(cache, flowContext)
   },
 
   onRetakePhoto() {
@@ -2261,6 +2551,17 @@ Page({
       if (!currentVehicle.damages) {
         currentVehicle.damages = []
       }
+      if (isVehicleDamageLimitReached(currentVehicle)) {
+        cache.currentDamageCount = getVehicleDamageCount(currentVehicle)
+        storage.saveCache(cache)
+        this.setData({
+          showConfirmModal: false,
+          pendingPhoto: null,
+          qualityHintText: '',
+          damageCount: cache.currentDamageCount
+        })
+        return false
+      }
       currentVehicle.damages.push(this.data.pendingPhoto)
       cache.currentDamageCount = currentVehicle.damages.length
     }
@@ -2302,6 +2603,12 @@ Page({
       detectionRunning: !!this.detectTimer || this.aiBusy
     })
     this.cameraInitialized = true
+    if (this.pendingCameraInitResumeReason) {
+      const resumeReason = this.pendingCameraInitResumeReason
+      this.pendingCameraInitResumeReason = ''
+      this.resumeAIDetectionAfterStepReady(resumeReason)
+      return
+    }
     this.resumeAIDetection('camera_init_done')
   },
 
@@ -2311,6 +2618,9 @@ Page({
     })
     this.cameraInitialized = false
     this.stopAIFrameListener('camera_stop')
+    if (this.pendingCameraRemountReason) {
+      this.mountPendingCamera(this.pendingCameraRemountReason, 'camera_stop')
+    }
   },
 
   onGoPreview() {

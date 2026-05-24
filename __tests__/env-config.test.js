@@ -354,4 +354,77 @@ describe('env-config', () => {
     expect(pilotConfig.plateModelPath).toMatch(/^\/user-data\/plate-pilot-[a-z0-9]+\.onnx$/)
     expect(sitConfig.damageModelPath).not.toBe(pilotConfig.damageModelPath)
   })
+
+  test('error log config stays disabled when backend url is missing', () => {
+    mockWxEnv('trial')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getErrorLogConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      uploadEnabled: false,
+      uploadUrl: '',
+      batchSize: 20,
+      maxPendingEntries: 20,
+      uploadThrottleMs: 1500,
+      requestTimeoutMs: 2500
+    }))
+  })
+
+  test('error log config enables upload when business endpoint is configured', () => {
+    mockWxEnv('trial')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getErrorLogConfig({
+      envVersion: 'trial',
+      appEnv: 'sit',
+      businessEnvEndpoints: {
+        sit: {
+          errorLogHost: 'https://online-platform.example.com'
+        }
+      }
+    })).toEqual(expect.objectContaining({
+      appEnv: 'sit',
+      uploadEnabled: true,
+      uploadUrl: 'https://online-platform.example.com/api/selfcam/v1/error-logs/batch'
+    }))
+  })
+
+  test('aux photo config stays mock-only when backend url is missing', () => {
+    mockWxEnv('trial')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAuxPhotoConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      requestEnabled: false,
+      baseUrl: '',
+      mockEnabled: true,
+      requestTimeoutMs: 5000
+    }))
+  })
+
+  test('aux photo config disables mock in release and enables request when host is configured', () => {
+    mockWxEnv('release')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAuxPhotoConfig({
+      envVersion: 'release',
+      appEnv: 'prod',
+      businessEnvEndpoints: {
+        prod: {
+          auxPhotoHost: 'https://onlineclaim.example.com'
+        }
+      }
+    })).toEqual(expect.objectContaining({
+      wxEnvVersion: 'release',
+      envVersion: 'release',
+      appEnv: 'prod',
+      baseUrl: 'https://onlineclaim.example.com',
+      requestEnabled: true,
+      mockEnabled: false
+    }))
+  })
 })
