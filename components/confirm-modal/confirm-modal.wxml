@@ -11,7 +11,7 @@
     </view>
     <!-- 按钮区 -->
     <view class="modal-buttons">
-      <view class="modal-btn modal-btn-cancel" bindtap="onCancel">
+      <view wx:if="{{showCancel}}" class="modal-btn modal-btn-cancel" bindtap="onCancel">
         <text>{{cancelText}}</text>
       </view>
       <view class="modal-btn modal-btn-confirm" bindtap="onConfirm">

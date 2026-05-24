@@ -2,10 +2,14 @@ const {
   launchMiniProgram,
   closeMiniProgram,
   wait,
+  waitForCondition,
   seedCache,
   readCache,
   installWxMediaMocks,
-  getWxMediaState
+  getWxMediaState,
+  installCurrentPageCameraMock,
+  getCameraMockState,
+  createCameraRuntimeErrorCollector
 } = require('../support/automator')
 const {
   createFullDamageScenario,
@@ -13,6 +17,7 @@ const {
   collectAllPhotoPaths,
   assertNoDuplicatePhotoPaths
 } = require('../support/scenario-builder')
+const { SHOOT_STEP, createPhoto } = require('../support/fixtures')
 const cacheSelectors = require('../../utils/cache-selectors')
 
 function hasCapacityToast(state) {
@@ -106,5 +111,113 @@ describe('P0 容量边界 e2e', () => {
     expect(paths.some((path) => path.startsWith('wxfile://tmp/e2e-compressed-'))).toBe(true)
     expect(wxState.chooseMediaCalls).toBe(1)
     expect(() => assertNoDuplicatePhotoPaths(afterAdd)).not.toThrow()
+  })
+
+  test('[P0-08] aux photo rejects the sixth damage photo and advances after confirmation', async () => {
+    const scenario = createFullDamageScenario({ vehicleCount: 2, damageCountPerVehicle: [5, 0] })
+    const extraDamagePath = 'wxfile://tmp/p0-aux-overflow-damage-6.jpg'
+    scenario.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-2'
+    }
+    scenario.currentVehicleIndex = 0
+    scenario.currentStep = SHOOT_STEP.DAMAGE
+    scenario.currentDamageCount = scenario.vehicles[0].damages.length
+    scenario.workflowState = {
+      current: 'CAPTURING',
+      updatedAt: new Date().toISOString()
+    }
+    await seedCache(miniProgram, scenario)
+    await installWxMediaMocks(miniProgram, 'success', { uniqueCompressedPath: true })
+    const runtimeErrors = createCameraRuntimeErrorCollector(miniProgram)
+
+    try {
+      const page = await miniProgram.reLaunch('/pages/camera/camera')
+    await wait(800)
+    await page.setData({
+      currentStep: SHOOT_STEP.DAMAGE,
+      showConfirmModal: true,
+      pendingPhoto: createPhoto({
+        tempFilePath: 'wxfile://tmp/p0-aux-overflow-damage-6-original.jpg',
+        compressedPath: extraDamagePath,
+        captureTrigger: 'p0_aux_overflow'
+      }),
+      damageCount: 5
+    })
+
+    await page.callMethod('onConfirmPhoto')
+    await wait(300)
+
+    const beforeAdvanceCache = await readCache(miniProgram)
+    const beforeAdvanceData = await page.data()
+    const beforeAdvancePaths = collectAllPhotoPaths(beforeAdvanceCache)
+    const cameraDuringModal = await page.$$('camera')
+
+    expect(beforeAdvanceCache.vehicles[0].damages).toHaveLength(5)
+    expect(beforeAdvanceCache.currentVehicleIndex).toBe(0)
+    expect(beforeAdvanceCache.currentStep).toBe(SHOOT_STEP.DAMAGE)
+    expect(beforeAdvancePaths).not.toContain(extraDamagePath)
+    expect(beforeAdvanceData.showConfirmModal).toBe(false)
+    expect(beforeAdvanceData.pendingPhoto).toBe(null)
+    expect(beforeAdvanceData.showDamageCompleteModal).toBe(true)
+    expect(beforeAdvanceData.cameraMounted).toBe(false)
+    expect(cameraDuringModal).toHaveLength(0)
+    expect(beforeAdvanceData.damageCompleteConfirmText).toBe('下一辆车')
+
+    await page.callMethod('onDamageCompleteModalConfirm')
+
+    const data = await waitForCondition(async () => {
+      const current = await page.data()
+      if (
+        current.currentStep === SHOOT_STEP.LICENSE_PLATE
+        && current.showDamageCompleteModal === false
+        && current.cameraMounted === true
+      ) {
+        return current
+      }
+      return null
+    }, 2500)
+
+    const cache = await readCache(miniProgram)
+    let wxState = await getWxMediaState(miniProgram)
+    const paths = collectAllPhotoPaths(cache)
+    const cameraAfterAdvance = await page.$$('camera')
+
+    expect(cache.vehicles[0].damages).toHaveLength(5)
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentDamageCount).toBe(0)
+    expect(paths).not.toContain(extraDamagePath)
+    expect(data.currentStep).toBe(SHOOT_STEP.LICENSE_PLATE)
+    expect(data.damageCount).toBe(0)
+    expect(data.showConfirmModal).toBe(false)
+    expect(data.showDamageCompleteModal).toBe(false)
+    expect(data.cameraMounted).toBe(true)
+    expect(data.pendingPhoto).toBe(null)
+    expect(cameraAfterAdvance.length).toBeLessThanOrEqual(1)
+    expect(wxState.showModalCalls).toBe(0)
+    expect(() => assertNoDuplicatePhotoPaths(cache)).not.toThrow()
+
+    const beforeSecondVehicleCompress = wxState.compressImageCalls
+    expect(await installCurrentPageCameraMock(miniProgram, 'wxfile://tmp/p0-second-vehicle-license-original.jpg')).toBe(true)
+
+    await page.callMethod('onCapture')
+    wxState = await waitForCondition(async () => {
+      const current = await getWxMediaState(miniProgram)
+      return current.compressImageCalls > beforeSecondVehicleCompress ? current : null
+    }, 2500)
+
+    const cameraMockState = await getCameraMockState(miniProgram)
+    const afterSecondCaptureData = await page.data()
+    expect(cameraMockState.takePhotoCalls).toBe(1)
+    expect(wxState.compressImageCalls).toBe(beforeSecondVehicleCompress + 1)
+    expect(afterSecondCaptureData.showConfirmModal).toBe(true)
+    expect(afterSecondCaptureData.pendingPhoto).toEqual(expect.objectContaining({
+      compressedPath: expect.stringContaining('wxfile://tmp/e2e-compressed-')
+    }))
+    runtimeErrors.assertClean('P0-08 camera runtime')
+    } finally {
+      runtimeErrors.detach()
+    }
   })
 })

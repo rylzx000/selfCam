@@ -1,12 +1,6 @@
 <view class="container" style="{{cameraLayout.containerStyle}}">
   <view class="page-glow"></view>
 
-  <view wx:if="{{vehicleSwitching}}" class="vehicle-switch-mask">
-    <view class="vehicle-switch-card">
-      <text class="vehicle-switch-text">{{vehicleSwitchText}}</text>
-    </view>
-  </view>
-
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
     <view class="vehicle-info" style="{{cameraLayout.vehicleCardStyle}}">
       <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
@@ -46,7 +40,7 @@
 
   <view class="camera-wrapper" style="{{cameraLayout.cameraWrapperStyle}}">
     <camera
-      wx:if="{{!showConfirmModal}}"
+      wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"
       class="camera"
       device-position="back"
       flash="auto"
@@ -217,7 +211,7 @@
   </view>
 
   <view class="action-area" style="{{cameraLayout.actionAreaStyle}}">
-    <view wx:if="{{!showConfirmModal}}" class="capture-section">
+    <view wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}" class="capture-section">
       <view class="capture-btn" style="{{cameraLayout.captureButtonStyle}}" bindtap="onCapture">
         <view class="capture-inner" style="{{cameraLayout.captureInnerStyle}}"></view>
       </view>
@@ -236,6 +230,17 @@
       </view>
     </view>
   </view>
+
+  <confirm-modal
+    visible="{{showDamageCompleteModal}}"
+    content="{{damageCompleteModalContent}}"
+    confirm-text="{{damageCompleteConfirmText}}"
+    cancel-text="{{damageCompleteCancelText}}"
+    show-cancel="{{damageCompleteShowCancel}}"
+    bind:confirm="onDamageCompleteModalConfirm"
+    bind:cancel="onDamageCompleteModalCancel"
+    bind:masktap="onDamageCompleteModalMaskTap"
+  />
 
   <view wx:if="{{appEnvBadgeText}}" class="env-badge">{{appEnvBadgeText}}</view>
 </view>

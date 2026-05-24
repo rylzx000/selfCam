@@ -159,6 +159,31 @@ describe('preview final album save flow', () => {
     expect(permission.ensureAlbumSavePermission).not.toHaveBeenCalled()
   })
 
+  test('blocks damage supplement from preview when vehicle already has max damages', () => {
+    const cache = saveCacheWithVehicles(1, { drivingLicenseComplete: true })
+    cache.vehicles[0].damages = Array.from({ length: constants.LIMITS.MAX_DAMAGES }, (_, index) => ({
+      compressedPath: `/damage-full-${index}.jpg`,
+      localPhotoId: `damage-full-${index}`
+    }))
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    storage.saveCache(cache)
+    const page = loadPreviewPage()
+
+    page.onAddDamage({
+      currentTarget: {
+        dataset: { vehicle: 0 }
+      }
+    })
+
+    const latestCache = storage.loadCache()
+    expect(latestCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(latestCache.vehicles[0].damages).toHaveLength(constants.LIMITS.MAX_DAMAGES)
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.showToast).toHaveBeenCalledWith(expect.objectContaining({
+      icon: 'none'
+    }))
+  })
+
   test('skips album save and completes when user cancels final save prompt', () => {
     saveCacheWithVehicles(3, { drivingLicenseComplete: true })
     const page = loadPreviewPage()

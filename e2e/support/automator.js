@@ -294,6 +294,94 @@ async function getWxMediaState(miniProgram) {
   })
 }
 
+async function installCurrentPageCameraMock(miniProgram, tempImagePath = 'wxfile://tmp/e2e-camera-shot.jpg') {
+  return miniProgram.evaluate(function (payload) {
+    const pages = getCurrentPages()
+    const page = pages[pages.length - 1]
+    if (!page) return false
+
+    wx.__e2eCamera = {
+      takePhotoCalls: 0,
+      tempImagePath: payload.tempImagePath
+    }
+    page.cameraInitialized = true
+    page.cameraContext = {
+      takePhoto(options) {
+        options = options || {}
+        wx.__e2eCamera.takePhotoCalls += 1
+        setTimeout(function () {
+          options.success && options.success({ tempImagePath: wx.__e2eCamera.tempImagePath })
+          options.complete && options.complete({})
+        }, 0)
+      }
+    }
+    return true
+  }, { tempImagePath })
+}
+
+async function getCameraMockState(miniProgram) {
+  return miniProgram.evaluate(function () {
+    return wx.__e2eCamera || null
+  })
+}
+
+const CAMERA_RUNTIME_ERROR_PATTERNS = [
+  '<camera>: 一个页面只能插入一个',
+  'compressImage:fail compress image fail',
+  '[camera] photo process failed',
+  '[camera] takePhoto failed'
+]
+
+function stringifyRuntimeLog(payload) {
+  if (payload == null) return ''
+  if (typeof payload === 'string') return payload
+  if (typeof payload.message === 'string') return payload.message
+  if (typeof payload.text === 'string') return payload.text
+  if (Array.isArray(payload.args)) {
+    return payload.args.map(stringifyRuntimeLog).join(' ')
+  }
+  if (payload.exceptionDetails) {
+    return stringifyRuntimeLog(payload.exceptionDetails)
+  }
+  try {
+    return JSON.stringify(payload)
+  } catch (error) {
+    return String(payload)
+  }
+}
+
+function createCameraRuntimeErrorCollector(miniProgram) {
+  const errors = []
+  const onConsole = (payload) => {
+    const message = stringifyRuntimeLog(payload)
+    if (CAMERA_RUNTIME_ERROR_PATTERNS.some((pattern) => message.includes(pattern))) {
+      errors.push(message)
+    }
+  }
+  const onException = (payload) => {
+    const message = stringifyRuntimeLog(payload)
+    if (CAMERA_RUNTIME_ERROR_PATTERNS.some((pattern) => message.includes(pattern))) {
+      errors.push(message)
+    }
+  }
+
+  miniProgram.on('console', onConsole)
+  miniProgram.on('exception', onException)
+
+  return {
+    errors,
+    detach() {
+      miniProgram.removeListener('console', onConsole)
+      miniProgram.removeListener('exception', onException)
+    },
+    assertClean(label = 'camera runtime') {
+      if (errors.length) {
+        throw new Error(`${label} errors:\n${errors.join('\n')}`)
+      }
+    }
+  }
+}
+
 async function patchCameraAiForE2E(miniProgram) {
   await miniProgram.evaluate(function () {
     const pages = getCurrentPages()
@@ -462,6 +550,9 @@ module.exports = {
   waitForCondition,
   installWxMediaMocks,
   getWxMediaState,
+  installCurrentPageCameraMock,
+  getCameraMockState,
+  createCameraRuntimeErrorCollector,
   patchCameraAiForE2E,
   getCameraAiState,
   setCurrentPageFields,
