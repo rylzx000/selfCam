@@ -196,6 +196,36 @@
     </view>
   </view>
 
+  <view wx:if="{{showUploadOverlay}}" class="upload-mask">
+    <view class="upload-modal">
+      <view class="upload-modal-head">
+        <view class="upload-mark {{uploadOverlayPrimaryMode === 'danger' ? 'danger' : ''}}">
+          {{uploadOverlayPrimaryMode === 'danger' ? '!' : uploadOverlayProgressPercent === '100%' ? '✓' : ''}}
+        </view>
+        <view class="upload-title-wrap">
+          <text class="upload-title">{{uploadOverlayTitle}}</text>
+          <text class="upload-desc">{{uploadOverlayDesc}}</text>
+        </view>
+      </view>
+
+      <view class="upload-progress-meta">
+        <text>{{uploadOverlayProgressText}}</text>
+        <text class="upload-percent">{{uploadOverlayProgressPercent}}</text>
+      </view>
+      <view class="upload-progress-track">
+        <view class="upload-progress-fill {{uploadOverlayPrimaryMode === 'danger' ? 'danger' : ''}}" style="{{uploadOverlayProgressStyle}}"></view>
+      </view>
+
+      <view class="upload-current">{{uploadOverlayCurrentText}}</view>
+
+      <view wx:if="{{uploadOverlayPrimaryVisible}}" class="upload-actions">
+        <view class="upload-primary {{uploadOverlayPrimaryMode === 'danger' ? 'danger' : ''}}" bindtap="onUploadOverlayPrimaryTap">
+          {{uploadOverlayPrimaryText}}
+        </view>
+      </view>
+    </view>
+  </view>
+
   <confirm-modal
     visible="{{showModal}}"
     content="{{modalContent}}"

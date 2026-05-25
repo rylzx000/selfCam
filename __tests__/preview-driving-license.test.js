@@ -398,15 +398,22 @@ describe('preview page driving license flow', () => {
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
   })
 
-  test('continues original completion after risk confirmation', () => {
+  test('continues to upload overlay after risk confirmation', () => {
     const page = loadPreviewPageWithVehicles(3)
 
     page.onSubmit()
     page.onModalConfirm()
 
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+    const cache = storage.loadCache()
+    expect(page.data.showUploadOverlay).toBe(true)
+    expect(cache.uploadSession).toEqual(expect.objectContaining({
+      phase: 'ready',
+      total: 0
+    }))
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
       url: '/pages/complete/complete'
     })
+    page.onUnload()
   })
 
   test('taps driving license thumbnail into the existing fullscreen preview', () => {

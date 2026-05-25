@@ -7,6 +7,7 @@ const album = require('../../utils/album')
 const permission = require('../../utils/permission')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+const uploadState = require('../../utils/upload-state')
 const envConfig = require('../../utils/env-config')
 const runtimeLogger = require('../../utils/runtime-logger')
 const {
@@ -28,6 +29,7 @@ const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保�
 
 const PREVIEW_BASE_RPX_WIDTH = 750
 const PREVIEW_BASE_RPX_HEIGHT = 390
+const UPLOAD_MOCK_INTERVAL_MS = 320
 
 function computeResponsivePreviewLayout(info = {}) {
   const {
@@ -385,17 +387,29 @@ Page({
     activeDrivingLicenseVehicleIndex: null,
     activeDrivingLicenseSlots: [],
     appEnvBadgeText: '',
+    showUploadOverlay: false,
+    uploadOverlayTitle: '',
+    uploadOverlayDesc: '',
+    uploadOverlayProgressText: '',
+    uploadOverlayProgressPercent: '',
+    uploadOverlayProgressStyle: '',
+    uploadOverlayCurrentText: '',
+    uploadOverlayPrimaryText: '',
+    uploadOverlayPrimaryVisible: false,
+    uploadOverlayPrimaryMode: 'primary',
     workflowState: workflow.STATES.IDLE,
     previewLayout: computeResponsivePreviewLayout()
   },
 
   isLeaving: false,
+  uploadMockTimer: null,
 
   onLoad() {
     this.isLeaving = false
     this.updateAppEnvBadge()
     this.updatePreviewLayout('on_load')
-    if (storage.loadCacheForResume()) {
+    const cache = storage.loadCacheForResume()
+    if (cache && !cache.uploadSession) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
         page: 'preview'
       })
@@ -415,12 +429,20 @@ Page({
       storage.saveCache(storage.clearPreviewFlags(cache))
     }
 
-    if (cache) {
+    if (cache && !cache.uploadSession) {
       workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
         page: 'preview'
       })
     }
     this.loadData()
+  },
+
+  onHide() {
+    this.clearUploadMockTimer()
+  },
+
+  onUnload() {
+    this.clearUploadMockTimer()
   },
 
   updateAppEnvBadge() {
@@ -504,6 +526,101 @@ Page({
         ? vehicleDocuments.buildDrivingLicenseSlots(activeVehicle, drivingLicenseMode)
         : []
     })
+
+    this.restoreUploadOverlay(cache)
+  },
+
+  getUploadCurrentItem(session) {
+    const items = Array.isArray(session && session.items) ? session.items : []
+
+    if (session && session.phase === uploadState.UPLOAD_PHASE.FAILED) {
+      return items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.FAILED) || null
+    }
+
+    return items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.PENDING)
+      || items[items.length - 1]
+      || null
+  },
+
+  buildUploadOverlayData(session) {
+    const total = session && Number.isFinite(session.total) ? session.total : 0
+    const uploaded = session && Number.isFinite(session.uploaded) ? session.uploaded : 0
+    const percent = total > 0 ? Math.round((uploaded / total) * 100) : 0
+    const currentItem = this.getUploadCurrentItem(session)
+    const phase = session && session.phase
+
+    if (phase === uploadState.UPLOAD_PHASE.READY) {
+      return {
+        showUploadOverlay: true,
+        uploadOverlayTitle: '照片上传完成',
+        uploadOverlayDesc: '本地上传状态已完成，请继续完成采集。',
+        uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+        uploadOverlayProgressPercent: `${percent}%`,
+        uploadOverlayProgressStyle: `width: ${percent}%`,
+        uploadOverlayCurrentText: '全部照片已处理',
+        uploadOverlayPrimaryText: '完成采集',
+        uploadOverlayPrimaryVisible: true,
+        uploadOverlayPrimaryMode: 'primary'
+      }
+    }
+
+    if (phase === uploadState.UPLOAD_PHASE.FAILED) {
+      return {
+        showUploadOverlay: true,
+        uploadOverlayTitle: '有照片上传失败',
+        uploadOverlayDesc: '请重试上传，已上传成功的照片不会重复处理。',
+        uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+        uploadOverlayProgressPercent: `${percent}%`,
+        uploadOverlayProgressStyle: `width: ${percent}%`,
+        uploadOverlayCurrentText: currentItem ? `失败：${currentItem.label}` : '上传失败',
+        uploadOverlayPrimaryText: '重试上传',
+        uploadOverlayPrimaryVisible: true,
+        uploadOverlayPrimaryMode: 'danger'
+      }
+    }
+
+    return {
+      showUploadOverlay: true,
+      uploadOverlayTitle: '正在上传照片',
+      uploadOverlayDesc: '请保持小程序打开，上传完成后继续下一步。',
+      uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+      uploadOverlayProgressPercent: `${percent}%`,
+      uploadOverlayProgressStyle: `width: ${percent}%`,
+      uploadOverlayCurrentText: currentItem ? `当前：${currentItem.label}` : '正在整理待上传照片',
+      uploadOverlayPrimaryText: '',
+      uploadOverlayPrimaryVisible: false,
+      uploadOverlayPrimaryMode: 'primary'
+    }
+  },
+
+  restoreUploadOverlay(cache = storage.loadCache()) {
+    if (!cache || !cache.uploadSession) {
+      if (this.data.showUploadOverlay) {
+        this.clearUploadMockTimer()
+        this.setData({ showUploadOverlay: false })
+      }
+      return
+    }
+
+    this.setData(this.buildUploadOverlayData(cache.uploadSession))
+
+    if (cache.uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
+      this.scheduleUploadMockStep(cache.uploadSession.sessionId)
+    }
+  },
+
+  clearUploadMockTimer() {
+    if (this.uploadMockTimer) {
+      clearTimeout(this.uploadMockTimer)
+      this.uploadMockTimer = null
+    }
+  },
+
+  scheduleUploadMockStep(sessionId) {
+    this.clearUploadMockTimer()
+    this.uploadMockTimer = setTimeout(() => {
+      this.processUploadMockStep(sessionId)
+    }, UPLOAD_MOCK_INTERVAL_MS)
   },
 
   onOpenDrivingLicensePanel(e) {
@@ -1001,7 +1118,7 @@ Page({
 
     const candidates = cacheSelectors.getAlbumSaveCandidates(cache)
     if (candidates.length === 0) {
-      this.submitComplete()
+      this.startUploadFlow(cache)
       return
     }
 
@@ -1122,7 +1239,7 @@ Page({
       0,
       0
     ))
-    this.submitComplete()
+    this.startUploadFlow()
   },
 
   async saveAlbumCandidatesAndComplete() {
@@ -1130,14 +1247,14 @@ Page({
     const candidates = cacheSelectors.getAlbumSaveCandidates(cache)
 
     if (candidates.length === 0) {
-      this.submitComplete()
+      this.startUploadFlow(cache)
       return
     }
 
     const granted = await permission.ensureAlbumSavePermission()
     if (!granted) {
       this.persistAlbumSaveResult(this.buildFailedAlbumSaveResult(candidates, 'permission_denied'))
-      this.submitComplete()
+      this.startUploadFlow()
       return
     }
 
@@ -1153,7 +1270,7 @@ Page({
     }
 
     this.persistAlbumSaveResult(result)
-    this.submitComplete()
+    this.startUploadFlow()
   },
 
   async onModalConfirm() {
@@ -1180,6 +1297,103 @@ Page({
 
   onModalMaskTap() {
     this.setData({ showModal: false })
+  },
+
+  startUploadFlow(cache = storage.loadCache()) {
+    if (!cache) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    this.clearUploadMockTimer()
+    const uploadSession = uploadState.createUploadSession(cache)
+    cache.uploadSession = uploadSession
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    storage.saveCache(cache)
+
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.UPLOADING, {
+      page: 'preview',
+      pageAction: 'upload_start'
+    })
+
+    this.setData(this.buildUploadOverlayData(uploadSession))
+
+    if (uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
+      this.scheduleUploadMockStep(uploadSession.sessionId)
+    }
+  },
+
+  processUploadMockStep(sessionId) {
+    const cache = storage.loadCache()
+    const session = cache && cache.uploadSession
+
+    if (!session || session.sessionId !== sessionId) {
+      return
+    }
+
+    const scenario = uploadState.resolveMockScenario(session.ticket)
+    const nextSession = uploadState.applyMockUploadStep(session, { scenario })
+    cache.uploadSession = nextSession
+    storage.saveCache(cache)
+
+    const nextWorkflowState = nextSession.phase === uploadState.UPLOAD_PHASE.FAILED
+      ? workflow.STATES.UPLOAD_FAILED
+      : nextSession.phase === uploadState.UPLOAD_PHASE.READY
+        ? workflow.STATES.UPLOAD_READY
+        : workflow.STATES.UPLOADING
+
+    workflowPage.syncPageWorkflowState(this, nextWorkflowState, {
+      page: 'preview',
+      pageAction: 'upload_mock_step'
+    })
+    this.setData(this.buildUploadOverlayData(nextSession))
+
+    if (nextSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
+      this.scheduleUploadMockStep(nextSession.sessionId)
+    }
+  },
+
+  retryUploadFlow() {
+    const cache = storage.loadCache()
+    const session = cache && cache.uploadSession
+
+    if (!session) {
+      return
+    }
+
+    const nextSession = uploadState.retryFailedItems(session)
+    cache.uploadSession = nextSession
+    storage.saveCache(cache)
+
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.UPLOADING, {
+      page: 'preview',
+      pageAction: 'upload_retry'
+    })
+    this.setData(this.buildUploadOverlayData(nextSession))
+    this.scheduleUploadMockStep(nextSession.sessionId)
+  },
+
+  onUploadOverlayPrimaryTap() {
+    const cache = storage.loadCache()
+    const session = cache && cache.uploadSession
+
+    if (!session) {
+      return
+    }
+
+    if (session.phase === uploadState.UPLOAD_PHASE.READY) {
+      cache.uploadSession = null
+      storage.saveCache(cache)
+      this.clearUploadMockTimer()
+      this.setData({ showUploadOverlay: false })
+      this.submitComplete()
+      return
+    }
+
+    if (session.phase === uploadState.UPLOAD_PHASE.FAILED) {
+      this.retryUploadFlow()
+    }
   },
 
   submitComplete() {

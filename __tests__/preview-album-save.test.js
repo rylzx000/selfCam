@@ -81,6 +81,24 @@ describe('preview final album save flow', () => {
     return page
   }
 
+  function expectUploadOverlayStarted(page, expectedTotal) {
+    try {
+      const cache = storage.loadCache()
+
+      expect(page.data.showUploadOverlay).toBe(true)
+      expect(page.data.uploadOverlayTitle).toBe('正在上传照片')
+      expect(cache.uploadSession).toEqual(expect.objectContaining({
+        phase: 'uploading',
+        total: expectedTotal
+      }))
+      expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
+        url: '/pages/complete/complete'
+      })
+    } finally {
+      page.onUnload()
+    }
+  }
+
   beforeEach(() => {
     jest.resetModules()
     memoryStorage = {}
@@ -202,9 +220,7 @@ describe('preview final album save flow', () => {
       saved: 0,
       failed: 0
     }))
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
-    })
+    expectUploadOverlayStarted(page, 12)
   })
 
   test('saves current candidates after permission is granted and records saved photos', async () => {
@@ -232,9 +248,7 @@ describe('preview final album save flow', () => {
       saved: 12,
       failed: 0
     }))
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
-    })
+    expectUploadOverlayStarted(page, 12)
   })
 
   test('completes without saving when final album permission is denied', async () => {
@@ -254,9 +268,7 @@ describe('preview final album save flow', () => {
       failed: 9,
       permissionDenied: 9
     }))
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
-    })
+    expectUploadOverlayStarted(page, 12)
   })
 
   test('does not prompt when all current photos were already saved', () => {
@@ -282,9 +294,7 @@ describe('preview final album save flow', () => {
 
     expect(page.data.showModal).toBe(false)
     expect(album.savePhotosToAlbumBatch).not.toHaveBeenCalled()
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
-    })
+    expectUploadOverlayStarted(page, 12)
   })
 
   test('after returning to edit, saves only replaced photos with new identity', async () => {
@@ -320,5 +330,6 @@ describe('preview final album save flow', () => {
         filePath: '/plate-0-new.jpg'
       })
     ])
+    page.onUnload()
   })
 })

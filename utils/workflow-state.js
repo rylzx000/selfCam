@@ -8,7 +8,10 @@ const STATES = {
   PREVIEWING: 'PREVIEWING',
   RETAKING: 'RETAKING',
   DOCUMENTING: 'DOCUMENTING',
-  LOCAL_COMPLETED: 'LOCAL_COMPLETED'
+  LOCAL_COMPLETED: 'LOCAL_COMPLETED',
+  UPLOADING: 'UPLOADING',
+  UPLOAD_FAILED: 'UPLOAD_FAILED',
+  UPLOAD_READY: 'UPLOAD_READY'
 }
 
 const STATE_VALUES = Object.keys(STATES).map((key) => STATES[key])
@@ -36,6 +39,7 @@ const ALLOWED_TRANSITIONS = {
     STATES.CAPTURING,
     STATES.RETAKING,
     STATES.DOCUMENTING,
+    STATES.UPLOADING,
     STATES.LOCAL_COMPLETED,
     STATES.IDLE
   ],
@@ -46,8 +50,22 @@ const ALLOWED_TRANSITIONS = {
   ],
   [STATES.DOCUMENTING]: [
     STATES.PREVIEWING,
+    STATES.UPLOADING,
     STATES.LOCAL_COMPLETED,
     STATES.IDLE
+  ],
+  [STATES.UPLOADING]: [
+    STATES.UPLOAD_FAILED,
+    STATES.UPLOAD_READY,
+    STATES.PREVIEWING
+  ],
+  [STATES.UPLOAD_FAILED]: [
+    STATES.UPLOADING,
+    STATES.PREVIEWING
+  ],
+  [STATES.UPLOAD_READY]: [
+    STATES.LOCAL_COMPLETED,
+    STATES.PREVIEWING
   ],
   [STATES.LOCAL_COMPLETED]: [
     STATES.PREVIEWING,
@@ -98,6 +116,28 @@ function isShootStep(step) {
   ].indexOf(step) >= 0
 }
 
+function getUploadWorkflowState(cache) {
+  const uploadSession = cache && cache.uploadSession
+
+  if (!uploadSession || typeof uploadSession !== 'object') {
+    return ''
+  }
+
+  if (uploadSession.phase === 'failed') {
+    return STATES.UPLOAD_FAILED
+  }
+
+  if (uploadSession.phase === 'ready') {
+    return STATES.UPLOAD_READY
+  }
+
+  if (uploadSession.phase === 'uploading') {
+    return STATES.UPLOADING
+  }
+
+  return ''
+}
+
 function isFreshCheckpoint(cache) {
   if (!cache || !cache.workflowState) {
     return false
@@ -132,6 +172,11 @@ function inferStateFromCache(cache) {
 
   if (cache.retakeMode && cache.retakeMode.enabled) {
     return STATES.RETAKING
+  }
+
+  const uploadWorkflowState = getUploadWorkflowState(cache)
+  if (uploadWorkflowState) {
+    return uploadWorkflowState
   }
 
   const storedState = getStoredState(cache)
