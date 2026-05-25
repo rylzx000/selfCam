@@ -39,6 +39,56 @@ describe('preview page driving license flow', () => {
     return page
   }
 
+  function loadPreviewPageWithCache(cache) {
+    storage.saveCache(cache)
+
+    pageConfig = null
+    jest.isolateModules(() => {
+      require('../pages/preview/preview')
+    })
+
+    const page = createPageInstance(pageConfig)
+    page.loadData()
+    return page
+  }
+
+  function buildAuxUploadItems(vehicleId) {
+    return [
+      {
+        uploadItemId: `${vehicleId}_DRIVING_LICENSE_FRONT`,
+        photoType: 'DRIVING_LICENSE_FRONT',
+        photoName: '行驶证正页',
+        maxCount: 1,
+        uploadedCount: 0
+      },
+      {
+        uploadItemId: `${vehicleId}_DRIVING_LICENSE_BACK`,
+        photoType: 'DRIVING_LICENSE_BACK',
+        photoName: '行驶证副页',
+        maxCount: 1,
+        uploadedCount: 0
+      },
+      {
+        uploadItemId: `${vehicleId}_DRIVING_LICENSE_ELECTRONIC`,
+        photoType: 'DRIVING_LICENSE_ELECTRONIC',
+        photoName: '电子行驶证',
+        maxCount: 1,
+        uploadedCount: 0
+      }
+    ]
+  }
+
+  function createAuxVehicle(index, vehicleId) {
+    const vehicle = storage.createVehicle(index)
+    vehicle.id = vehicleId
+    vehicle.vehicleId = vehicleId
+    vehicle.backendVehicleId = vehicleId
+    vehicle.vehicleRoleName = index === 0 ? '标的车' : '三者车'
+    vehicle.displayName = `${vehicle.vehicleRoleName} 京A0000${index}`
+    vehicle.uploadItems = buildAuxUploadItems(vehicleId)
+    return vehicle
+  }
+
   beforeEach(() => {
     jest.resetModules()
     memoryStorage = {}
@@ -181,6 +231,69 @@ describe('preview page driving license flow', () => {
     }))
     expect(vehicle.documents[0].sourceType).toBe('album')
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
+  })
+
+  test('uploads electronic driving license with backend upload metadata in aux photo mode', async () => {
+    actionSheetTapIndexes = [0]
+    const cache = storage.initCache()
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-1'
+    }
+    cache.vehicles.push(createAuxVehicle(0, 'LOSS_VEHICLE_100001'))
+    const page = loadPreviewPageWithCache(cache)
+
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: { vehicle: 0 }
+      }
+    })
+    page.onSwitchDrivingLicenseMode()
+
+    await page.onTapDrivingLicenseSlot({
+      currentTarget: {
+        dataset: {
+          side: documents.DRIVING_LICENSE_SIDES.ELECTRONIC,
+          uploaded: false,
+          uploadable: true
+        }
+      }
+    })
+
+    const vehicle = storage.loadCache().vehicles[0]
+    expect(vehicle.documents).toHaveLength(1)
+    expect(vehicle.documents[0]).toEqual(expect.objectContaining({
+      docSide: documents.DRIVING_LICENSE_SIDES.ELECTRONIC,
+      vehicleId: 'LOSS_VEHICLE_100001',
+      uploadItemId: 'LOSS_VEHICLE_100001_DRIVING_LICENSE_ELECTRONIC',
+      photoType: 'DRIVING_LICENSE_ELECTRONIC'
+    }))
+  })
+
+  test('defensively blocks manual vehicle changes in aux photo mode', () => {
+    const cache = storage.initCache()
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-2'
+    }
+    cache.vehicles.push(
+      createAuxVehicle(0, 'LOSS_VEHICLE_100001'),
+      createAuxVehicle(1, 'LOSS_VEHICLE_100002')
+    )
+    const page = loadPreviewPageWithCache(cache)
+
+    page.addThirdVehicle()
+    page.onDeleteVehicle({
+      currentTarget: {
+        dataset: { vehicleIndex: 1 }
+      }
+    })
+
+    expect(storage.loadCache().vehicles).toHaveLength(2)
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.showModal).not.toHaveBeenCalledWith(expect.objectContaining({
+      title: '删除确认'
+    }))
   })
 
   test('keeps uploaded camera document without final album save side effects', async () => {

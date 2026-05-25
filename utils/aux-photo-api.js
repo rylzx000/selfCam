@@ -1,7 +1,7 @@
 const envConfig = require('./env-config')
 const auxPhotoMock = require('./aux-photo-mock')
 
-const CLIENT_VERSION = '1.4.2'
+const CLIENT_VERSION = '1.4.4'
 const INIT_PATH = '/onlineclaim/AuxPhotoService/init'
 
 function sanitizeTicket(ticket) {

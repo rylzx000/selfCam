@@ -2,52 +2,42 @@
 
 ## 当前版本
 
-**版本号**: v1.4.2
-**发布日期**: 2026-05-22
-**状态**: SIT 体验版辅助拍照后端初始化接入
+**版本号**: v1.4.4
+**发布日期**: 2026-05-25
+**状态**: SIT 体验版辅助拍照预览单证规则适配
 
 ---
 
 ## 版本概述
 
-`v1.4.2` 是基于 `v1.4.1` 的辅助拍照后端初始化接入版本。本轮先落地 ticket 初始化、后端车辆控制、mock 联调入口、拍照页车辆展示和多车辆拍摄流转，并补齐在线平台错误日志上传通道与接口文档。图片最终上传和完成接口仍按后续阶段继续拆分实现。
+`v1.4.4` 是基于 `v1.4.2` 辅助拍照初始化链路的预览页与单证规则适配版本。本轮不实现真实 `uploadPhoto` 和 `complete` 接口，只让预览页行驶证展示、补拍和本地缓存元数据与后端 `uploadItems/photoType` 规则对齐。
 
 ### 本版本重点
 
-- 小程序可通过启动参数 `ticket` 初始化辅助拍照任务，车辆数量、车牌号和拍照项以后端返回为准。
-- 开发/体验环境支持 `mock-1`、`mock-2`、`mock-3` 模拟不同车辆数，便于未联调时验证前端受接口控制。
-- 辅助拍照链路不允许前端新增或删除三者车；拍照页展示车辆角色、车牌标签和当前车辆进度。
-- 车损阶段支持“下一辆车”直接切换到下一辆车车牌拍摄，最后一辆再进入预览。
-- 错误日志上传按 `reportNo` 关联，只上传白名单内明确报错，不影响主流程。
+- 保留前端实物行驶证和电子行驶证两种选择。
+- 实物行驶证正页、副页分别绑定后端 `DRIVING_LICENSE_FRONT`、`DRIVING_LICENSE_BACK`。
+- 电子行驶证绑定后端 `DRIVING_LICENSE_ELECTRONIC`。
+- 行驶证本地缓存补齐 `vehicleId`、`uploadItemId`、`photoType`，为后续真实上传接口预留元数据。
+- 辅助拍照模式下预览页防御式锁定车辆列表，不能新增或删除三者车。
 
-## v1.4.2 变更摘要
+## v1.4.4 变更摘要
 
-### 辅助拍照初始化与车辆控制
+### 预览页与单证规则
 
-- `app.js` 读取并缓存启动参数中的 `reportNo` 与 `ticket`。
-- `pages/index/index.js` 在有 `ticket` 时调用辅助拍照初始化接口，并将后端车辆映射为本地缓存。
-- `utils/aux-photo-api.js`、`utils/aux-photo-mapper.js`、`utils/aux-photo-mock.js` 新增辅助拍照 init、mock 和车辆字段映射能力。
-- `utils/cache-selectors.js` 新增辅助拍照车辆锁定、后端显示名、车牌主题、车辆进度和动态按钮文案。
+- `utils/documents.js` 增加行驶证 `docSide -> photoType` 映射，并在行驶证槽位和预览项中带出后端上传项元数据。
+- `pages/preview/preview.js` 上传或重拍行驶证时保存 `vehicleId`、`uploadItemId`、`photoType` 到车辆级行驶证记录。
+- `pages/preview/preview.js` 在辅助拍照模式下防御式拦截新增和删除车辆操作。
 
-### 拍照页与预览页
+### 文档与版本
 
-- `pages/camera/camera.wxml`、`pages/camera/camera.wxss` 拆分车辆角色和车牌标签，油车蓝底、电车绿底，避免角色和车牌拼接溢出。
-- `pages/camera/camera.js` 在辅助拍照模式下支持车损完成后直接进入下一辆车；最后一辆再进入预览，拍满 5 张车损时不自动跳走。
-- `pages/preview/preview.js` 与 `pages/preview/preview.wxml` 优先展示后端车辆显示名，继续兼容车辆级行驶证资料。
-
-### 错误日志与后台文档
-
-- `utils/runtime-logger.js` 增加在线平台错误上传队列、白名单过滤、`reportNo` 关联和批量请求构造。
-- `utils/env-config.js` 增加辅助拍照接口与错误日志接口配置入口。
-- 新增 `docs/backend-integration/` 和辅助拍照接口对接文档，覆盖错误日志、ticket 初始化、车辆拍照项、上传和完成接口约定。
-- `package.json` 与 `package-lock.json` 版本号提升到 `1.4.2`。
+- `docs/辅助拍照微信小程序接口对接文档.md` 补充 `DRIVING_LICENSE_ELECTRONIC` 和三种行驶证独立 `uploadItemId` 约定。
+- `PRDS/PRD.md`、`PRDS/tech.md` 同步预览页单证规则和本阶段不调用真实上传接口的边界。
+- `package.json`、`package-lock.json` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.4`。
 
 ### 测试与验证
 
-- `node --check` 覆盖辅助拍照、相机页、首页、预览页、环境配置和运行日志核心 JS 文件：通过。
-- `npm test -- --runInBand`：27 个测试套件、254 个用例通过。
-- `npm run test:automator:smoke`：微信开发者工具自动化关键链路通过。
-- 微信开发者工具临时 mock ticket 验证：`mock-2` 第一辆车切第二辆车通过，`mock-3` 绿牌和最后 `去预览` 通过。
+- 用户已完成真机验证：通过。
+- 本次补版本号与改提交备注按用户要求未重新执行测试。
 
 ---
 
@@ -55,6 +45,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.4 | 2026-05-25 | SIT 体验版辅助拍照预览单证规则适配 | 预览页行驶证槽位对齐后端 `uploadItems/photoType`，补齐电子行驶证独立类型和车辆锁定 |
 | v1.4.2 | 2026-05-22 | SIT 体验版辅助拍照后端初始化接入 | ticket 初始化、后端车辆控制、相机多车辆流转、错误日志上传和接口文档同步 |
 | v1.4.1 | 2026-05-11 | SIT 体验版 nova13 横屏相机适配修复 | OpenHarmony 横屏 UI 缩放、拍照页/预览页适配、实时帧坐标映射和低频 AI 几何诊断日志 |
 | v1.4.0 | 2026-05-10 | SIT 体验版图片本机保存模式调整 | 相册保存后移到完成采集最终确认，支持保存记录、增量保存和完成页结果提示 |

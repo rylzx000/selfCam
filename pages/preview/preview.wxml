@@ -148,7 +148,8 @@
               style="{{previewLayout.licenseUploadSlotStyle}}"
               bindtap="onTapDrivingLicenseSlot"
               data-side="{{item.docSide}}"
-              data-uploaded="{{item.uploaded}}">
+              data-uploaded="{{item.uploaded}}"
+              data-uploadable="{{item.uploadable}}">
           <block wx:if="{{item.uploaded}}">
             <image class="slot-image" src="{{item.document.compressedPath}}" mode="aspectFill" style="{{previewLayout.slotImageStyle}}"></image>
             <text class="slot-title" style="{{previewLayout.slotTitleStyle}}">已上传</text>

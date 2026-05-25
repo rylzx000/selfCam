@@ -92,6 +92,78 @@ describe('vehicle document cache support', () => {
     }))
   })
 
+  test('maps driving license sides to backend photo types', () => {
+    expect(documents.getDrivingLicensePhotoType(documents.DRIVING_LICENSE_SIDES.FRONT_PAGE))
+      .toBe('DRIVING_LICENSE_FRONT')
+    expect(documents.getDrivingLicensePhotoType(documents.DRIVING_LICENSE_SIDES.BACK_PAGE))
+      .toBe('DRIVING_LICENSE_BACK')
+    expect(documents.getDrivingLicensePhotoType(documents.DRIVING_LICENSE_SIDES.ELECTRONIC))
+      .toBe('DRIVING_LICENSE_ELECTRONIC')
+  })
+
+  test('builds driving license slots with backend upload item metadata', () => {
+    const vehicle = storage.createVehicle(0)
+    vehicle.vehicleId = 'LOSS_VEHICLE_100001'
+    vehicle.uploadItems = [
+      {
+        uploadItemId: 'V1_LICENSE_FRONT',
+        photoType: 'DRIVING_LICENSE_FRONT',
+        photoName: '行驶证正页',
+        maxCount: 1,
+        uploadedCount: 0
+      },
+      {
+        uploadItemId: 'V1_LICENSE_BACK',
+        photoType: 'DRIVING_LICENSE_BACK',
+        photoName: '行驶证副页',
+        maxCount: 1,
+        uploadedCount: 0
+      },
+      {
+        uploadItemId: 'V1_LICENSE_ELECTRONIC',
+        photoType: 'DRIVING_LICENSE_ELECTRONIC',
+        photoName: '电子行驶证',
+        maxCount: 1,
+        uploadedCount: 0
+      }
+    ]
+
+    const physicalSlots = documents.buildDrivingLicenseSlots(
+      vehicle,
+      documents.DOCUMENT_SELECTIONS.PHYSICAL
+    )
+    const electronicSlots = documents.buildDrivingLicenseSlots(
+      vehicle,
+      documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    )
+
+    expect(physicalSlots).toEqual([
+      expect.objectContaining({
+        docSide: documents.DRIVING_LICENSE_SIDES.FRONT_PAGE,
+        photoType: 'DRIVING_LICENSE_FRONT',
+        uploadItemId: 'V1_LICENSE_FRONT',
+        vehicleId: 'LOSS_VEHICLE_100001',
+        uploadable: true
+      }),
+      expect.objectContaining({
+        docSide: documents.DRIVING_LICENSE_SIDES.BACK_PAGE,
+        photoType: 'DRIVING_LICENSE_BACK',
+        uploadItemId: 'V1_LICENSE_BACK',
+        vehicleId: 'LOSS_VEHICLE_100001',
+        uploadable: true
+      })
+    ])
+    expect(electronicSlots).toEqual([
+      expect.objectContaining({
+        docSide: documents.DRIVING_LICENSE_SIDES.ELECTRONIC,
+        photoType: 'DRIVING_LICENSE_ELECTRONIC',
+        uploadItemId: 'V1_LICENSE_ELECTRONIC',
+        vehicleId: 'LOSS_VEHICLE_100001',
+        uploadable: true
+      })
+    ])
+  })
+
   test('requires front page and back page in physical driving license mode', () => {
     const vehicle = storage.createVehicle(0)
 

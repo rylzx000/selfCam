@@ -30,6 +30,12 @@ const DRIVING_LICENSE_LABELS = {
   [DRIVING_LICENSE_SIDES.ELECTRONIC]: '电子行驶证'
 }
 
+const DRIVING_LICENSE_PHOTO_TYPES = {
+  [DRIVING_LICENSE_SIDES.FRONT_PAGE]: 'DRIVING_LICENSE_FRONT',
+  [DRIVING_LICENSE_SIDES.BACK_PAGE]: 'DRIVING_LICENSE_BACK',
+  [DRIVING_LICENSE_SIDES.ELECTRONIC]: 'DRIVING_LICENSE_ELECTRONIC'
+}
+
 function nowMs() {
   return Date.now()
 }
@@ -40,6 +46,14 @@ function isPlainObject(value) {
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function sanitizeString(value, fallback = '') {
+  return isNonEmptyString(value) ? value.trim() : fallback
+}
+
+function isPlainUploadItem(value) {
+  return isPlainObject(value) && isNonEmptyString(value.photoType)
 }
 
 function isValidSourceType(value) {
@@ -87,6 +101,61 @@ function buildLocalPhotoId(timestamp = nowMs()) {
   return `photo_${timestamp}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function getDrivingLicensePhotoType(docSide) {
+  return DRIVING_LICENSE_PHOTO_TYPES[docSide] || ''
+}
+
+function getVehicleUploadItemsByPhotoType(vehicle) {
+  const result = {}
+
+  if (isPlainObject(vehicle && vehicle.uploadItemsByPhotoType)) {
+    Object.keys(vehicle.uploadItemsByPhotoType).forEach((photoType) => {
+      const uploadItem = vehicle.uploadItemsByPhotoType[photoType]
+      if (isPlainUploadItem(uploadItem)) {
+        result[photoType] = uploadItem
+      }
+    })
+  }
+
+  if (Array.isArray(vehicle && vehicle.uploadItems)) {
+    vehicle.uploadItems.forEach((uploadItem) => {
+      if (isPlainUploadItem(uploadItem)) {
+        result[uploadItem.photoType] = uploadItem
+      }
+    })
+  }
+
+  return result
+}
+
+function hasVehicleUploadRules(vehicle) {
+  return Array.isArray(vehicle && vehicle.uploadItems)
+    || isPlainObject(vehicle && vehicle.uploadItemsByPhotoType)
+}
+
+function getVehicleUploadId(vehicle) {
+  return sanitizeString(
+    vehicle && (vehicle.vehicleId || vehicle.backendVehicleId || vehicle.id)
+  )
+}
+
+function buildDrivingLicenseUploadMeta(vehicle, docSide) {
+  const photoType = getDrivingLicensePhotoType(docSide)
+  const uploadItemsByPhotoType = getVehicleUploadItemsByPhotoType(vehicle)
+  const uploadItem = photoType ? uploadItemsByPhotoType[photoType] : null
+  const hasBackendRules = hasVehicleUploadRules(vehicle)
+
+  return {
+    vehicleId: getVehicleUploadId(vehicle),
+    photoType,
+    uploadItemId: sanitizeString(uploadItem && uploadItem.uploadItemId),
+    uploadItem: uploadItem || null,
+    maxCount: Number.isFinite(uploadItem && uploadItem.maxCount) ? uploadItem.maxCount : 1,
+    uploadedCount: Number.isFinite(uploadItem && uploadItem.uploadedCount) ? uploadItem.uploadedCount : 0,
+    uploadable: !hasBackendRules || !!uploadItem
+  }
+}
+
 function normalizeVehicleDocument(record, existingRecord = null, timestamp = nowMs()) {
   if (!isPlainObject(record) || !isNonEmptyString(record.compressedPath)) {
     return null
@@ -121,6 +190,24 @@ function normalizeVehicleDocument(record, existingRecord = null, timestamp = now
     localPhotoId: isNonEmptyString(record.localPhotoId) ? record.localPhotoId : buildLocalPhotoId(timestamp),
     createdAt,
     updatedAt: Number.isFinite(record.updatedAt) ? record.updatedAt : timestamp
+  }
+
+  const photoType = sanitizeString(
+    record.photoType,
+    docType === DOCUMENT_TYPES.DRIVING_LICENSE ? getDrivingLicensePhotoType(docSide) : ''
+  )
+  if (photoType) {
+    normalized.photoType = photoType
+  }
+
+  const uploadItemId = sanitizeString(record.uploadItemId)
+  if (uploadItemId) {
+    normalized.uploadItemId = uploadItemId
+  }
+
+  const vehicleId = sanitizeString(record.vehicleId)
+  if (vehicleId) {
+    normalized.vehicleId = vehicleId
   }
 
   if (Number.isFinite(record.size)) {
@@ -183,10 +270,20 @@ function buildDrivingLicenseItems(vehicle) {
   return sides
     .map((docSide) => getDrivingLicenseDocumentBySide(vehicle, docSide))
     .filter(Boolean)
-    .map((document) => ({
-      ...document,
-      thumbText: '证件图'
-    }))
+    .map((document) => {
+      const uploadMeta = buildDrivingLicenseUploadMeta(vehicle, document.docSide)
+      return {
+        ...document,
+        vehicleId: document.vehicleId || uploadMeta.vehicleId,
+        photoType: document.photoType || uploadMeta.photoType,
+        uploadItemId: document.uploadItemId || uploadMeta.uploadItemId,
+        uploadItem: uploadMeta.uploadItem,
+        maxCount: uploadMeta.maxCount,
+        uploadedCount: uploadMeta.uploadedCount,
+        uploadable: uploadMeta.uploadable,
+        thumbText: '证件图'
+      }
+    })
 }
 
 function buildDrivingLicenseSlots(vehicle, selection = getDrivingLicenseSelection(vehicle)) {
@@ -196,10 +293,12 @@ function buildDrivingLicenseSlots(vehicle, selection = getDrivingLicenseSelectio
 
   return sides.map((docSide) => {
     const document = getDrivingLicenseDocumentBySide(vehicle, docSide)
+    const uploadMeta = buildDrivingLicenseUploadMeta(vehicle, docSide)
 
     return {
       docSide,
       label: DRIVING_LICENSE_LABELS[docSide],
+      ...uploadMeta,
       uploaded: !!document,
       document
     }
@@ -226,8 +325,11 @@ module.exports = {
   DOCUMENT_TYPES,
   DOCUMENT_SIDES,
   DRIVING_LICENSE_SIDES,
+  DRIVING_LICENSE_PHOTO_TYPES,
   DOCUMENT_SELECTIONS,
   DRIVING_LICENSE_LABELS,
+  getDrivingLicensePhotoType,
+  buildDrivingLicenseUploadMeta,
   getDefaultDocumentSelections,
   normalizeDocumentSelections,
   normalizeVehicleDocument,
