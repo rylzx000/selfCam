@@ -20,6 +20,8 @@ const MAX_DAMAGES = (constants.LIMITS && constants.LIMITS.MAX_DAMAGES) || 5
 const DAMAGE_PHOTO_LIMIT_TIP = `最多${MAX_DAMAGES}张车损，请先删除`
 const DRIVING_LICENSE_RISK_TIP = '仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？'
 const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
+const AUX_VEHICLE_LOCKED_TIP = '辅助拍照车辆以后台为准'
+const AUX_UPLOAD_ITEM_MISSING_TIP = '当前任务未下发该证件类型'
 
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
@@ -350,6 +352,10 @@ function getDrivingLicenseLabel(docSide) {
   return vehicleDocuments.DRIVING_LICENSE_LABELS[docSide] || '行驶证资料'
 }
 
+function isAuxPhotoEnabled(cache) {
+  return !!(cache && cache.auxPhoto && cache.auxPhoto.enabled === true)
+}
+
 Page({
   data: {
     vehicles: [],
@@ -545,14 +551,34 @@ Page({
   },
 
   onTapDrivingLicenseSlot(e) {
-    const { side, uploaded } = e.currentTarget.dataset
+    const { side, uploaded, uploadable } = e.currentTarget.dataset
     const isUploaded = uploaded === true || uploaded === 'true'
+    const isUploadable = uploadable !== false && uploadable !== 'false'
+
+    if (!isUploadable || !this.canUploadDrivingLicenseSide(side)) {
+      return Promise.resolve(null)
+    }
 
     if (isUploaded) {
       return this.openDrivingLicenseDocumentActions(this.data.activeDrivingLicenseVehicleIndex, side)
     }
 
     return this.openDrivingLicenseSourceSheet(side)
+  },
+
+  canUploadDrivingLicenseSide(docSide) {
+    const activeVehicle = this.data.vehicles[this.data.activeDrivingLicenseVehicleIndex]
+    const uploadMeta = vehicleDocuments.buildDrivingLicenseUploadMeta(activeVehicle, docSide)
+
+    if (!uploadMeta.uploadable) {
+      wx.showToast({
+        title: AUX_UPLOAD_ITEM_MISSING_TIP,
+        icon: 'none'
+      })
+      return false
+    }
+
+    return true
   },
 
   onTapDrivingLicenseUpload(e) {
@@ -638,6 +664,10 @@ Page({
   },
 
   openDrivingLicenseSourceSheet(docSide) {
+    if (!this.canUploadDrivingLicenseSide(docSide)) {
+      return Promise.resolve(null)
+    }
+
     return new Promise((resolve) => {
       wx.showActionSheet({
         itemList: ['拍照', '从手机相册选择'],
@@ -667,6 +697,16 @@ Page({
 
       const activeVehicle = cacheBeforeChoose.vehicles[this.data.activeDrivingLicenseVehicleIndex]
       const existingDocument = vehicleDocuments.getDrivingLicenseDocumentBySide(activeVehicle, docSide)
+      const uploadMeta = vehicleDocuments.buildDrivingLicenseUploadMeta(activeVehicle, docSide)
+
+      if (!uploadMeta.uploadable) {
+        wx.showToast({
+          title: AUX_UPLOAD_ITEM_MISSING_TIP,
+          icon: 'none'
+        })
+        resolve(null)
+        return
+      }
 
       if (!existingDocument && !canAddNewPhoto(cacheBeforeChoose)) {
         showTotalPhotoLimitToast()
@@ -698,6 +738,9 @@ Page({
               docType: vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE,
               docSide,
               label: getDrivingLicenseLabel(docSide),
+              vehicleId: uploadMeta.vehicleId,
+              uploadItemId: uploadMeta.uploadItemId,
+              photoType: uploadMeta.photoType,
               sourceType,
               tempFilePath: file.tempFilePath,
               compressedPath: photo.compressedPath,
@@ -1157,6 +1200,14 @@ Page({
       return
     }
 
+    if (isAuxPhotoEnabled(cache)) {
+      wx.showToast({
+        title: AUX_VEHICLE_LOCKED_TIP,
+        icon: 'none'
+      })
+      return
+    }
+
     const newIndex = cache.vehicles.length
     if (newIndex <= constants.LIMITS.MAX_THIRD_VEHICLES) {
       const newVehicle = storage.createVehicle(newIndex)
@@ -1183,6 +1234,16 @@ Page({
 
   onDeleteVehicle(e) {
     const { vehicleIndex } = e.currentTarget.dataset
+    const cache = storage.loadCache()
+
+    if (isAuxPhotoEnabled(cache)) {
+      wx.showToast({
+        title: AUX_VEHICLE_LOCKED_TIP,
+        icon: 'none'
+      })
+      return
+    }
+
     const vehicle = this.data.vehicles[vehicleIndex]
     const photoCount = vehicle ? (vehicle.completedPhotoCount || 0) : 0
 

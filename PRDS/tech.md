@@ -229,6 +229,9 @@ const STORAGE_KEY = 'car_damage_photos_cache'
   docType: 'driving_license',
   docSide: 'front_page' | 'back_page' | 'electronic',
   label: '行驶证正页' | '行驶证副页' | '电子行驶证',
+  vehicleId: 'LOSS_VEHICLE_100001',
+  uploadItemId: 'LOSS_VEHICLE_100001_DRIVING_LICENSE_FRONT',
+  photoType: 'DRIVING_LICENSE_FRONT' | 'DRIVING_LICENSE_BACK' | 'DRIVING_LICENSE_ELECTRONIC',
   sourceType: 'camera' | 'album',
   tempFilePath: 'wxfile://tmp_license.jpg',
   compressedPath: 'wxfile://tmp_license_compressed.jpg',
@@ -238,6 +241,8 @@ const STORAGE_KEY = 'car_damage_photos_cache'
   updatedAt: 1713777777777
 }
 ```
+
+辅助拍照模式下，预览页行驶证槽位由当前车辆 `uploadItems` 对齐后端上传项：实物行驶证正页映射 `DRIVING_LICENSE_FRONT`，副页映射 `DRIVING_LICENSE_BACK`，电子行驶证映射 `DRIVING_LICENSE_ELECTRONIC`。本阶段只在本地缓存保存 `vehicleId/uploadItemId/photoType`，不调用真实 `uploadPhoto`。
 
 车辆级选择方式：
 
