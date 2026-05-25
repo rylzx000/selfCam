@@ -4,6 +4,7 @@ const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
+const uploadState = require('../../utils/upload-state')
 
 const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
 
@@ -187,10 +188,21 @@ Page({
   },
 
   onSubmit() {
-    workflowPage.syncPageWorkflowState(this, workflow.STATES.LOCAL_COMPLETED, {
+    const cache = storage.loadCache()
+
+    if (!cache) {
+      wx.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+
+    cache.uploadSession = uploadState.createUploadSession(cache)
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    storage.saveCache(cache)
+
+    workflowPage.syncPageWorkflowState(this, workflow.STATES.UPLOADING, {
       page: 'document',
-      pageAction: 'submit_complete'
+      pageAction: 'upload_start'
     })
-    wx.redirectTo({ url: '/pages/complete/complete' })
+    wx.redirectTo({ url: '/pages/preview/preview' })
   }
 })

@@ -2,42 +2,44 @@
 
 ## 当前版本
 
-**版本号**: v1.4.4
+**版本号**: v1.4.5
 **发布日期**: 2026-05-25
-**状态**: SIT 体验版辅助拍照预览单证规则适配
+**状态**: SIT 体验版辅助拍照上传准备
 
 ---
 
 ## 版本概述
 
-`v1.4.4` 是基于 `v1.4.2` 辅助拍照初始化链路的预览页与单证规则适配版本。本轮不实现真实 `uploadPhoto` 和 `complete` 接口，只让预览页行驶证展示、补拍和本地缓存元数据与后端 `uploadItems/photoType` 规则对齐。
+`v1.4.5` 是基于 `v1.4.4` 辅助拍照预览单证规则的上传准备版本。本轮不实现真实 `uploadPhoto` 和 `complete` 接口，只将完成采集后的前端流程改为预览页内上传遮罩，并落地可供后续逐张上传复用的本地 `uploadSession` 状态。
 
 ### 本版本重点
 
-- 保留前端实物行驶证和电子行驶证两种选择。
-- 实物行驶证正页、副页分别绑定后端 `DRIVING_LICENSE_FRONT`、`DRIVING_LICENSE_BACK`。
-- 电子行驶证绑定后端 `DRIVING_LICENSE_ELECTRONIC`。
-- 行驶证本地缓存补齐 `vehicleId`、`uploadItemId`、`photoType`，为后续真实上传接口预留元数据。
-- 辅助拍照模式下预览页防御式锁定车辆列表，不能新增或删除三者车。
+- 完成采集经过三者车确认、行驶证风险确认和相册保存确认后，不再直接进入完成页，而是展示预览页上传遮罩。
+- 上传遮罩保持从简：上传中只展示进度，失败只提供 `重试上传`，上传完成后再点击 `完成采集` 进入完成页。
+- 新增本地 `uploadSession` 队列，按车辆照片和车辆级行驶证资料保存 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。
+- 上传失败 mock 支持 `mock-fail-once` 和 `mock-fail-always`，用于未接真实接口前验证重试交互。
+- 备用 `document` 页提交入口改为回到预览页统一走上传遮罩，不再绕过上传准备流程。
 
-## v1.4.4 变更摘要
+## v1.4.5 变更摘要
 
-### 预览页与单证规则
+### 上传准备流程
 
-- `utils/documents.js` 增加行驶证 `docSide -> photoType` 映射，并在行驶证槽位和预览项中带出后端上传项元数据。
-- `pages/preview/preview.js` 上传或重拍行驶证时保存 `vehicleId`、`uploadItemId`、`photoType` 到车辆级行驶证记录。
-- `pages/preview/preview.js` 在辅助拍照模式下防御式拦截新增和删除车辆操作。
+- 新增 `utils/upload-state.js`，统一构建本地待上传队列，并用 mock/stub 推进 `uploading/failed/ready` 状态。
+- `pages/preview/preview.js` 在最终提交前创建 `uploadSession`，并在页面恢复时按缓存恢复上传遮罩。
+- `pages/preview/preview.wxml` 和 `pages/preview/preview.wxss` 增加轻量遮罩、进度条、失败重试和上传完成状态。
+- `utils/storage-schema.js` 升级到 schema v3，缓存结构增加 `uploadSession` 并提供修复与校验。
+- `utils/workflow-state.js` 增加 `UPLOADING/UPLOAD_FAILED/UPLOAD_READY`，避免上传准备态被恢复逻辑误降级。
 
 ### 文档与版本
 
-- `docs/辅助拍照微信小程序接口对接文档.md` 补充 `DRIVING_LICENSE_ELECTRONIC` 和三种行驶证独立 `uploadItemId` 约定。
-- `PRDS/PRD.md`、`PRDS/tech.md` 同步预览页单证规则和本阶段不调用真实上传接口的边界。
-- `package.json`、`package-lock.json` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.4`。
+- `PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 同步上传遮罩、本地上传状态和第 4/5 步边界。
+- `CHANGELOG.md` 增加 `v1.4.5` 中文变更记录。
+- `package.json`、`package-lock.json` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.5`。
 
 ### 测试与验证
 
 - 用户已完成真机验证：通过。
-- 本次补版本号与改提交备注按用户要求未重新执行测试。
+- 本次版本提交按用户要求未重新执行测试。
 
 ---
 
@@ -45,6 +47,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.5 | 2026-05-25 | SIT 体验版辅助拍照上传准备 | 预览页上传遮罩、本地 `uploadSession` 队列和失败重试 mock |
 | v1.4.4 | 2026-05-25 | SIT 体验版辅助拍照预览单证规则适配 | 预览页行驶证槽位对齐后端 `uploadItems/photoType`，补齐电子行驶证独立类型和车辆锁定 |
 | v1.4.2 | 2026-05-22 | SIT 体验版辅助拍照后端初始化接入 | ticket 初始化、后端车辆控制、相机多车辆流转、错误日志上传和接口文档同步 |
 | v1.4.1 | 2026-05-11 | SIT 体验版 nova13 横屏相机适配修复 | OpenHarmony 横屏 UI 缩放、拍照页/预览页适配、实时帧坐标映射和低频 AI 几何诊断日志 |

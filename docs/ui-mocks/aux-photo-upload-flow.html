@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>辅助拍照上传遮罩样式稿</title>
+  <style>
+    :root {
+      --page-bg: #edf3ef;
+      --surface: #ffffff;
+      --line: #dfe8e2;
+      --text: #17231b;
+      --muted: #6d7b72;
+      --green: #1f8f5f;
+      --green-strong: #13784e;
+      --green-soft: #e6f4ed;
+      --red: #c9483a;
+      --red-soft: #fdebe8;
+      --amber: #d9851c;
+      --amber-soft: #fff3df;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--text);
+    }
+
+    .toolbar {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 18px 20px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .toolbar h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    .toolbar p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .control {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .control.active {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    .stage {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 10px 20px 28px;
+    }
+
+    .device-wrap {
+      padding: 18px;
+      overflow: auto;
+      border: 1px solid #ccd9d0;
+      border-radius: 10px;
+      background: #dfe8e2;
+    }
+
+    .device {
+      width: 844px;
+      height: 390px;
+      margin: 0 auto;
+      border: 10px solid #111815;
+      border-radius: 26px;
+      overflow: hidden;
+      position: relative;
+      background: #f8fbf9;
+      box-shadow: 0 18px 42px rgba(23, 35, 27, 0.16);
+    }
+
+    .preview-page {
+      width: 100%;
+      height: 100%;
+      padding: 24px 30px 22px;
+      background: #f8fbf9;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 42px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-shrink: 0;
+    }
+
+    .title {
+      font-size: 24px;
+      line-height: 28px;
+      font-weight: 750;
+      margin: 0;
+    }
+
+    .subtitle {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+    .badge {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 4px;
+      background: var(--green-soft);
+      color: var(--green-strong);
+      font-size: 12px;
+      line-height: 24px;
+      font-weight: 650;
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .vehicle {
+      min-width: 0;
+      padding: 13px 14px;
+      border: 1px solid rgba(31, 143, 95, 0.08);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(23, 35, 27, 0.06);
+    }
+
+    .vehicle-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .vehicle-name {
+      font-size: 16px;
+      line-height: 20px;
+      font-weight: 700;
+    }
+
+    .plate {
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 5px;
+      background: #2369c9;
+      color: #fff;
+      font-size: 12px;
+      line-height: 22px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .thumb {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0)),
+        linear-gradient(160deg, #506b59, #263b31);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .thumb::after {
+      content: "";
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 2px #fff;
+    }
+
+    .thumb.empty {
+      border: 1px dashed #b9c9bf;
+      background: #f6faf7;
+    }
+
+    .thumb.empty::after {
+      content: "+";
+      inset: 0;
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 500;
+    }
+
+    .bottom-bar {
+      height: 48px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .tip {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 17px;
+      flex: 1;
+    }
+
+    .submit {
+      min-width: 112px;
+      height: 34px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .mask {
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 20, 16, 0.42);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .upload-modal {
+      width: 340px;
+      min-height: 172px;
+      padding: 22px 22px 18px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .upload-modal.failed .mark,
+    .upload-modal.missing .mark {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .upload-modal.paused .mark {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .modal-desc {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .progress {
+      margin-top: 18px;
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 16px;
+      margin-bottom: 7px;
+    }
+
+    .progress-text strong {
+      color: var(--green-strong);
+    }
+
+    .upload-modal.failed .progress-text strong,
+    .upload-modal.missing .progress-text strong {
+      color: var(--red);
+    }
+
+    .track {
+      height: 9px;
+      border-radius: 5px;
+      overflow: hidden;
+      background: #e7eee9;
+    }
+
+    .fill {
+      width: var(--progress);
+      height: 100%;
+      border-radius: 5px;
+      background: var(--green);
+    }
+
+    .upload-modal.failed .fill,
+    .upload-modal.missing .fill {
+      background: var(--red);
+    }
+
+    .upload-modal.paused .fill {
+      background: var(--amber);
+    }
+
+    .current {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 17px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .modal-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .modal-actions button {
+      height: 32px;
+      min-width: 78px;
+      padding: 0 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .danger {
+      background: var(--red);
+      color: #fff;
+    }
+
+    @media (max-width: 920px) {
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div>
+      <h1>辅助拍照上传遮罩样式稿</h1>
+      <p>从简方案：完成采集后仍停留在当前页面，上方弹出上传遮罩、进度条和必要操作。</p>
+    </div>
+    <div class="controls" aria-label="mock 状态">
+      <button class="control active" type="button" data-case="uploading">上传中</button>
+      <button class="control" type="button" data-case="success">完成</button>
+      <button class="control" type="button" data-case="failOnce">失败可重试</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="device-wrap">
+      <div class="device">
+        <div class="preview-page">
+          <div class="topbar">
+            <div>
+              <h2 class="title">照片预览</h2>
+              <span class="subtitle">请确认照片清晰，并按车辆补充行驶证资料</span>
+            </div>
+            <span class="badge">SIT</span>
+          </div>
+
+          <div class="content">
+            <section class="vehicle">
+              <div class="vehicle-head">
+                <span class="vehicle-name">标的车</span>
+                <span class="plate">京A12345</span>
+              </div>
+              <div class="photo-grid">
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb empty"></div>
+                <div class="thumb empty"></div>
+              </div>
+            </section>
+
+            <section class="vehicle">
+              <div class="vehicle-head">
+                <span class="vehicle-name">三者车</span>
+                <span class="plate">京B12345</span>
+              </div>
+              <div class="photo-grid">
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb empty"></div>
+                <div class="thumb empty"></div>
+                <div class="thumb empty"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="bottom-bar">
+            <div class="tip">行驶证资料未完成上传，可能影响后续智能定损和理赔处理。</div>
+            <button class="submit">完成采集</button>
+          </div>
+        </div>
+
+        <div class="mask">
+          <section class="upload-modal" id="modal">
+            <div class="modal-head">
+              <div class="mark" id="mark">7</div>
+              <div>
+                <h2 class="modal-title" id="modalTitle">正在上传照片</h2>
+                <span class="modal-desc" id="modalDesc">请保持小程序打开，上传完成后继续下一步。</span>
+              </div>
+            </div>
+
+            <div class="progress">
+              <div class="progress-text">
+                <span id="progressText">已上传 7/10</span>
+                <strong id="progressPercent">70%</strong>
+              </div>
+              <div class="track">
+                <div class="fill" id="fill" style="--progress: 70%"></div>
+              </div>
+            </div>
+
+            <div class="current" id="currentText">当前：三者车 - 车损2</div>
+
+            <div class="modal-actions">
+              <button class="primary" type="button" id="primaryButton" hidden>继续等待</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const cases = {
+      uploading: {
+        className: '',
+        mark: '7',
+        title: '正在上传照片',
+        desc: '请保持小程序打开，上传完成后继续下一步。',
+        uploaded: 7,
+        total: 10,
+        percent: 70,
+        current: '当前：三者车 - 车损2',
+        primaryText: '',
+        primaryClass: 'primary',
+        showPrimary: false
+      },
+      success: {
+        className: '',
+        mark: '✓',
+        title: '照片上传完成',
+        desc: '本地上传状态已完成，请继续完成采集。',
+        uploaded: 10,
+        total: 10,
+        percent: 100,
+        current: '全部照片已处理',
+        primaryText: '完成采集',
+        primaryClass: 'primary',
+        showPrimary: true
+      },
+      failOnce: {
+        className: 'failed',
+        mark: '!',
+        title: '有照片上传失败',
+        desc: '网络短暂异常，重试后继续上传未完成照片。',
+        uploaded: 7,
+        total: 10,
+        percent: 70,
+        current: '失败：三者车 - 车损2',
+        primaryText: '重试上传',
+        primaryClass: 'danger',
+        showPrimary: true
+      }
+    }
+
+    function setText(id, text) {
+      document.getElementById(id).textContent = text
+    }
+
+    function applyCase(key) {
+      const item = cases[key]
+      const modal = document.getElementById('modal')
+      const primaryButton = document.getElementById('primaryButton')
+
+      modal.className = `upload-modal ${item.className}`.trim()
+      primaryButton.className = item.primaryClass
+
+      setText('mark', item.mark)
+      setText('modalTitle', item.title)
+      setText('modalDesc', item.desc)
+      setText('progressText', `已上传 ${item.uploaded}/${item.total}`)
+      setText('progressPercent', `${item.percent}%`)
+      setText('currentText', item.current)
+      setText('primaryButton', item.primaryText)
+      primaryButton.hidden = !item.showPrimary
+
+      document.getElementById('fill').style.setProperty('--progress', `${item.percent}%`)
+
+      document.querySelectorAll('.control').forEach((button) => {
+        button.classList.toggle('active', button.dataset.case === key)
+      })
+    }
+
+    document.querySelectorAll('.control').forEach((button) => {
+      button.addEventListener('click', () => applyCase(button.dataset.case))
+    })
+  </script>
+</body>
+</html>

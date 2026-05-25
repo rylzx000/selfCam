@@ -59,6 +59,63 @@ describe('storage cache governance', () => {
     expect(savedCache.schemaVersion).toBe(storage.CACHE_SCHEMA_VERSION)
     expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
     expect(savedCache.workflowState.current).toBe('IDLE')
+    expect(savedCache.uploadSession).toBeNull()
+  })
+
+  test('persists and repairs upload session state', () => {
+    const cache = storage.initCache()
+    cache.uploadSession = {
+      version: 1,
+      sessionId: 'upload-test',
+      phase: 'uploading',
+      ticket: 'mock-2',
+      total: 1,
+      uploaded: 0,
+      failed: 0,
+      createdAt: '2026-05-25T00:00:00.000Z',
+      updatedAt: '2026-05-25T00:00:00.000Z',
+      items: [
+        {
+          id: 'vehicle0-licensePlate',
+          clientPhotoId: 'plate-id',
+          vehicleIndex: 0,
+          vehicleId: 'LOSS_VEHICLE_100001',
+          uploadItemId: 'UPLOAD_PLATE',
+          photoType: 'LICENSE_PLATE',
+          sortNo: 1,
+          filePath: '/tmp/plate.jpg',
+          fileSize: 100,
+          label: '标的车 - 车牌',
+          status: 'pending',
+          attempts: 0,
+          lastErrorCode: '',
+          lastErrorMessage: ''
+        }
+      ]
+    }
+
+    storage.saveCache(cache)
+    const savedCache = storage.loadCache()
+
+    expect(savedCache.uploadSession).toEqual(expect.objectContaining({
+      phase: 'uploading',
+      total: 1,
+      uploaded: 0,
+      failed: 0
+    }))
+    expect(savedCache.uploadSession.items[0]).toEqual(expect.objectContaining({
+      id: 'vehicle0-licensePlate',
+      status: 'pending'
+    }))
+
+    savedCache.uploadSession.phase = 'bad-phase'
+    savedCache.uploadSession.items[0].status = 'bad-status'
+    memoryStorage[storage.STORAGE_KEY] = JSON.stringify(savedCache)
+
+    const repairedCache = storage.loadCache()
+    expect(repairedCache.uploadSession.phase).toBe('uploading')
+    expect(repairedCache.uploadSession.items[0].status).toBe('pending')
+    expect(storage.validateCache(repairedCache).valid).toBe(true)
   })
 
   test('migrates and sanitizes legacy cache before returning it', () => {

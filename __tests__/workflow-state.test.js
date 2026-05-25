@@ -166,4 +166,44 @@ describe('workflow-state', () => {
     expect(savedCache.workflowState.payload).toBeUndefined()
     expect(savedCache.workflowState.previous).toBeUndefined()
   })
+
+  test('allows preview to enter upload states before local completion', () => {
+    expect(workflow.canTransition(workflow.STATES.PREVIEWING, workflow.STATES.UPLOADING)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.UPLOADING, workflow.STATES.UPLOAD_FAILED)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.UPLOADING, workflow.STATES.UPLOAD_READY)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.UPLOAD_READY, workflow.STATES.LOCAL_COMPLETED)).toBe(true)
+  })
+
+  test('infers upload state from cached upload session', () => {
+    const cache = createCache({
+      currentStep: constants.SHOOT_STEP.PREVIEW,
+      workflowState: {
+        current: workflow.STATES.PREVIEWING,
+        updatedAt: '2026-04-23T00:00:00.000Z'
+      },
+      uploadSession: {
+        version: 1,
+        sessionId: 'upload-test',
+        phase: 'failed',
+        ticket: 'mock-2',
+        total: 1,
+        uploaded: 0,
+        failed: 1,
+        createdAt: '2026-04-23T00:00:00.000Z',
+        updatedAt: '2026-04-23T00:00:00.000Z',
+        items: [
+          {
+            id: 'vehicle0-licensePlate',
+            clientPhotoId: 'plate-id',
+            filePath: '/tmp/plate.jpg',
+            label: '标的车 - 车牌',
+            status: 'failed',
+            attempts: 1
+          }
+        ]
+      }
+    })
+
+    expect(workflow.inferStateFromCache(cache)).toBe(workflow.STATES.UPLOAD_FAILED)
+  })
 })
