@@ -16,7 +16,10 @@ describe('index start permission flow', () => {
 
     constants = {
       SHOOT_STEP: {
-        LICENSE_PLATE: 'licensePlate'
+        LICENSE_PLATE: 'licensePlate',
+        VIN_CODE: 'vinCode',
+        DAMAGE: 'damage',
+        PREVIEW: 'preview'
       }
     }
     storage = {
@@ -30,6 +33,7 @@ describe('index start permission flow', () => {
       loadCache: jest.fn(() => ({
         saved: true
       })),
+      loadCacheForResume: jest.fn(() => null),
       clearCache: jest.fn()
     }
     permission = {
@@ -156,6 +160,129 @@ describe('index start permission flow', () => {
     }))
   })
 
+  test('does not clear existing aux photo cache on index load', () => {
+    pageConfig.onLoad.call(pageConfig)
+
+    expect(storage.clearCache).not.toHaveBeenCalled()
+  })
+
+  test('resumes same ticket aux photo capture cache without init or overwrite', async () => {
+    const existingCache = {
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      vehicles: [
+        {
+          licensePlate: {
+            status: 'completed',
+            compressedPath: '/tmp/plate.jpg'
+          },
+          vinCode: {
+            status: 'pending'
+          },
+          damages: []
+        }
+      ],
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.VIN_CODE,
+      workflowState: {
+        current: 'CAPTURING'
+      }
+    }
+    storage.loadCacheForResume.mockReturnValue(existingCache)
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    global.getApp = jest.fn(() => ({
+      globalData: {
+        ticket: 'mock-2'
+      }
+    }))
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(auxPhotoMapper.buildCacheFromInit).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(existingCache.vehicles[0].licensePlate.status).toBe('completed')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/camera/camera'
+    }))
+  })
+
+  test('resumes same ticket upload cache to preview page', async () => {
+    storage.loadCacheForResume.mockReturnValue({
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      vehicles: [{ licensePlate: { status: 'completed', compressedPath: '/tmp/plate.jpg' } }],
+      currentStep: constants.SHOOT_STEP.PREVIEW,
+      uploadSession: {
+        phase: 'failed'
+      },
+      workflowState: {
+        current: 'UPLOAD_FAILED'
+      }
+    })
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    global.getApp = jest.fn(() => ({
+      globalData: {
+        ticket: 'mock-2'
+      }
+    }))
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/preview/preview'
+    }))
+  })
+
+  test('resumes same ticket completed cache to complete page', async () => {
+    storage.loadCacheForResume.mockReturnValue({
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      vehicles: [{ licensePlate: { status: 'completed', compressedPath: '/tmp/plate.jpg' } }],
+      currentStep: constants.SHOOT_STEP.PREVIEW,
+      uploadSession: {
+        phase: 'completed',
+        complete: {
+          status: 'success'
+        }
+      },
+      workflowState: {
+        current: 'LOCAL_COMPLETED'
+      }
+    })
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    global.getApp = jest.fn(() => ({
+      globalData: {
+        ticket: 'mock-2'
+      }
+    }))
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/complete/complete'
+    }))
+  })
+
   test('uses aux photo init and backend vehicles when ticket is present', async () => {
     permission.ensureStartCapturePermissions.mockResolvedValue({
       cameraGranted: true,
@@ -193,6 +320,53 @@ describe('index start permission flow', () => {
         expect.objectContaining({ displayName: '标的车 京A12345' }),
         expect.objectContaining({ displayName: '三者车 京B12345' })
       ]
+    }))
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/camera/camera'
+    }))
+  })
+
+  test('reinitializes aux photo flow when cached ticket is different', async () => {
+    storage.loadCacheForResume.mockReturnValue({
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-1'
+      },
+      vehicles: [
+        {
+          licensePlate: {
+            status: 'completed',
+            compressedPath: '/tmp/plate.jpg'
+          }
+        }
+      ],
+      currentStep: constants.SHOOT_STEP.VIN_CODE
+    })
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        vehicles: []
+      }
+    })
+    global.getApp = jest.fn(() => ({
+      globalData: {
+        ticket: 'mock-2'
+      }
+    }))
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      auxPhoto: expect.objectContaining({
+        enabled: true,
+        ticket: 'mock-2'
+      })
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/pages/camera/camera'

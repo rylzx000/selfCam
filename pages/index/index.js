@@ -5,10 +5,21 @@ const envConfig = require('../../utils/env-config')
 const modelCache = require('../../utils/model-cache')
 const auxPhotoApi = require('../../utils/aux-photo-api')
 const auxPhotoMapper = require('../../utils/aux-photo-mapper')
+const workflow = require('../../utils/workflow-state')
 
 const APP_ENV_SWITCH_TAP_COUNT = 7
 const APP_ENV_SWITCH_RESET_MS = 1200
 const INDEX_PAGE_URL = '/pages/index/index'
+const CAMERA_PAGE_URL = '/pages/camera/camera'
+const PREVIEW_PAGE_URL = '/pages/preview/preview'
+const COMPLETE_PAGE_URL = '/pages/complete/complete'
+const RESUMABLE_UPLOAD_PHASES = {
+  uploading: true,
+  failed: true,
+  ready: true,
+  completing: true,
+  complete_failed: true
+}
 
 Page({
   data: {
@@ -21,7 +32,6 @@ Page({
   onLoad() {
     console.log('[index] onLoad')
     this.updateAppEnvBadge()
-    storage.clearCache()
   },
 
   onShow() {
@@ -213,6 +223,12 @@ Page({
 
   async startCaptureFlow(ticket = '') {
     if (ticket) {
+      const resumeCache = this.getResumableAuxPhotoCache(ticket)
+
+      if (resumeCache) {
+        return this.navigateToUrl(this.getAuxPhotoResumeUrl(resumeCache))
+      }
+
       const initResponse = await auxPhotoApi.init(ticket)
       const cache = auxPhotoMapper.buildCacheFromInit(initResponse.data || initResponse)
       storage.saveCache(cache)
@@ -235,16 +251,73 @@ Page({
   },
 
   navigateToCamera() {
+    return this.navigateToUrl(CAMERA_PAGE_URL)
+  },
+
+  navigateToUrl(url) {
     return new Promise((resolve, reject) => {
       wx.navigateTo({
-        url: '/pages/camera/camera',
+        url,
         success: () => {
-          console.log('[index] navigateTo camera success')
+          console.log('[index] navigateTo success:', url)
           resolve()
         },
         fail: reject
       })
     })
+  },
+
+  getResumableAuxPhotoCache(ticket) {
+    const cache = typeof storage.loadCacheForResume === 'function'
+      ? storage.loadCacheForResume()
+      : storage.loadCache()
+
+    if (!this.isMatchingAuxPhotoCache(cache, ticket)) {
+      return null
+    }
+
+    return cache
+  },
+
+  isMatchingAuxPhotoCache(cache, ticket) {
+    return !!(
+      cache
+      && cache.auxPhoto
+      && cache.auxPhoto.enabled === true
+      && typeof cache.auxPhoto.ticket === 'string'
+      && cache.auxPhoto.ticket.trim() === ticket
+      && Array.isArray(cache.vehicles)
+      && cache.vehicles.length > 0
+    )
+  },
+
+  getAuxPhotoResumeUrl(cache) {
+    const uploadSession = cache && cache.uploadSession
+
+    if (this.isCompletedUploadSession(uploadSession)) {
+      return COMPLETE_PAGE_URL
+    }
+
+    if (uploadSession && RESUMABLE_UPLOAD_PHASES[uploadSession.phase]) {
+      return PREVIEW_PAGE_URL
+    }
+
+    const currentState = workflow.inferStateFromCache(cache)
+
+    if (currentState === workflow.STATES.PREVIEWING || cache.currentStep === constants.SHOOT_STEP.PREVIEW) {
+      return PREVIEW_PAGE_URL
+    }
+
+    return CAMERA_PAGE_URL
+  },
+
+  isCompletedUploadSession(uploadSession) {
+    return !!(
+      uploadSession
+      && uploadSession.phase === 'completed'
+      && uploadSession.complete
+      && uploadSession.complete.status === 'success'
+    )
   },
 
   showInvalidTicketToast() {

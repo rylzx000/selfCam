@@ -90,12 +90,40 @@ describe('preview upload overlay flow', () => {
     return storage.loadCache()
   }
 
-  function loadPreviewPage() {
+  function savePreviewCacheWithUploadSession({ phase, completeStatus = 'pending' }) {
+    const cache = saveReadyPreviewCache('mock-2')
+    const session = uploadState.createUploadSession(cache)
+    session.items = session.items.map((item) => ({
+      ...item,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1
+    }))
+    session.phase = phase
+    session.uploaded = session.items.length
+    session.failed = 0
+    session.complete = {
+      ...session.complete,
+      status: completeStatus
+    }
+    cache.uploadSession = session
+    cache.workflowState = {
+      current: phase === uploadState.UPLOAD_PHASE.COMPLETED ? 'LOCAL_COMPLETED' : 'COMPLETE_FAILED',
+      updatedAt: cache.updatedAt
+    }
+    storage.saveCache(cache)
+    return storage.loadCache()
+  }
+
+  function createPreviewPage() {
     pageConfig = null
     jest.isolateModules(() => {
       require('../pages/preview/preview')
     })
-    const page = createPageInstance(pageConfig)
+    return createPageInstance(pageConfig)
+  }
+
+  function loadPreviewPage() {
+    const page = createPreviewPage()
     page.loadData()
     return page
   }
@@ -213,6 +241,43 @@ describe('preview upload overlay flow', () => {
     expect(cache.uploadSession.phase).toBe('completed')
     expect(cache.workflowState.current).toBe('LOCAL_COMPLETED')
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
+  })
+
+  test('redirects to complete page when restoring completed success upload session', () => {
+    savePreviewCacheWithUploadSession({
+      phase: uploadState.UPLOAD_PHASE.COMPLETED,
+      completeStatus: uploadState.COMPLETE_STATUS.SUCCESS
+    })
+    const page = createPreviewPage()
+
+    page.onLoad()
+
+    expect(page.isLeaving).toBe(true)
+    expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
+  })
+
+  test('keeps complete failed session on preview page for retry when restoring', () => {
+    savePreviewCacheWithUploadSession({
+      phase: uploadState.UPLOAD_PHASE.COMPLETE_FAILED,
+      completeStatus: uploadState.COMPLETE_STATUS.FAILED
+    })
+    const page = createPreviewPage()
+
+    page.onLoad()
+
+    expect(page.isLeaving).toBe(false)
+    expect(page.data.showUploadOverlay).toBe(true)
+    expect(page.data.uploadOverlayTitle).toBe('\u5b8c\u6210\u63d0\u4ea4\u5931\u8d25')
+    expect(page.data.uploadOverlayPrimaryText).toBe('\u91cd\u8bd5\u5b8c\u6210')
+    expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
       url: '/pages/complete/complete'
     })
   })

@@ -648,6 +648,26 @@ Page({
     }
   },
 
+  isCompletedUploadSession(session) {
+    return !!(
+      session
+      && session.phase === uploadState.UPLOAD_PHASE.COMPLETED
+      && session.complete
+      && session.complete.status === uploadState.COMPLETE_STATUS.SUCCESS
+    )
+  },
+
+  redirectToCompletePage() {
+    if (this.isLeaving) {
+      return
+    }
+
+    this.isLeaving = true
+    this.clearUploadMockTimer()
+    this.setData({ showUploadOverlay: false })
+    wx.redirectTo({ url: '/pages/complete/complete' })
+  },
+
   restoreUploadOverlay(cache = storage.loadCache()) {
     if (!cache || !cache.uploadSession) {
       if (this.data.showUploadOverlay) {
@@ -667,6 +687,11 @@ Page({
     if (restored.changed) {
       cache.uploadSession = uploadSession
       storage.saveCache(cache)
+    }
+
+    if (this.isCompletedUploadSession(uploadSession)) {
+      this.redirectToCompletePage()
+      return
     }
 
     this.setData(this.buildUploadOverlayData(uploadSession))
