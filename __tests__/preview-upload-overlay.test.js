@@ -262,6 +262,24 @@ describe('preview upload overlay flow', () => {
     })
   })
 
+  test('does not redirect twice when onShow fires during completed success redirect', () => {
+    savePreviewCacheWithUploadSession({
+      phase: uploadState.UPLOAD_PHASE.COMPLETED,
+      completeStatus: uploadState.COMPLETE_STATUS.SUCCESS
+    })
+    const page = createPreviewPage()
+
+    page.onLoad()
+    page.onShow()
+
+    expect(global.wx.redirectTo).toHaveBeenCalledTimes(1)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
+    expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+  })
+
   test('keeps complete failed session on preview page for retry when restoring', () => {
     savePreviewCacheWithUploadSession({
       phase: uploadState.UPLOAD_PHASE.COMPLETE_FAILED,

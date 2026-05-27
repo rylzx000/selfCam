@@ -401,11 +401,13 @@ Page({
   },
 
   isLeaving: false,
+  isRedirectingToComplete: false,
   uploadRunnerSessionId: '',
   uploadFlowPromise: null,
   completeFlowPromise: null,
 
   onLoad() {
+    this.isRedirectingToComplete = false
     this.isLeaving = false
     this.updateAppEnvBadge()
     this.updatePreviewLayout('on_load')
@@ -419,6 +421,10 @@ Page({
   },
 
   onShow() {
+    if (this.isRedirectingToComplete) {
+      return
+    }
+
     this.isLeaving = false
     this.updateAppEnvBadge()
     this.updatePreviewLayout('on_show')
@@ -658,10 +664,11 @@ Page({
   },
 
   redirectToCompletePage() {
-    if (this.isLeaving) {
+    if (this.isLeaving || this.isRedirectingToComplete) {
       return
     }
 
+    this.isRedirectingToComplete = true
     this.isLeaving = true
     this.clearUploadMockTimer()
     this.setData({ showUploadOverlay: false })
