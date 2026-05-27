@@ -1,7 +1,7 @@
 const constants = require('./constants')
 const vehicleDocuments = require('./documents')
 
-const CACHE_SCHEMA_VERSION = 3
+const CACHE_SCHEMA_VERSION = 4
 
 const WORKFLOW_STATES = [
   'IDLE',
@@ -13,7 +13,25 @@ const WORKFLOW_STATES = [
   'LOCAL_COMPLETED',
   'UPLOADING',
   'UPLOAD_FAILED',
-  'UPLOAD_READY'
+  'UPLOAD_READY',
+  'COMPLETING',
+  'COMPLETE_FAILED'
+]
+
+const UPLOAD_PHASES = [
+  'uploading',
+  'failed',
+  'ready',
+  'completing',
+  'complete_failed',
+  'completed'
+]
+
+const UPLOAD_COMPLETE_STATUSES = [
+  'pending',
+  'submitting',
+  'success',
+  'failed'
 ]
 
 const TRANSIENT_CONTEXT_MAX_AGE_MS = 60 * 1000
@@ -116,6 +134,21 @@ function buildDefaultAlbumSaveSummary() {
 
 function buildDefaultUploadSession() {
   return null
+}
+
+function buildDefaultUploadComplete() {
+  return {
+    status: 'pending',
+    attempts: 0,
+    lastErrorCode: '',
+    lastErrorMessage: '',
+    submittedAt: '',
+    completedAt: '',
+    ticketStatus: '',
+    uploadedCount: 0,
+    completeTime: '',
+    response: null
+  }
 }
 
 function getVehicleType(index) {
@@ -686,6 +719,7 @@ function clearCompletionContext(cache) {
   } else {
     moveToIdleState(nextCache)
   }
+  nextCache.uploadSession = null
 
   return sanitizeCache(nextCache)
 }
@@ -713,6 +747,23 @@ function clearTransientContext(cache) {
   return sanitizeCache(nextCache)
 }
 
+function hasCompletedUploadSession(cache) {
+  const uploadSession = cache && cache.uploadSession
+  return isPlainObject(uploadSession)
+    && uploadSession.phase === 'completed'
+    && isPlainObject(uploadSession.complete)
+    && uploadSession.complete.status === 'success'
+}
+
+function moveToCompletedState(cache) {
+  clearRetakeContextInPlace(cache)
+  clearPreviewFlagsInPlace(cache)
+  alignMidContext(cache)
+  cache.currentStep = constants.SHOOT_STEP.PREVIEW
+  setWorkflowState(cache, 'LOCAL_COMPLETED', cache.workflowState && cache.workflowState.updatedAt)
+  return cache
+}
+
 function resolveSafeResumeCache(cache) {
   const repaired = repairCache(cache)
   const baseCache = repaired.cache
@@ -729,6 +780,8 @@ function resolveSafeResumeCache(cache) {
     if (reasons.indexOf('missing_recovery_context') < 0) {
       reasons.push('missing_recovery_context')
     }
+  } else if (hasCompletedUploadSession(nextCache)) {
+    moveToCompletedState(nextCache)
   } else if (workflowState === 'LOCAL_COMPLETED' && !freshContext) {
     moveToPreviewState(nextCache)
     reasons.push('stale_completion_context')
@@ -911,8 +964,50 @@ function sanitizeUploadSessionItem(item, tracker) {
     label: isNonEmptyString(item.label) ? item.label : item.id,
     status,
     attempts: Number.isFinite(item.attempts) && item.attempts >= 0 ? Math.round(item.attempts) : 0,
+    startedAt: isValidIsoString(item.startedAt) ? item.startedAt : '',
+    uploadedAt: isValidIsoString(item.uploadedAt) ? item.uploadedAt : '',
+    failedAt: isValidIsoString(item.failedAt) ? item.failedAt : '',
+    uploadRecordId: isNonEmptyString(item.uploadRecordId) ? item.uploadRecordId : '',
+    photoId: isNonEmptyString(item.photoId) ? item.photoId : '',
+    duplicate: item.duplicate === true,
+    itemUploadedCount: Number.isFinite(item.itemUploadedCount) && item.itemUploadedCount >= 0
+      ? Math.round(item.itemUploadedCount)
+      : 0,
+    ticketStatus: isNonEmptyString(item.ticketStatus) ? item.ticketStatus : '',
     lastErrorCode: isNonEmptyString(item.lastErrorCode) ? item.lastErrorCode : '',
     lastErrorMessage: isNonEmptyString(item.lastErrorMessage) ? item.lastErrorMessage : ''
+  }
+}
+
+function sanitizeUploadComplete(complete, tracker) {
+  if (!isPlainObject(complete)) {
+    if (typeof complete !== 'undefined') {
+      markIssue(tracker, 'upload_complete_invalid')
+    }
+    return buildDefaultUploadComplete()
+  }
+
+  const status = UPLOAD_COMPLETE_STATUSES.indexOf(complete.status) >= 0
+    ? complete.status
+    : 'pending'
+
+  if (status !== complete.status) {
+    markIssue(tracker, 'upload_complete_invalid')
+  }
+
+  return {
+    status,
+    attempts: Number.isFinite(complete.attempts) && complete.attempts >= 0 ? Math.round(complete.attempts) : 0,
+    lastErrorCode: isNonEmptyString(complete.lastErrorCode) ? complete.lastErrorCode : '',
+    lastErrorMessage: isNonEmptyString(complete.lastErrorMessage) ? complete.lastErrorMessage : '',
+    submittedAt: isValidIsoString(complete.submittedAt) ? complete.submittedAt : '',
+    completedAt: isValidIsoString(complete.completedAt) ? complete.completedAt : '',
+    ticketStatus: isNonEmptyString(complete.ticketStatus) ? complete.ticketStatus : '',
+    uploadedCount: Number.isFinite(complete.uploadedCount) && complete.uploadedCount >= 0
+      ? Math.round(complete.uploadedCount)
+      : 0,
+    completeTime: isNonEmptyString(complete.completeTime) ? complete.completeTime : '',
+    response: isPlainObject(complete.response) ? complete.response : null
   }
 }
 
@@ -939,12 +1034,19 @@ function sanitizeUploadSession(uploadSession, tracker) {
   const uploaded = items.filter((item) => item.status === 'success').length
   const failed = items.filter((item) => item.status === 'failed').length
   const total = items.length
+  const complete = sanitizeUploadComplete(uploadSession.complete, tracker)
   const inferredPhase = failed > 0
     ? 'failed'
     : total > 0 && uploaded === total
-      ? 'ready'
+      ? complete.status === 'success'
+        ? 'completed'
+        : complete.status === 'submitting'
+          ? 'completing'
+          : complete.status === 'failed'
+            ? 'complete_failed'
+            : 'ready'
       : 'uploading'
-  const phase = ['uploading', 'failed', 'ready'].indexOf(uploadSession.phase) >= 0
+  const phase = UPLOAD_PHASES.indexOf(uploadSession.phase) >= 0
     ? uploadSession.phase
     : inferredPhase
 
@@ -962,6 +1064,7 @@ function sanitizeUploadSession(uploadSession, tracker) {
     total,
     uploaded,
     failed,
+    complete,
     items,
     createdAt: isValidIsoString(uploadSession.createdAt) ? uploadSession.createdAt : nowIso(),
     updatedAt: isValidIsoString(uploadSession.updatedAt) ? uploadSession.updatedAt : nowIso()
@@ -1082,7 +1185,7 @@ function validateCache(cache) {
   if (cache.uploadSession !== null && !isPlainObject(cache.uploadSession)) {
     issues.push('upload_session_invalid')
   } else if (isPlainObject(cache.uploadSession)) {
-    if (['uploading', 'failed', 'ready'].indexOf(cache.uploadSession.phase) < 0) {
+    if (UPLOAD_PHASES.indexOf(cache.uploadSession.phase) < 0) {
       issues.push('upload_session_invalid')
     }
 
@@ -1094,6 +1197,14 @@ function validateCache(cache) {
       || ['pending', 'uploading', 'success', 'failed'].indexOf(item.status) < 0
     ))) {
       issues.push('upload_session_invalid')
+    }
+
+    if (
+      cache.uploadSession.complete
+      && (!isPlainObject(cache.uploadSession.complete)
+        || UPLOAD_COMPLETE_STATUSES.indexOf(cache.uploadSession.complete.status) < 0)
+    ) {
+      issues.push('upload_complete_invalid')
     }
   }
 

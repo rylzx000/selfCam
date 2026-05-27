@@ -173,19 +173,19 @@
 
 ---
 
-### TC-AF-010: complete 返回修改前清理 completion context [ ]
+### TC-AF-010: complete 完成态不提供返回修改入口 [ ]
 
 **自动化 / 手工**：手工  
 **前置条件**：已进入 `complete` 页面，缓存存在完成态  
 **操作步骤**：
-1. 点击“返回修改”
-2. 跳回 `preview`
+1. 进入 `complete` 页面
+2. 检查页面底部按钮
 3. 再次强退并重进小程序
 
 **预期结果**：
-- 返回修改时先清理 completion context
-- 重进后不应再次误进 `complete`
-- 应落到 `preview` 或更安全的恢复态
+- 页面不展示“返回修改”按钮
+- 重进后仍保持完成态，不应自动回到 `preview`
+- 不应再次触发 `uploadPhoto` 或 `complete`
 
 **关联模块**：storage、storage-schema、page flow  
 **备注**：页面行为已接清理 helper，但本用例仍建议上线前手工复测

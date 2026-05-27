@@ -61,14 +61,6 @@ Page({
     })
   },
 
-  onBackToEdit() {
-    const cache = storage.loadCache()
-    if (cache) {
-      storage.saveCache(storage.clearCompletionContext(cache))
-    }
-    wx.redirectTo({ url: '/pages/preview/preview' })
-  },
-
   onExit() {
     storage.clearCache()
 

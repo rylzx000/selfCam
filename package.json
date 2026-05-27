@@ -1,6 +1,6 @@
 {
   "name": "selfcam-miniprogram",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "车辆定损拍摄小程序",
   "scripts": {
     "test": "jest",
@@ -12,6 +12,7 @@
     "test:automator": "jest --config e2e/jest.config.js --runInBand",
     "test:automator:legacy": "node e2e/run-tests.js",
     "test:automator:smoke": "jest --config e2e/jest.config.js --runInBand --testNamePattern=\"首页|VIN|确认态\"",
+    "mock:aux-photo": "node scripts/aux-photo-mock-server.js",
     "logs:collector": "node scripts/device-log-server.js",
     "logs:latest": "node scripts/read-device-log.js"
   },

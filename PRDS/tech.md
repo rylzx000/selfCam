@@ -129,7 +129,7 @@ selfCam/
 - 汇总缓存中的车辆数、车损照片数和单证照片数
 - 直接读取 `cache-selectors.getCacheSummary(cache)` 中的 `vehicleCount`、`damagePhotoCount`、`documentPhotoCount`
 - 支持退出小程序
-- 支持返回预览继续修改
+- 完成页不提供返回预览修改入口
 
 ---
 
@@ -242,17 +242,17 @@ const STORAGE_KEY = 'car_damage_photos_cache'
 }
 ```
 
-辅助拍照模式下，预览页行驶证槽位由当前车辆 `uploadItems` 对齐后端上传项：实物行驶证正页映射 `DRIVING_LICENSE_FRONT`，副页映射 `DRIVING_LICENSE_BACK`，电子行驶证映射 `DRIVING_LICENSE_ELECTRONIC`。本阶段只在本地缓存保存 `vehicleId/uploadItemId/photoType`，不调用真实 `uploadPhoto`。
+辅助拍照模式下，预览页行驶证槽位由当前车辆 `uploadItems` 对齐后端上传项：实物行驶证正页映射 `DRIVING_LICENSE_FRONT`，副页映射 `DRIVING_LICENSE_BACK`，电子行驶证映射 `DRIVING_LICENSE_ELECTRONIC`。提交时按缓存中的 `vehicleId/uploadItemId/photoType` 逐张调用真实 `uploadPhoto`。
 
 ### 本地上传状态
 
-未发布版本起，点击 `完成采集` 完成三者车确认、行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。本阶段只用本地 mock/stub 推进状态，不调用真实 `uploadPhoto`，也不调用真实 `complete`。
+点击 `完成采集` 完成三者车确认、行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张调用 `uploadPhoto`，全部照片上传成功后再调用 `complete`，`complete` 成功后进入完成页。
 
 ```js
 cache.uploadSession = {
   version: 1,
   sessionId: 'upload_...',
-  phase: 'uploading' | 'failed' | 'ready',
+  phase: 'uploading' | 'failed' | 'ready' | 'completing' | 'complete_failed' | 'completed',
   ticket: 'mock-2',
   total: 12,
   uploaded: 0,
@@ -271,18 +271,36 @@ cache.uploadSession = {
       label: '标的车 - 车牌',
       status: 'pending' | 'uploading' | 'success' | 'failed',
       attempts: 0,
+      uploadRecordId: '',
+      photoId: '',
+      duplicate: false,
+      uploadedAt: '',
       lastErrorCode: '',
       lastErrorMessage: ''
     }
   ],
+  complete: {
+    status: 'pending' | 'submitting' | 'success' | 'failed',
+    attempts: 0,
+    lastErrorCode: '',
+    lastErrorMessage: '',
+    submittedAt: '',
+    completedAt: '',
+    ticketStatus: '',
+    uploadedCount: 0,
+    completeTime: '',
+    response: null
+  },
   createdAt: '2026-05-25T00:00:00.000Z',
   updatedAt: '2026-05-25T00:00:00.000Z'
 }
 ```
 
-上传队列由 `utils/upload-state.js` 从车辆照片和车辆级行驶证资料组装：车牌、VIN、车损、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`，便于后续第 4 步逐张替换为真实 `uploadPhoto` 调用。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhoto` 队列来源。
+上传队列由 `utils/upload-state.js` 从车辆照片和车辆级行驶证资料组装：车牌、VIN、车损、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhoto` 队列来源。
 
-恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；`uploading` 会继续 mock 推进，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导留到真实上传接入阶段处理。
+恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`，`complete_failed` 只提供 `重试完成`。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
+
+开发期可运行 `npm run mock:aux-photo` 启动本地 mock 后端，再在微信开发者工具中执行 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')`，用真实 `wx.uploadFile` 验证 multipart 报文、上传失败和 complete 失败重试。
 
 车辆级选择方式：
 
@@ -925,7 +943,7 @@ npm run test:e2e:full
 ```
 
 - 每张新拍、重拍、上传或替换的照片生成新的 `localPhotoId`。
-- `albumSaveRecords` 按 `localPhotoId` 记录保存结果，避免完成页返回修改后二次完成重复保存旧图。
+- `albumSaveRecords` 按 `localPhotoId` 记录保存结果，避免重复进入完成流程时重复保存旧图。
 - 替换照片不会继承旧照片的保存记录；删除照片只影响当前缓存，不尝试删除用户手机相册中的旧图。
 
 ### 替换与删除

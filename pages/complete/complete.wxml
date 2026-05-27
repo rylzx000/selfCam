@@ -38,8 +38,5 @@
     <view class="btn btn-primary" bindtap="onExit">
       <text>完成退出</text>
     </view>
-    <view class="btn btn-secondary" bindtap="onBackToEdit">
-      <text>返回修改</text>
-    </view>
   </view>
 </view>

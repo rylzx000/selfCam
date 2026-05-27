@@ -1031,7 +1031,7 @@
 
 ---
 
-### TC-040: 返回修改功能 [ ]
+### TC-040: 完成页不提供返回修改入口 [ ]
 
 **Priority**: High
 **Type**: Happy Path
@@ -1043,12 +1043,12 @@
 - 用户在完成页
 
 **Steps**:
-1. 点击"返回修改"按钮
+1. 检查完成页底部按钮
 
 **Expected Result**:
-- 跳转回预览页
-- 所有数据保留
-- 可以继续编辑
+- 只展示“完成退出”
+- 不展示“返回修改”
+- 不触发跳回预览页
 
 ---
 
@@ -1689,27 +1689,26 @@
 - 点击 `暂不保存` 不申请相册权限，直接进入完成页
 - 点击 `保存至手机` 后才申请相册保存权限并批量保存
 
-### TC-066: 完成页返回修改后替换照片只保存新图 [P]
+### TC-066: 完成页重复进入不重复保存或提交 [P]
 
 **Priority**: Critical
 **Type**: Edge Case
 **Status**: [P]
 **Suite**: Regression
-**Tags**: @feature:album-save, @feature:retake, @component:preview
+**Tags**: @feature:album-save, @feature:complete, @component:complete
 
 **Preconditions**:
-- 第一次完成采集时已成功保存当前照片到手机相册
+- 已完成采集并进入完成页
 
 **Steps**:
-1. 在完成页点击 `返回修改`
-2. 在预览页重拍或替换一张已保存过的照片
-3. 再次点击 `完成采集`
-4. 在最终相册保存确认中点击 `保存至手机`
+1. 重新进入 `complete` 页面
+2. 等待页面稳定
+3. 查看请求日志和相册保存记录
 
 **Expected Result**:
-- 已保存过且仍存在的旧照片不重复调用 `wx.saveImageToPhotosAlbum`
-- 被替换的新照片生成新的 `localPhotoId`，本次会被保存
-- 删除的旧照片不参与本次保存，也不尝试从手机相册删除
+- 不重复调用 `uploadPhoto` 或 `complete`
+- 不重复调用 `wx.saveImageToPhotosAlbum`
+- 页面保持完成态，不自动回到预览页
 
 ### TC-067: 最终相册保存失败不阻断完成采集 [P]
 

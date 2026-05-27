@@ -2,6 +2,8 @@ describe('preview upload overlay flow', () => {
   let storage
   let constants
   let documents
+  let auxPhotoApi
+  let uploadState
   let pageConfig
   let memoryStorage
 
@@ -110,6 +112,38 @@ describe('preview upload overlay flow', () => {
       ensureAlbumSavePermission: jest.fn()
     }))
 
+    jest.doMock('../utils/aux-photo-api', () => ({
+      uploadPhoto: jest.fn(async (item) => ({
+        success: true,
+        code: '0000',
+        message: '图片上传成功',
+        data: {
+          uploadRecordId: `${item.id}-record`,
+          photoId: `${item.id}-photo`,
+          vehicleId: item.vehicleId,
+          uploadItemId: item.uploadItemId,
+          photoType: item.photoType,
+          duplicate: false,
+          itemUploadedCount: item.sortNo || 1,
+          ticketStatus: 'UPLOADING'
+        }
+      })),
+      complete: jest.fn(async ({ ticket, clientUploadCount }) => ({
+        success: true,
+        code: '0000',
+        message: '辅助拍照已完成',
+        data: {
+          ticket,
+          ticketStatus: 'COMPLETED',
+          uploadedCount: clientUploadCount,
+          requiredPassed: true,
+          missingItems: [],
+          completeTime: '2026-05-26 10:30:00',
+          phase2TriggerStatus: 'NOT_ENABLED'
+        }
+      }))
+    }))
+
     global.wx = {
       env: {
         USER_DATA_PATH: '/tmp'
@@ -139,6 +173,8 @@ describe('preview upload overlay flow', () => {
     storage = require('../utils/storage')
     constants = require('../utils/constants')
     documents = require('../utils/documents')
+    uploadState = require('../utils/upload-state')
+    auxPhotoApi = require('../utils/aux-photo-api')
   })
 
   afterEach(() => {
@@ -146,68 +182,166 @@ describe('preview upload overlay flow', () => {
     delete global.Page
     jest.dontMock('../utils/album')
     jest.dontMock('../utils/permission')
+    jest.dontMock('../utils/aux-photo-api')
   })
 
-  test('starts local upload overlay instead of redirecting directly to complete page', () => {
+  test('uploads photos one by one and calls complete only after upload ready', async () => {
     saveReadyPreviewCache('mock-2')
     const page = loadPreviewPage()
 
-    try {
-      page.onSubmit()
+    page.onSubmit()
+    await page.uploadFlowPromise
 
-      const cache = storage.loadCache()
-      expect(page.data.showUploadOverlay).toBe(true)
-      expect(page.data.uploadOverlayTitle).toBe('正在上传照片')
-      expect(page.data.uploadOverlayPrimaryVisible).toBe(false)
-      expect(cache.uploadSession).toEqual(expect.objectContaining({
-        phase: 'uploading',
-        total: 12
-      }))
-      expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-        url: '/pages/complete/complete'
-      })
-    } finally {
-      page.onUnload()
-    }
+    let cache = storage.loadCache()
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(cache.uploadSession).toEqual(expect.objectContaining({
+      phase: 'ready',
+      total: 12,
+      uploaded: 12
+    }))
+    expect(page.data.uploadOverlayPrimaryText).toBe('完成采集')
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
+
+    page.onUploadOverlayPrimaryTap()
+    await page.completeFlowPromise
+
+    cache = storage.loadCache()
+    expect(auxPhotoApi.complete).toHaveBeenCalledTimes(1)
+    expect(cache.uploadSession.phase).toBe('completed')
+    expect(cache.workflowState.current).toBe('LOCAL_COMPLETED')
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
   })
 
-  test('shows retry action for fail-once mock and retries failed item only', () => {
-    saveReadyPreviewCache('mock-fail-once')
+  test('stops after upload failure and retries only unfinished photos', async () => {
+    saveReadyPreviewCache('mock-2')
+    auxPhotoApi.uploadPhoto.mockImplementation(async (item) => {
+      if (item.id === 'vehicle0-vin' && item.attempts === 1) {
+        throw {
+          code: 'AUX_UPLOAD_FAILED',
+          message: '网络异常'
+        }
+      }
+
+      return {
+        success: true,
+        code: '0000',
+        message: '图片上传成功',
+        data: {
+          uploadRecordId: `${item.id}-record`
+        }
+      }
+    })
     const page = loadPreviewPage()
 
-    try {
-      page.onSubmit()
-      let cache = storage.loadCache()
-      const sessionId = cache.uploadSession.sessionId
+    page.onSubmit()
+    await page.uploadFlowPromise
 
-      page.clearUploadMockTimer()
-      page.processUploadMockStep(sessionId)
+    let cache = storage.loadCache()
+    expect(cache.uploadSession).toEqual(expect.objectContaining({
+      phase: 'failed',
+      uploaded: 1,
+      failed: 1
+    }))
+    expect(cache.uploadSession.items[0].status).toBe('success')
+    expect(cache.uploadSession.items[1]).toEqual(expect.objectContaining({
+      id: 'vehicle0-vin',
+      status: 'failed',
+      lastErrorMessage: '网络异常'
+    }))
+    expect(page.data.uploadOverlayTitle).toBe('有照片上传失败')
+    expect(page.data.uploadOverlayPrimaryText).toBe('重试上传')
 
-      cache = storage.loadCache()
-      expect(cache.uploadSession).toEqual(expect.objectContaining({
-        phase: 'failed',
-        uploaded: 0,
-        failed: 1
-      }))
-      expect(page.data.uploadOverlayTitle).toBe('有照片上传失败')
-      expect(page.data.uploadOverlayPrimaryVisible).toBe(true)
-      expect(page.data.uploadOverlayPrimaryText).toBe('重试上传')
+    page.onUploadOverlayPrimaryTap()
+    await page.uploadFlowPromise
 
-      page.onUploadOverlayPrimaryTap()
-      cache = storage.loadCache()
-      expect(cache.uploadSession.items[0].status).toBe('pending')
-      expect(cache.uploadSession.items[0].attempts).toBe(1)
+    cache = storage.loadCache()
+    expect(cache.uploadSession.phase).toBe('ready')
+    expect(cache.uploadSession.items[0].attempts).toBe(1)
+    expect(cache.uploadSession.items[1]).toEqual(expect.objectContaining({
+      status: 'success',
+      attempts: 2
+    }))
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+  })
 
-      page.clearUploadMockTimer()
-      page.processUploadMockStep(cache.uploadSession.sessionId)
-
-      cache = storage.loadCache()
-      expect(cache.uploadSession.items[0].status).toBe('success')
-      expect(cache.uploadSession.items[0].attempts).toBe(2)
-      expect(cache.uploadSession.uploaded).toBe(1)
-      expect(cache.uploadSession.failed).toBe(0)
-    } finally {
-      page.onUnload()
+  test('does not start duplicate upload runners when restoring the same uploading session twice', async () => {
+    const cache = saveReadyPreviewCache('mock-2')
+    const session = uploadState.createUploadSession(cache)
+    session.items[0] = {
+      ...session.items[0],
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1,
+      uploadRecordId: 'vehicle0-licensePlate-record',
+      photoId: 'vehicle0-licensePlate-photo'
     }
+    session.items[1] = {
+      ...session.items[1],
+      status: uploadState.UPLOAD_ITEM_STATUS.UPLOADING,
+      attempts: 1,
+      startedAt: '2026-05-26T00:00:00.000Z'
+    }
+    cache.uploadSession = {
+      ...session,
+      phase: uploadState.UPLOAD_PHASE.UPLOADING,
+      uploaded: 1,
+      failed: 0
+    }
+    storage.saveCache(cache)
+    auxPhotoApi.uploadPhoto.mockImplementation(() => new Promise(() => {}))
+
+    const page = loadPreviewPage()
+    page.restoreUploadOverlay(storage.loadCache())
+
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(1)
+    expect(auxPhotoApi.uploadPhoto.mock.calls[0][0].id).toBe('vehicle0-vin')
+  })
+
+  test('complete failure retries complete without reuploading photos', async () => {
+    saveReadyPreviewCache('mock-2')
+    auxPhotoApi.complete
+      .mockRejectedValueOnce({
+        code: 'AUX_SERVER_ERROR',
+        message: '完成提交失败'
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        code: '0000',
+        message: '辅助拍照已完成',
+        data: {
+          ticket: 'mock-2',
+          ticketStatus: 'COMPLETED',
+          uploadedCount: 12,
+          completeTime: '2026-05-26 10:30:00'
+        }
+      })
+    const page = loadPreviewPage()
+
+    page.onSubmit()
+    await page.uploadFlowPromise
+    page.onUploadOverlayPrimaryTap()
+    await page.completeFlowPromise
+
+    let cache = storage.loadCache()
+    expect(cache.uploadSession.phase).toBe('complete_failed')
+    expect(cache.uploadSession.uploaded).toBe(12)
+    expect(page.data.uploadOverlayTitle).toBe('完成提交失败')
+    expect(page.data.uploadOverlayPrimaryText).toBe('重试完成')
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+
+    page.onUploadOverlayPrimaryTap()
+    await page.completeFlowPromise
+
+    cache = storage.loadCache()
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+    expect(auxPhotoApi.complete).toHaveBeenCalledTimes(2)
+    expect(cache.uploadSession.phase).toBe('completed')
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/complete/complete'
+    })
   })
 })

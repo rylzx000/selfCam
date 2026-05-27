@@ -2,44 +2,46 @@
 
 ## 当前版本
 
-**版本号**: v1.4.5
-**发布日期**: 2026-05-25
-**状态**: SIT 体验版辅助拍照上传准备
+**版本号**: v1.4.6
+**发布日期**: 2026-05-27
+**状态**: 待合并：辅助拍照后端提交闭环
 
 ---
 
 ## 版本概述
 
-`v1.4.5` 是基于 `v1.4.4` 辅助拍照预览单证规则的上传准备版本。本轮不实现真实 `uploadPhoto` 和 `complete` 接口，只将完成采集后的前端流程改为预览页内上传遮罩，并落地可供后续逐张上传复用的本地 `uploadSession` 状态。
+当前版本在 `v1.4.5` 上传准备流程基础上接入真实 `uploadPhoto` 逐张上传和 `complete` 完成接口。完成采集后仍复用预览页上传遮罩，先逐张上传照片，全部成功后再提交完成；`complete` 成功后进入完成页。
 
 ### 本版本重点
 
 - 完成采集经过三者车确认、行驶证风险确认和相册保存确认后，不再直接进入完成页，而是展示预览页上传遮罩。
-- 上传遮罩保持从简：上传中只展示进度，失败只提供 `重试上传`，上传完成后再点击 `完成采集` 进入完成页。
-- 新增本地 `uploadSession` 队列，按车辆照片和车辆级行驶证资料保存 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。
-- 上传失败 mock 支持 `mock-fail-once` 和 `mock-fail-always`，用于未接真实接口前验证重试交互。
+- 上传遮罩保持从简：上传中只展示进度，照片上传失败提供 `重试上传`，完成提交失败提供 `重试完成`。
+- 本地 `uploadSession` 队列按车辆照片和车辆级行驶证资料保存 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`，并记录后端上传结果。
+- 新增开发期本地 mock 后端脚本，用真实 `wx.uploadFile` 验证 multipart 报文、上传失败和 complete 失败重试。
 - 备用 `document` 页提交入口改为回到预览页统一走上传遮罩，不再绕过上传准备流程。
 
-## v1.4.5 变更摘要
+## v1.4.6 变更摘要
 
-### 上传准备流程
+### 上传提交流程
 
-- 新增 `utils/upload-state.js`，统一构建本地待上传队列，并用 mock/stub 推进 `uploading/failed/ready` 状态。
-- `pages/preview/preview.js` 在最终提交前创建 `uploadSession`，并在页面恢复时按缓存恢复上传遮罩。
+- `utils/aux-photo-api.js` 封装 `uploadPhoto` 和 `complete`，图片通过 `wx.uploadFile` 直接上传，不转 base64。
+- `utils/upload-state.js` 统一构建待上传队列，并推进 `uploading/failed/ready/completing/complete_failed/completed` 状态。
+- `pages/preview/preview.js` 在最终提交前创建 `uploadSession`，逐张上传照片，并在页面恢复时按缓存恢复上传遮罩。
 - `pages/preview/preview.wxml` 和 `pages/preview/preview.wxss` 增加轻量遮罩、进度条、失败重试和上传完成状态。
-- `utils/storage-schema.js` 升级到 schema v3，缓存结构增加 `uploadSession` 并提供修复与校验。
-- `utils/workflow-state.js` 增加 `UPLOADING/UPLOAD_FAILED/UPLOAD_READY`，避免上传准备态被恢复逻辑误降级。
+- `utils/storage-schema.js` 升级到 schema v4，缓存结构增加上传成功记录和 complete 结果。
+- `utils/workflow-state.js` 增加 `COMPLETING/COMPLETE_FAILED`，避免完成提交态被恢复逻辑误降级。
+- `scripts/aux-photo-mock-server.js` 提供本地 mock 后端验证入口。
 
 ### 文档与版本
 
-- `PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 同步上传遮罩、本地上传状态和第 4/5 步边界。
-- `CHANGELOG.md` 增加 `v1.4.5` 中文变更记录。
-- `package.json`、`package-lock.json` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.5`。
+- `PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 同步上传提交闭环和本地 mock 后端验证方式。
+- `CHANGELOG.md` 增加未发布中文变更记录。
+- `package.json` 增加 `mock:aux-photo` 开发验证脚本。
 
 ### 测试与验证
 
-- 用户已完成真机验证：通过。
-- 本次版本提交按用户要求未重新执行测试。
+- 已新增并运行接口、状态、预览页、缓存和 workflow 相关 Jest 测试。
+- 真机和真实后端联调仍需在后端环境可用后执行。
 
 ---
 
@@ -47,6 +49,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.6 | 2026-05-27 | 待合并：辅助拍照后端提交闭环 | 接入真实 `uploadPhoto` 逐张上传、`complete` 完成提交、本地 mock 后端和失败重试恢复 |
 | v1.4.5 | 2026-05-25 | SIT 体验版辅助拍照上传准备 | 预览页上传遮罩、本地 `uploadSession` 队列和失败重试 mock |
 | v1.4.4 | 2026-05-25 | SIT 体验版辅助拍照预览单证规则适配 | 预览页行驶证槽位对齐后端 `uploadItems/photoType`，补齐电子行驶证独立类型和车辆锁定 |
 | v1.4.2 | 2026-05-22 | SIT 体验版辅助拍照后端初始化接入 | ticket 初始化、后端车辆控制、相机多车辆流转、错误日志上传和接口文档同步 |

@@ -67,11 +67,23 @@ describe('storage cache governance', () => {
     cache.uploadSession = {
       version: 1,
       sessionId: 'upload-test',
-      phase: 'uploading',
+      phase: 'complete_failed',
       ticket: 'mock-2',
       total: 1,
-      uploaded: 0,
+      uploaded: 1,
       failed: 0,
+      complete: {
+        status: 'failed',
+        attempts: 1,
+        lastErrorCode: 'AUX_SERVER_ERROR',
+        lastErrorMessage: '完成提交失败',
+        submittedAt: '2026-05-25T00:00:01.000Z',
+        completedAt: '',
+        ticketStatus: '',
+        uploadedCount: 0,
+        completeTime: '',
+        response: null
+      },
       createdAt: '2026-05-25T00:00:00.000Z',
       updatedAt: '2026-05-25T00:00:00.000Z',
       items: [
@@ -86,8 +98,16 @@ describe('storage cache governance', () => {
           filePath: '/tmp/plate.jpg',
           fileSize: 100,
           label: '标的车 - 车牌',
-          status: 'pending',
-          attempts: 0,
+          status: 'success',
+          attempts: 1,
+          startedAt: '2026-05-25T00:00:01.000Z',
+          uploadedAt: '2026-05-25T00:00:02.000Z',
+          failedAt: '',
+          uploadRecordId: 'AUP202605250001',
+          photoId: 'DOC202605250001',
+          duplicate: true,
+          itemUploadedCount: 1,
+          ticketStatus: 'UPLOADING',
           lastErrorCode: '',
           lastErrorMessage: ''
         }
@@ -98,14 +118,23 @@ describe('storage cache governance', () => {
     const savedCache = storage.loadCache()
 
     expect(savedCache.uploadSession).toEqual(expect.objectContaining({
-      phase: 'uploading',
+      phase: 'complete_failed',
       total: 1,
-      uploaded: 0,
+      uploaded: 1,
       failed: 0
     }))
     expect(savedCache.uploadSession.items[0]).toEqual(expect.objectContaining({
       id: 'vehicle0-licensePlate',
-      status: 'pending'
+      status: 'success',
+      uploadRecordId: 'AUP202605250001',
+      photoId: 'DOC202605250001',
+      duplicate: true,
+      uploadedAt: '2026-05-25T00:00:02.000Z'
+    }))
+    expect(savedCache.uploadSession.complete).toEqual(expect.objectContaining({
+      status: 'failed',
+      attempts: 1,
+      lastErrorMessage: '完成提交失败'
     }))
 
     savedCache.uploadSession.phase = 'bad-phase'
@@ -116,6 +145,48 @@ describe('storage cache governance', () => {
     expect(repairedCache.uploadSession.phase).toBe('uploading')
     expect(repairedCache.uploadSession.items[0].status).toBe('pending')
     expect(storage.validateCache(repairedCache).valid).toBe(true)
+  })
+
+  test('clears completed upload session when returning from complete page to edit', () => {
+    const cache = storage.initCache()
+    cache.vehicles.push(createCompletedVehicle(0, 1))
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    cache.workflowState = {
+      current: 'LOCAL_COMPLETED',
+      updatedAt: cache.updatedAt
+    }
+    cache.uploadSession = {
+      version: 1,
+      sessionId: 'upload-completed',
+      phase: 'completed',
+      ticket: 'mock-2',
+      total: 1,
+      uploaded: 1,
+      failed: 0,
+      complete: {
+        status: 'success',
+        attempts: 1,
+        ticketStatus: 'COMPLETED',
+        uploadedCount: 1
+      },
+      createdAt: '2026-05-26T00:00:00.000Z',
+      updatedAt: '2026-05-26T00:00:00.000Z',
+      items: [
+        {
+          id: 'vehicle0-licensePlate',
+          clientPhotoId: 'plate-id',
+          filePath: '/tmp/plate.jpg',
+          label: '标的车 - 车牌',
+          status: 'success',
+          attempts: 1
+        }
+      ]
+    }
+
+    const editingCache = storage.clearCompletionContext(cache)
+
+    expect(editingCache.workflowState.current).toBe('PREVIEWING')
+    expect(editingCache.uploadSession).toBeNull()
   })
 
   test('migrates and sanitizes legacy cache before returning it', () => {
@@ -300,6 +371,55 @@ describe('storage cache governance', () => {
 
     expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
     expect(safeCache.workflowState.current).toBe('PREVIEWING')
+    expect(safeCache.fromPreview).toBe(false)
+  })
+
+  test('keeps stale completed upload session as local completed during safe resume', () => {
+    const cache = storage.initCache()
+    cache.vehicles.push(createCompletedVehicle(0, 1))
+    cache.currentVehicleIndex = 0
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    cache.workflowState = {
+      current: 'LOCAL_COMPLETED',
+      updatedAt: '2000-01-01T00:00:00.000Z'
+    }
+    cache.updatedAt = '2000-01-01T00:00:00.000Z'
+    cache.uploadSession = {
+      version: 1,
+      sessionId: 'upload-completed',
+      phase: 'completed',
+      ticket: 'mock-2',
+      total: 1,
+      uploaded: 1,
+      failed: 0,
+      complete: {
+        status: 'success',
+        attempts: 1,
+        ticketStatus: 'COMPLETED',
+        uploadedCount: 1
+      },
+      createdAt: '2026-05-26T00:00:00.000Z',
+      updatedAt: '2026-05-26T00:00:00.000Z',
+      items: [
+        {
+          id: 'vehicle0-licensePlate',
+          clientPhotoId: 'plate-id',
+          filePath: '/tmp/plate.jpg',
+          label: '鏍囩殑杞?- 杞︾墝',
+          status: 'success',
+          attempts: 1
+        }
+      ]
+    }
+
+    memoryStorage[storage.STORAGE_KEY] = JSON.stringify(cache)
+
+    const safeCache = storage.loadCacheForResume()
+
+    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(safeCache.workflowState.current).toBe('LOCAL_COMPLETED')
+    expect(safeCache.uploadSession.phase).toBe('completed')
+    expect(safeCache.uploadSession.complete.status).toBe('success')
     expect(safeCache.fromPreview).toBe(false)
   })
 

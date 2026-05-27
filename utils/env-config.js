@@ -1,6 +1,7 @@
 const DEFAULT_ENV_VERSION = 'develop'
 const DEFAULT_WX_ENV_VERSION = DEFAULT_ENV_VERSION
 const APP_ENV_STORAGE_KEY = 'SELF_CAM_APP_ENV'
+const AUX_PHOTO_HOST_STORAGE_KEY = 'SELF_CAM_AUX_PHOTO_HOST'
 
 const SUPPORTED_ENV_VERSIONS = {
   develop: 'develop',
@@ -353,11 +354,30 @@ function resolveErrorLogHost(appEnv, options = {}) {
 }
 
 function resolveAuxPhotoHost(appEnv, options = {}) {
+  const overrideHost = sanitizeString(options.auxPhotoHostOverride, '')
+  if (overrideHost) {
+    return overrideHost
+  }
+
   const endpoints = options.businessEnvEndpoints || BUSINESS_ENV_ENDPOINTS
   const envEndpoints = endpoints[sanitizeAppEnv(appEnv, 'dev')] || {}
   const auxPhotoHost = sanitizeString(envEndpoints.auxPhotoHost, '')
 
   return isModelHostAllowed(appEnv, auxPhotoHost) ? auxPhotoHost : ''
+}
+
+function readStoredAuxPhotoHost(options = {}) {
+  const wxRef = getWx(options)
+
+  if (!wxRef || typeof wxRef.getStorageSync !== 'function') {
+    return ''
+  }
+
+  try {
+    return sanitizeString(wxRef.getStorageSync(AUX_PHOTO_HOST_STORAGE_KEY), '', 512)
+  } catch (error) {
+    return ''
+  }
 }
 
 function hashString(value) {
@@ -505,7 +525,13 @@ function getErrorLogConfig(options = {}) {
 
 function getAuxPhotoConfig(options = {}) {
   const runtimeFlags = getRuntimeFlags(options)
-  const auxPhotoHost = resolveAuxPhotoHost(runtimeFlags.appEnv, options)
+  const auxPhotoHostOverride = runtimeFlags.envVersion === 'develop'
+    ? readStoredAuxPhotoHost(options)
+    : ''
+  const auxPhotoHost = resolveAuxPhotoHost(runtimeFlags.appEnv, {
+    ...options,
+    auxPhotoHostOverride
+  })
 
   return {
     wxEnvVersion: runtimeFlags.wxEnvVersion,
@@ -540,6 +566,7 @@ module.exports = {
   SUPPORTED_ENV_VERSIONS,
   SUPPORTED_APP_ENVS,
   APP_ENV_STORAGE_KEY,
+  AUX_PHOTO_HOST_STORAGE_KEY,
   DEFAULT_APP_ENV_BY_WX_ENV_VERSION,
   BUSINESS_ENV_ENDPOINTS,
   getEnvVersion,

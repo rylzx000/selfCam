@@ -406,6 +406,24 @@ describe('env-config', () => {
     }))
   })
 
+  test('aux photo config can use local mock host in develop through storage override', () => {
+    mockWxEnv('develop', {
+      storage: {
+        SELF_CAM_AUX_PHOTO_HOST: 'http://127.0.0.1:8787'
+      }
+    })
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAuxPhotoConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'develop',
+      envVersion: 'develop',
+      appEnv: 'dev',
+      baseUrl: 'http://127.0.0.1:8787',
+      requestEnabled: true,
+      mockEnabled: true
+    }))
+  })
+
   test('aux photo config disables mock in release and enables request when host is configured', () => {
     mockWxEnv('release')
     const envConfig = loadEnvConfig()

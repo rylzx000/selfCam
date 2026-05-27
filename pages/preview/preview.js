@@ -8,6 +8,7 @@ const permission = require('../../utils/permission')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 const uploadState = require('../../utils/upload-state')
+const auxPhotoApi = require('../../utils/aux-photo-api')
 const envConfig = require('../../utils/env-config')
 const runtimeLogger = require('../../utils/runtime-logger')
 const {
@@ -29,8 +30,6 @@ const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保�
 
 const PREVIEW_BASE_RPX_WIDTH = 750
 const PREVIEW_BASE_RPX_HEIGHT = 390
-const UPLOAD_MOCK_INTERVAL_MS = 320
-
 function computeResponsivePreviewLayout(info = {}) {
   const {
     rawWindowWidth,
@@ -402,7 +401,9 @@ Page({
   },
 
   isLeaving: false,
-  uploadMockTimer: null,
+  uploadRunnerSessionId: '',
+  uploadFlowPromise: null,
+  completeFlowPromise: null,
 
   onLoad() {
     this.isLeaving = false
@@ -438,7 +439,6 @@ Page({
   },
 
   onHide() {
-    this.clearUploadMockTimer()
   },
 
   onUnload() {
@@ -537,6 +537,11 @@ Page({
       return items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.FAILED) || null
     }
 
+    const activeItem = items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.UPLOADING)
+    if (activeItem) {
+      return activeItem
+    }
+
     return items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.PENDING)
       || items[items.length - 1]
       || null
@@ -548,18 +553,66 @@ Page({
     const percent = total > 0 ? Math.round((uploaded / total) * 100) : 0
     const currentItem = this.getUploadCurrentItem(session)
     const phase = session && session.phase
+    const complete = session && session.complete
 
     if (phase === uploadState.UPLOAD_PHASE.READY) {
       return {
         showUploadOverlay: true,
         uploadOverlayTitle: '照片上传完成',
-        uploadOverlayDesc: '本地上传状态已完成，请继续完成采集。',
+        uploadOverlayDesc: '照片已上传成功，请继续完成采集。',
         uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
         uploadOverlayProgressPercent: `${percent}%`,
         uploadOverlayProgressStyle: `width: ${percent}%`,
-        uploadOverlayCurrentText: '全部照片已处理',
+        uploadOverlayCurrentText: '全部照片已上传',
         uploadOverlayPrimaryText: '完成采集',
         uploadOverlayPrimaryVisible: true,
+        uploadOverlayPrimaryMode: 'primary'
+      }
+    }
+
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETING) {
+      return {
+        showUploadOverlay: true,
+        uploadOverlayTitle: '正在完成提交',
+        uploadOverlayDesc: '照片已上传，请保持小程序打开。',
+        uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+        uploadOverlayProgressPercent: `${percent}%`,
+        uploadOverlayProgressStyle: `width: ${percent}%`,
+        uploadOverlayCurrentText: '正在确认采集完成',
+        uploadOverlayPrimaryText: '',
+        uploadOverlayPrimaryVisible: false,
+        uploadOverlayPrimaryMode: 'primary'
+      }
+    }
+
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETE_FAILED) {
+      return {
+        showUploadOverlay: true,
+        uploadOverlayTitle: '完成提交失败',
+        uploadOverlayDesc: '照片已上传成功，请重试完成提交。',
+        uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+        uploadOverlayProgressPercent: `${percent}%`,
+        uploadOverlayProgressStyle: `width: ${percent}%`,
+        uploadOverlayCurrentText: complete && complete.lastErrorMessage
+          ? `完成失败：${complete.lastErrorMessage}`
+          : '完成提交失败',
+        uploadOverlayPrimaryText: '重试完成',
+        uploadOverlayPrimaryVisible: true,
+        uploadOverlayPrimaryMode: 'danger'
+      }
+    }
+
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETED) {
+      return {
+        showUploadOverlay: true,
+        uploadOverlayTitle: '采集提交完成',
+        uploadOverlayDesc: '正在进入完成页。',
+        uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
+        uploadOverlayProgressPercent: `${percent}%`,
+        uploadOverlayProgressStyle: `width: ${percent}%`,
+        uploadOverlayCurrentText: '采集已完成',
+        uploadOverlayPrimaryText: '',
+        uploadOverlayPrimaryVisible: false,
         uploadOverlayPrimaryMode: 'primary'
       }
     }
@@ -572,7 +625,9 @@ Page({
         uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
         uploadOverlayProgressPercent: `${percent}%`,
         uploadOverlayProgressStyle: `width: ${percent}%`,
-        uploadOverlayCurrentText: currentItem ? `失败：${currentItem.label}` : '上传失败',
+        uploadOverlayCurrentText: currentItem
+          ? `失败：${currentItem.label}${currentItem.lastErrorMessage ? `，${currentItem.lastErrorMessage}` : ''}`
+          : '上传失败',
         uploadOverlayPrimaryText: '重试上传',
         uploadOverlayPrimaryVisible: true,
         uploadOverlayPrimaryMode: 'danger'
@@ -602,25 +657,50 @@ Page({
       return
     }
 
-    this.setData(this.buildUploadOverlayData(cache.uploadSession))
+    const hasActiveRunner = cache.uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING
+      && this.uploadRunnerSessionId === cache.uploadSession.sessionId
+      && this.uploadFlowPromise
+    const restored = hasActiveRunner
+      ? { changed: false, session: cache.uploadSession }
+      : uploadState.restoreInterruptedSession(cache.uploadSession)
+    const uploadSession = restored.session
+    if (restored.changed) {
+      cache.uploadSession = uploadSession
+      storage.saveCache(cache)
+    }
 
-    if (cache.uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
-      this.scheduleUploadMockStep(cache.uploadSession.sessionId)
+    this.setData(this.buildUploadOverlayData(uploadSession))
+
+    if (uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
+      this.startUploadRunner(uploadSession.sessionId)
     }
   },
 
   clearUploadMockTimer() {
-    if (this.uploadMockTimer) {
-      clearTimeout(this.uploadMockTimer)
-      this.uploadMockTimer = null
-    }
+    this.uploadRunnerSessionId = ''
+    this.uploadFlowPromise = null
   },
 
-  scheduleUploadMockStep(sessionId) {
-    this.clearUploadMockTimer()
-    this.uploadMockTimer = setTimeout(() => {
-      this.processUploadMockStep(sessionId)
-    }, UPLOAD_MOCK_INTERVAL_MS)
+  startUploadRunner(sessionId) {
+    if (!sessionId) {
+      return null
+    }
+
+    if (this.uploadRunnerSessionId === sessionId && this.uploadFlowPromise) {
+      return this.uploadFlowPromise
+    }
+
+    const runner = this.runUploadSession(sessionId)
+    this.uploadFlowPromise = runner
+
+    runner.finally(() => {
+      if (this.uploadFlowPromise === runner && this.uploadRunnerSessionId === sessionId) {
+        this.uploadRunnerSessionId = ''
+        this.uploadFlowPromise = null
+      }
+    })
+
+    return runner
   },
 
   onOpenDrivingLicensePanel(e) {
@@ -1320,38 +1400,100 @@ Page({
     this.setData(this.buildUploadOverlayData(uploadSession))
 
     if (uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
-      this.scheduleUploadMockStep(uploadSession.sessionId)
+      this.startUploadRunner(uploadSession.sessionId)
     }
   },
 
-  processUploadMockStep(sessionId) {
-    const cache = storage.loadCache()
-    const session = cache && cache.uploadSession
+  getWorkflowStateForUploadPhase(phase) {
+    if (phase === uploadState.UPLOAD_PHASE.FAILED) {
+      return workflow.STATES.UPLOAD_FAILED
+    }
+    if (phase === uploadState.UPLOAD_PHASE.READY) {
+      return workflow.STATES.UPLOAD_READY
+    }
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETING) {
+      return workflow.STATES.COMPLETING
+    }
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETE_FAILED) {
+      return workflow.STATES.COMPLETE_FAILED
+    }
+    if (phase === uploadState.UPLOAD_PHASE.COMPLETED) {
+      return workflow.STATES.LOCAL_COMPLETED
+    }
+    return workflow.STATES.UPLOADING
+  },
 
-    if (!session || session.sessionId !== sessionId) {
+  syncUploadWorkflowState(session, pageAction) {
+    if (!session) {
       return
     }
 
-    const scenario = uploadState.resolveMockScenario(session.ticket)
-    const nextSession = uploadState.applyMockUploadStep(session, { scenario })
-    cache.uploadSession = nextSession
-    storage.saveCache(cache)
-
-    const nextWorkflowState = nextSession.phase === uploadState.UPLOAD_PHASE.FAILED
-      ? workflow.STATES.UPLOAD_FAILED
-      : nextSession.phase === uploadState.UPLOAD_PHASE.READY
-        ? workflow.STATES.UPLOAD_READY
-        : workflow.STATES.UPLOADING
-
-    workflowPage.syncPageWorkflowState(this, nextWorkflowState, {
+    workflowPage.syncPageWorkflowState(this, this.getWorkflowStateForUploadPhase(session.phase), {
       page: 'preview',
-      pageAction: 'upload_mock_step'
+      pageAction
     })
-    this.setData(this.buildUploadOverlayData(nextSession))
+  },
 
-    if (nextSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
-      this.scheduleUploadMockStep(nextSession.sessionId)
+  saveUploadSession(cache, session, pageAction) {
+    cache.uploadSession = session
+    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    storage.saveCache(cache)
+    this.syncUploadWorkflowState(session, pageAction)
+    this.setData(this.buildUploadOverlayData(session))
+  },
+
+  async runUploadSession(sessionId) {
+    this.uploadRunnerSessionId = sessionId
+
+    while (this.uploadRunnerSessionId === sessionId) {
+      const cache = storage.loadCache()
+      const session = cache && cache.uploadSession
+
+      if (!session || session.sessionId !== sessionId) {
+        return null
+      }
+
+      if (session.phase !== uploadState.UPLOAD_PHASE.UPLOADING) {
+        return session
+      }
+
+      const nextItem = uploadState.getNextUploadItem(session)
+      if (!nextItem) {
+        const readySession = uploadState.recalculateSession(session)
+        this.saveUploadSession(cache, readySession, 'upload_ready')
+        return readySession
+      }
+
+      const uploadingSession = uploadState.markUploadItemUploading(session, nextItem.id)
+      const uploadingItem = uploadingSession.items.find((item) => item.id === nextItem.id)
+      this.saveUploadSession(cache, uploadingSession, 'upload_item_start')
+
+      try {
+        const result = await auxPhotoApi.uploadPhoto(uploadingItem, {
+          ticket: uploadingSession.ticket
+        })
+        const latestCache = storage.loadCache()
+        const latestSession = latestCache && latestCache.uploadSession
+        if (!latestSession || latestSession.sessionId !== sessionId || this.uploadRunnerSessionId !== sessionId) {
+          return latestSession
+        }
+
+        const successSession = uploadState.markUploadItemSuccess(latestSession, nextItem.id, result)
+        this.saveUploadSession(latestCache, successSession, 'upload_item_success')
+      } catch (error) {
+        const latestCache = storage.loadCache()
+        const latestSession = latestCache && latestCache.uploadSession
+        if (!latestSession || latestSession.sessionId !== sessionId) {
+          return latestSession
+        }
+
+        const failedSession = uploadState.markUploadItemFailed(latestSession, nextItem.id, error)
+        this.saveUploadSession(latestCache, failedSession, 'upload_item_failed')
+        return failedSession
+      }
     }
+
+    return null
   },
 
   retryUploadFlow() {
@@ -1371,7 +1513,7 @@ Page({
       pageAction: 'upload_retry'
     })
     this.setData(this.buildUploadOverlayData(nextSession))
-    this.scheduleUploadMockStep(nextSession.sessionId)
+    this.startUploadRunner(nextSession.sessionId)
   },
 
   onUploadOverlayPrimaryTap() {
@@ -1383,26 +1525,65 @@ Page({
     }
 
     if (session.phase === uploadState.UPLOAD_PHASE.READY) {
-      cache.uploadSession = null
-      storage.saveCache(cache)
-      this.clearUploadMockTimer()
-      this.setData({ showUploadOverlay: false })
-      this.submitComplete()
-      return
+      this.completeFlowPromise = this.submitCompleteToBackend(session.sessionId)
+      return this.completeFlowPromise
     }
 
     if (session.phase === uploadState.UPLOAD_PHASE.FAILED) {
-      this.retryUploadFlow()
+      return this.retryUploadFlow()
+    }
+
+    if (session.phase === uploadState.UPLOAD_PHASE.COMPLETE_FAILED) {
+      this.completeFlowPromise = this.submitCompleteToBackend(session.sessionId)
+      return this.completeFlowPromise
     }
   },
 
-  submitComplete() {
-    workflowPage.syncPageWorkflowState(this, workflow.STATES.LOCAL_COMPLETED, {
-      page: 'preview',
-      pageAction: 'submit_complete'
-    })
-    this.isLeaving = true
-    wx.redirectTo({ url: '/pages/complete/complete' })
+  async submitCompleteToBackend(sessionId) {
+    const cache = storage.loadCache()
+    const session = cache && cache.uploadSession
+
+    if (!session || session.sessionId !== sessionId) {
+      return null
+    }
+
+    const submittingSession = uploadState.markCompleteSubmitting(session)
+    this.saveUploadSession(cache, submittingSession, 'complete_start')
+
+    try {
+      const result = await auxPhotoApi.complete({
+        ticket: submittingSession.ticket,
+        clientUploadCount: submittingSession.uploaded,
+        completeAttempt: submittingSession.complete.attempts,
+        remark: ''
+      })
+      const latestCache = storage.loadCache()
+      const latestSession = latestCache && latestCache.uploadSession
+      if (!latestSession || latestSession.sessionId !== sessionId) {
+        return latestSession
+      }
+
+      const completedSession = uploadState.markCompleteSuccess(latestSession, result)
+      this.saveUploadSession(latestCache, completedSession, 'complete_success')
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.LOCAL_COMPLETED, {
+        page: 'preview',
+        pageAction: 'submit_complete'
+      })
+      this.isLeaving = true
+      this.setData({ showUploadOverlay: false })
+      wx.redirectTo({ url: '/pages/complete/complete' })
+      return completedSession
+    } catch (error) {
+      const latestCache = storage.loadCache()
+      const latestSession = latestCache && latestCache.uploadSession
+      if (!latestSession || latestSession.sessionId !== sessionId) {
+        return latestSession
+      }
+
+      const failedSession = uploadState.markCompleteFailed(latestSession, error)
+      this.saveUploadSession(latestCache, failedSession, 'complete_failed')
+      return failedSession
+    }
   },
 
   addThirdVehicle() {

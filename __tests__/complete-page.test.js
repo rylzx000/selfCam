@@ -182,30 +182,13 @@ describe('complete page', () => {
     }))
   })
 
-  test('keeps return-to-edit flow without clearing capture cache', () => {
+  test('does not expose a return-to-edit handler on completion page', () => {
     const config = loadPage()
-    const cache = {
-      workflowState: {
-        current: 'LOCAL_COMPLETED'
-      }
-    }
-    const clearedCache = {
-      workflowState: {
-        current: 'PREVIEWING'
-      }
-    }
 
-    storage.loadCache.mockReturnValueOnce(cache)
-    storage.clearCompletionContext.mockReturnValueOnce(clearedCache)
-
-    config.onBackToEdit.call({})
-
-    expect(storage.clearCompletionContext).toHaveBeenCalledWith(cache)
-    expect(storage.saveCache).toHaveBeenCalledWith(clearedCache)
+    expect(config.onBackToEdit).toBeUndefined()
+    expect(storage.clearCompletionContext).not.toHaveBeenCalled()
     expect(storage.clearCache).not.toHaveBeenCalled()
-    expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/preview/preview'
-    })
+    expect(global.wx.redirectTo).not.toHaveBeenCalled()
   })
 
   test('keeps exit behavior as direct cache clear and exit', () => {

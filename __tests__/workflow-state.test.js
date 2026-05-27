@@ -171,7 +171,11 @@ describe('workflow-state', () => {
     expect(workflow.canTransition(workflow.STATES.PREVIEWING, workflow.STATES.UPLOADING)).toBe(true)
     expect(workflow.canTransition(workflow.STATES.UPLOADING, workflow.STATES.UPLOAD_FAILED)).toBe(true)
     expect(workflow.canTransition(workflow.STATES.UPLOADING, workflow.STATES.UPLOAD_READY)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.UPLOAD_READY, workflow.STATES.COMPLETING)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.COMPLETING, workflow.STATES.COMPLETE_FAILED)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.COMPLETE_FAILED, workflow.STATES.COMPLETING)).toBe(true)
     expect(workflow.canTransition(workflow.STATES.UPLOAD_READY, workflow.STATES.LOCAL_COMPLETED)).toBe(true)
+    expect(workflow.canTransition(workflow.STATES.COMPLETING, workflow.STATES.LOCAL_COMPLETED)).toBe(true)
   })
 
   test('infers upload state from cached upload session', () => {
@@ -205,5 +209,48 @@ describe('workflow-state', () => {
     })
 
     expect(workflow.inferStateFromCache(cache)).toBe(workflow.STATES.UPLOAD_FAILED)
+  })
+
+  test('infers complete retry states from cached upload session', () => {
+    const cache = createCache({
+      currentStep: constants.SHOOT_STEP.PREVIEW,
+      workflowState: {
+        current: workflow.STATES.UPLOAD_READY,
+        updatedAt: '2026-04-23T00:00:00.000Z'
+      },
+      uploadSession: {
+        version: 1,
+        sessionId: 'upload-test',
+        phase: 'complete_failed',
+        ticket: 'mock-2',
+        total: 1,
+        uploaded: 1,
+        failed: 0,
+        complete: {
+          status: 'failed',
+          attempts: 1,
+          lastErrorCode: 'AUX_SERVER_ERROR',
+          lastErrorMessage: '完成提交失败'
+        },
+        createdAt: '2026-04-23T00:00:00.000Z',
+        updatedAt: '2026-04-23T00:00:00.000Z',
+        items: [
+          {
+            id: 'vehicle0-licensePlate',
+            clientPhotoId: 'plate-id',
+            filePath: '/tmp/plate.jpg',
+            label: '标的车 - 车牌',
+            status: 'success',
+            attempts: 1
+          }
+        ]
+      }
+    })
+
+    expect(workflow.inferStateFromCache(cache)).toBe(workflow.STATES.COMPLETE_FAILED)
+
+    cache.uploadSession.phase = 'completed'
+    cache.uploadSession.complete.status = 'success'
+    expect(workflow.inferStateFromCache(cache)).toBe(workflow.STATES.LOCAL_COMPLETED)
   })
 })

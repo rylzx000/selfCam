@@ -11,7 +11,9 @@ const STATES = {
   LOCAL_COMPLETED: 'LOCAL_COMPLETED',
   UPLOADING: 'UPLOADING',
   UPLOAD_FAILED: 'UPLOAD_FAILED',
-  UPLOAD_READY: 'UPLOAD_READY'
+  UPLOAD_READY: 'UPLOAD_READY',
+  COMPLETING: 'COMPLETING',
+  COMPLETE_FAILED: 'COMPLETE_FAILED'
 }
 
 const STATE_VALUES = Object.keys(STATES).map((key) => STATES[key])
@@ -64,7 +66,17 @@ const ALLOWED_TRANSITIONS = {
     STATES.PREVIEWING
   ],
   [STATES.UPLOAD_READY]: [
+    STATES.COMPLETING,
     STATES.LOCAL_COMPLETED,
+    STATES.PREVIEWING
+  ],
+  [STATES.COMPLETING]: [
+    STATES.COMPLETE_FAILED,
+    STATES.LOCAL_COMPLETED,
+    STATES.PREVIEWING
+  ],
+  [STATES.COMPLETE_FAILED]: [
+    STATES.COMPLETING,
     STATES.PREVIEWING
   ],
   [STATES.LOCAL_COMPLETED]: [
@@ -129,6 +141,18 @@ function getUploadWorkflowState(cache) {
 
   if (uploadSession.phase === 'ready') {
     return STATES.UPLOAD_READY
+  }
+
+  if (uploadSession.phase === 'completing') {
+    return STATES.COMPLETING
+  }
+
+  if (uploadSession.phase === 'complete_failed') {
+    return STATES.COMPLETE_FAILED
+  }
+
+  if (uploadSession.phase === 'completed') {
+    return STATES.LOCAL_COMPLETED
   }
 
   if (uploadSession.phase === 'uploading') {
