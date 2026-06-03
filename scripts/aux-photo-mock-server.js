@@ -197,6 +197,70 @@ async function handleUploadPhoto(req, res) {
   })
 }
 
+async function handleUploadPhotoBase64(req, res) {
+  state.uploadRequestCount += 1
+  const requestIndex = state.uploadRequestCount
+  const body = await readBody(req)
+  const payload = parseJson(body.toString('utf8'), {})
+  const fileBase64 = typeof payload.fileBase64 === 'string' && payload.fileBase64
+    ? payload.fileBase64
+    : payload.base64
+
+  state.requests.push({
+    type: 'uploadPhotoBase64',
+    requestIndex,
+    payload: {
+      ...payload,
+      fileBase64: fileBase64 ? `[base64:${fileBase64.length}]` : ''
+    }
+  })
+
+  console.log('[aux-photo-mock] uploadPhotoBase64', {
+    requestIndex,
+    payload: {
+      ...payload,
+      fileBase64: fileBase64 ? `[base64:${fileBase64.length}]` : ''
+    }
+  })
+
+  if (!payload.ticket || !payload.vehicleId || !payload.uploadItemId || !payload.photoType || !fileBase64) {
+    sendJson(res, 400, {
+      success: false,
+      code: 'MOCK_UPLOAD_PARAM_INVALID',
+      message: 'upload payload invalid'
+    })
+    return
+  }
+
+  if (shouldFailUpload(requestIndex)) {
+    sendJson(res, 200, {
+      success: false,
+      code: 'AUX_UPLOAD_FAILED',
+      message: `mock upload failed at request ${requestIndex}`
+    })
+    return
+  }
+
+  const duplicate = state.uploadedClientPhotoIds.has(payload.clientPhotoId)
+  state.uploadedClientPhotoIds.add(payload.clientPhotoId)
+
+  sendJson(res, 200, {
+    success: true,
+    code: '0000',
+    message: duplicate ? '图片已上传' : '图片上传成功',
+    data: {
+      uploadRecordId: `MOCK_AUP_${String(requestIndex).padStart(4, '0')}`,
+      photoId: `MOCK_DOC_${String(requestIndex).padStart(4, '0')}`,
+      vehicleId: payload.vehicleId,
+      uploadItemId: payload.uploadItemId,
+      photoType: payload.photoType,
+      duplicate,
+      itemUploadedCount: payload.sortNo || 1,
+      ticketStatus: 'UPLOADING'
+    }
+  })
+}
+
 async function handleComplete(req, res) {
   state.completeRequestCount += 1
   const requestIndex = state.completeRequestCount
@@ -260,6 +324,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/onlineclaim/AuxPhotoService/uploadPhoto') {
       await handleUploadPhoto(req, res)
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/onlineclaim/AuxPhotoService/uploadPhotoBase64') {
+      await handleUploadPhotoBase64(req, res)
       return
     }
 

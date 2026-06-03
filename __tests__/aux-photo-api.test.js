@@ -92,12 +92,18 @@ describe('aux-photo api', () => {
     }))
   })
 
-  test('uploads one photo with file and metadata through wx.uploadFile', async () => {
+  test('uploads one photo as base64 json through wx.request', async () => {
+    const readFile = jest.fn(({ success }) => {
+      success({ data: 'BASE64_IMAGE_DATA' })
+    })
     global.wx = {
-      uploadFile: jest.fn(({ success }) => {
+      getFileSystemManager: jest.fn(() => ({
+        readFile
+      })),
+      request: jest.fn(({ success }) => {
         success({
           statusCode: 200,
-          data: JSON.stringify({
+          data: {
             success: true,
             code: '0000',
             message: '图片上传成功',
@@ -111,7 +117,7 @@ describe('aux-photo api', () => {
               itemUploadedCount: 1,
               ticketStatus: 'UPLOADING'
             }
-          })
+          }
         })
       })
     }
@@ -138,24 +144,27 @@ describe('aux-photo api', () => {
     })
 
     expect(result.data.uploadRecordId).toBe('AUP202605260001')
-    expect(global.wx.uploadFile).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'http://127.0.0.1:8787/onlineclaim/AuxPhotoService/uploadPhoto',
+    expect(readFile).toHaveBeenCalledWith(expect.objectContaining({
       filePath: 'wxfile://tmp/damage-2.jpg',
-      name: 'file',
-      timeout: 5000
+      encoding: 'base64'
     }))
-    const requestOptions = global.wx.uploadFile.mock.calls[0][0]
-    const metadata = JSON.parse(requestOptions.formData.metadata)
-    expect(metadata).toEqual(expect.objectContaining({
-      ticket: 'mock-2',
-      clientPhotoId: 'damage-local-id',
-      vehicleId: 'LOSS_VEHICLE_100001',
-      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
-      photoType: 'DAMAGE',
-      sortNo: 2,
-      fileName: 'damage-2.jpg',
-      fileType: 'jpg',
-      fileSize: 2048
+    expect(global.wx.request).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'http://127.0.0.1:8787/onlineclaim/AuxPhotoService/uploadPhotoBase64',
+      method: 'POST',
+      timeout: 5000,
+      header: expect.objectContaining({
+        'content-type': 'application/json'
+      }),
+      data: expect.objectContaining({
+        ticket: 'mock-2',
+        clientPhotoId: 'damage-local-id',
+        vehicleId: 'LOSS_VEHICLE_100001',
+        uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+        photoType: 'DAMAGE',
+        sortNo: 2,
+        fileName: 'damage-2.jpg',
+        fileBase64: 'BASE64_IMAGE_DATA'
+      })
     }))
   })
 

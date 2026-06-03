@@ -3,7 +3,7 @@ const auxPhotoMock = require('./aux-photo-mock')
 
 const CLIENT_VERSION = '1.4.6'
 const INIT_PATH = '/onlineclaim/AuxPhotoService/init'
-const UPLOAD_PHOTO_PATH = '/onlineclaim/AuxPhotoService/uploadPhoto'
+const UPLOAD_PHOTO_BASE64_PATH = '/onlineclaim/AuxPhotoService/uploadPhotoBase64'
 const COMPLETE_PATH = '/onlineclaim/AuxPhotoService/complete'
 
 function sanitizeTicket(ticket) {
@@ -149,8 +149,73 @@ function buildUploadMetadata(item = {}, ticket = '') {
     fileName,
     fileType: getFileType(fileName),
     fileSize: Number.isFinite(item.fileSize) ? Math.round(item.fileSize) : 0,
-    sortNo: Number.isFinite(item.sortNo) ? Math.round(item.sortNo) : 1
+    sortNo: Number.isFinite(item.sortNo) ? Math.round(item.sortNo) : 1,
+    fileHash: sanitizeString(item.fileHash, ''),
+    shootTime: sanitizeString(item.shootTime, '')
   }
+}
+
+function readFileBase64(filePath) {
+  if (typeof wx === 'undefined' || typeof wx.getFileSystemManager !== 'function') {
+    return Promise.reject(buildError(
+      'AUX_PHOTO_UPLOAD_UNAVAILABLE',
+      '当前环境不支持图片上传'
+    ))
+  }
+
+  const fs = wx.getFileSystemManager()
+  if (!fs || typeof fs.readFile !== 'function') {
+    return Promise.reject(buildError(
+      'AUX_PHOTO_UPLOAD_UNAVAILABLE',
+      '当前环境不支持图片上传'
+    ))
+  }
+
+  return new Promise((resolve, reject) => {
+    fs.readFile({
+      filePath,
+      encoding: 'base64',
+      success: (res = {}) => {
+        if (typeof res.data !== 'string' || !res.data.trim()) {
+          reject(buildError(
+            'AUX_PHOTO_BASE64_EMPTY',
+            '图片读取失败'
+          ))
+          return
+        }
+
+        resolve(res.data)
+      },
+      fail: (err = {}) => {
+        reject(buildError('AUX_PHOTO_READ_FILE_FAILED', '图片读取失败', {
+          errMsg: err.errMsg || ''
+        }))
+      }
+    })
+  })
+}
+
+function buildUploadBase64Payload(metadata, fileBase64) {
+  const payload = {
+    ticket: metadata.ticket,
+    vehicleId: metadata.vehicleId,
+    uploadItemId: metadata.uploadItemId,
+    photoType: metadata.photoType,
+    clientPhotoId: metadata.clientPhotoId,
+    sortNo: metadata.sortNo,
+    fileName: metadata.fileName,
+    fileBase64
+  }
+
+  if (metadata.fileHash) {
+    payload.fileHash = metadata.fileHash
+  }
+
+  if (metadata.shootTime) {
+    payload.shootTime = metadata.shootTime
+  }
+
+  return payload
 }
 
 function requestInit(ticket, config) {
@@ -205,7 +270,7 @@ function requestInit(ticket, config) {
 }
 
 function requestUploadPhoto(item, ticket, config) {
-  if (typeof wx === 'undefined' || typeof wx.uploadFile !== 'function') {
+  if (typeof wx === 'undefined' || typeof wx.request !== 'function') {
     return Promise.reject(buildError(
       'AUX_PHOTO_UPLOAD_UNAVAILABLE',
       '当前环境不支持图片上传'
@@ -220,19 +285,17 @@ function requestUploadPhoto(item, ticket, config) {
     ))
   }
 
-  return new Promise((resolve, reject) => {
-    wx.uploadFile({
-      url: joinUrl(config.baseUrl, UPLOAD_PHOTO_PATH),
-      filePath: item.filePath,
-      name: 'file',
+  return readFileBase64(item.filePath).then((fileBase64) => new Promise((resolve, reject) => {
+    wx.request({
+      url: joinUrl(config.baseUrl, UPLOAD_PHOTO_BASE64_PATH),
+      method: 'POST',
       timeout: config.requestTimeoutMs,
       header: {
+        'content-type': 'application/json',
         'X-Client-Type': 'selfCam-miniprogram',
         'X-App-Version': CLIENT_VERSION
       },
-      formData: {
-        metadata: JSON.stringify(metadata)
-      },
+      data: buildUploadBase64Payload(metadata, fileBase64),
       success: (res = {}) => {
         const statusCode = Number(res.statusCode || 0)
         const payloadData = parseResponseData(res.data)
@@ -264,7 +327,7 @@ function requestUploadPhoto(item, ticket, config) {
         }))
       }
     })
-  })
+  }))
 }
 
 function requestComplete(params, config) {
@@ -444,7 +507,7 @@ function complete(params = {}) {
 module.exports = {
   CLIENT_VERSION,
   INIT_PATH,
-  UPLOAD_PHOTO_PATH,
+  UPLOAD_PHOTO_BASE64_PATH,
   COMPLETE_PATH,
   init,
   uploadPhoto,
