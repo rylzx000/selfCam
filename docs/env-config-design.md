@@ -109,6 +109,8 @@
 - `isRelease()`
 - `getRuntimeFlags()`
 - `getDebugConfig()`
+- `getErrorLogConfig()`
+- `getAuxPhotoConfig()`
 - `getAiConfig()`
 - `getQualityConfigSourcePolicy()`
 
@@ -116,6 +118,8 @@
 
 - `getRuntimeFlags()` 负责给应用层提供统一的环境能力开关
 - `getDebugConfig()` 负责给调试日志、开发面板、AI 调试信息提供默认策略
+- `getErrorLogConfig()` 负责给在线平台错误日志上传提供统一地址与开关
+- `getAuxPhotoConfig()` 负责给辅助拍照 `init/uploadPhotoBase64/complete` 提供统一 `baseUrl`、请求开关和 mock 开关
 - `getAiConfig()` 负责统一业务环境、模型路径、模型地址和模型缓存隔离 key
 - `getAppEnvBadgeText()` 负责提供非生产环境右下角透明环境标识文案，`prod` 返回空字符串
 - `getQualityConfigSourcePolicy()` 负责给 `quality-config-loader` 提供默认 source 策略
@@ -242,7 +246,25 @@ damage-pilot-<urlHash>.onnx
 - `app.js` 不再自己散落环境判断
 - 启动时只读取统一 `runtimeFlags`，把环境信息传给配置初始化
 
-## 9. 后续接在线平台接口时如何扩展
+## 9. 辅助拍照后端接口配置
+
+`getAuxPhotoConfig()` 当前统一返回以下字段：
+
+- `baseUrl`：辅助拍照后端基础地址
+- `requestEnabled`：是否允许走真实请求
+- `mockEnabled`：是否允许走 mock 票据分支
+- `requestTimeoutMs`：接口请求超时
+
+配置优先级：
+
+- `develop` 环境优先读取本地缓存 `SELF_CAM_AUX_PHOTO_HOST` 作为 `baseUrl`
+- `trial` 和 `release` 不读取本地 `SELF_CAM_AUX_PHOTO_HOST`
+- `baseUrl` 为空时，真实请求不可用；辅助拍照接口会直接报“接口未配置”
+- `mockEnabled` 只表示允许 `mock-*` ticket 走本地 mock 逻辑，不等于自动启用真实 mock 后端
+
+本地联调时，开发者工具可通过 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')` 配置 mock 服务地址；文档只保留本地示例，不写真实生产域名。
+
+## 10. 后续接在线平台接口时如何扩展
 
 后续如果要接在线配置平台或灰度平台，建议扩展顺序如下：
 
@@ -267,7 +289,7 @@ damage-pilot-<urlHash>.onnx
 - 只上传错误事件白名单内的报错，不上传正常状态和诊断快照
 - 上传失败静默处理，不阻断拍照和完成采集主流程
 
-## 10. 注意事项
+## 11. 注意事项
 
 - 不要把真实生产域名、密钥、`AppSecret` 写进前端代码
 - 生产环境默认关闭调试上传、开发面板和非必要日志

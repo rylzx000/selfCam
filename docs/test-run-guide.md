@@ -1,5 +1,42 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.4.6 新增测试目标
+
+- 覆盖辅助拍照 Base64 上传闭环：`uploadPhotoBase64` 逐张上传、`complete` 完成提交、单张失败后只重试未成功照片、`complete` 失败后只重试完成提交。
+- 覆盖上传中断恢复：重新进入预览页时恢复 `uploadSession`，把中断中的 `uploading` 项回落到 `pending`，继续剩余上传。
+- 覆盖辅助拍照 mock 联调：`mock-*` ticket、`mock:aux-photo` 本地服务、`SELF_CAM_AUX_PHOTO_HOST` 本地 baseUrl 覆盖。
+- 覆盖实物/电子行驶证三类上传项与车辆只读约束：`DRIVING_LICENSE_FRONT`、`DRIVING_LICENSE_BACK`、`DRIVING_LICENSE_ELECTRONIC`。
+
+## v1.4.6 重点测试文件
+
+- `__tests__/aux-photo-api.test.js`
+- `__tests__/preview-upload-overlay.test.js`
+- `__tests__/upload-state.test.js`
+- `__tests__/workflow-state.test.js`
+- `__tests__/env-config.test.js`
+
+## v1.4.6 推荐验证方式
+
+开发期优先按下面顺序联调：
+
+```powershell
+npm run mock:aux-photo
+```
+
+在微信开发者工具里设置：
+
+```javascript
+wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')
+```
+
+然后再用 `mock-1`、`mock-2` 或 `mock-3` ticket 验证：
+
+- `init` 是否按 ticket 返回车辆数、车牌号、`ticketStatus`、`registNo`
+- 预览页是否先统一展示上传遮罩，再逐张调用 `uploadPhotoBase64`
+- 失败后是否只重试未成功照片
+- 中断恢复后是否继续未完成队列
+- `complete` 成功后是否进入完成页
+
 ## 2026-05-11 新增测试目标
 
 - 覆盖正常横屏机型不启用高分辨率 UI 缩放，文字、按钮和取景框继续走原有 `rpx` / WXSS 表现。
@@ -38,7 +75,7 @@
 ## v1.3.5 本次新增测试目标
 
 - 覆盖每辆车行驶证资料的旧缓存兼容、实体/电子完成态、上传替换、删除和串车隔离。
-- 覆盖预览页完成采集弹窗顺序：先确认是否添加三者车，再统一提示行驶证未完成风险。
+- 覆盖辅助拍照车辆列表以后端 `init` 返回为准，预览页不提供手动新增/删除三者车入口；完成采集时直接进入行驶证风险提示和后续上传闭环。
 - 覆盖行驶证上传来源差异：拍照来源只写缓存，最终保存由预览页完成采集统一触发；相册来源不重复保存。
 - 覆盖最终相册保存：保存确认弹框、跳过保存、权限拒绝、批量保存、重复进入完成页不重复保存。
 - 覆盖通用确认弹窗遮罩点击只关闭弹窗，不触发取消按钮业务动作。
@@ -268,6 +305,8 @@ $env:E2E_TIMEOUT_MS="90000"
 - `camera -> preview -> retake -> document -> complete` 全主链路
 - 真机/开发者工具下的强退、挂起、恢复
 - 页面返回栈相关行为，例如 `navigateBack` / `redirectTo` 分支
+- `mock:aux-photo` 启动后在微信开发者工具里手工走一次 `init -> preview overlay -> upload -> complete`
+- 真机只做后端联调和最终回归，不把开发者工具的 mock 结果当成真机结果
 
 ## 常见失败定位建议
 

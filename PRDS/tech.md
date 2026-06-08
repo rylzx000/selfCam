@@ -114,9 +114,9 @@ selfCam/
 
 - 汇总并展示所有车辆照片与每辆车行驶证资料
 - 支持重拍、删除、补拍、补充车损
-- 支持添加三者车
+- 辅助拍照模式下车辆列表只读，车辆数量和顺序由后端 `init` 返回控制，不支持前端新增或删除三者车
 - 集成车辆级行驶证资料上传、替换、删除和模式切换
-- 完成提交前先确认三者车，再提示行驶证风险
+- 完成提交前按后端车辆列表检查行驶证风险
 - `previewLayout` 复用通用横屏 UI 缩放判定，普通 iOS/Android 横屏保持原 WXSS `rpx` 表现，OpenHarmony/OHOS 横屏或高分辨率横屏才为主列表、缩略图、底栏、行驶证面板和全屏预览浮层输出 `px` 样式。
 
 ### 4. `pages/document`
@@ -156,9 +156,9 @@ index
   -> camera（标的车车牌）
   -> camera（VIN）
   -> camera（车损，可连续拍多张）
-  -> preview
-  -> camera（补拍 / 重拍 / 新增三者车）
-  -> preview
+  -> preview（预览、保存确认、上传遮罩）
+  -> camera（补拍 / 重拍 / 后端返回的下一辆车）
+  -> preview（预览、保存确认、上传遮罩）
   -> complete
 ```
 
@@ -246,7 +246,7 @@ const STORAGE_KEY = 'car_damage_photos_cache'
 
 ### 本地上传状态
 
-点击 `完成采集` 完成三者车确认、行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`，全部照片上传成功后再调用 `complete`，`complete` 成功后进入完成页。
+点击 `完成采集` 完成行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`，全部照片上传成功后再调用 `complete`，`complete` 成功后进入完成页。
 
 ```js
 cache.uploadSession = {
@@ -298,7 +298,7 @@ cache.uploadSession = {
 
 上传队列由 `utils/upload-state.js` 从车辆照片和车辆级行驶证资料组装：车牌、VIN、车损、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
 
-恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`，`complete_failed` 只提供 `重试完成`。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
+恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
 
 开发期可运行 `npm run mock:aux-photo` 启动本地 mock 后端，再在微信开发者工具中执行 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')`，用真实 `wx.request` 验证 JSON Base64 报文、上传失败和 complete 失败重试。
 
@@ -314,7 +314,7 @@ vehicle.documentSelections = {
 
 - 旧缓存车辆没有 `documents` 时补空数组。
 - 旧缓存车辆没有 `documentSelections` 时补 `{ driving_license: 'physical' }`。
-- schema v2 修复不改变旧车牌、VIN、车损数据。
+- 历史行驶证迁移/修复不改变旧车牌、VIN、车损数据。
 
 ### 照片元信息
 
@@ -412,7 +412,7 @@ licensePlate -> vinCode -> damage -> preview
 
 车损步骤下的特殊逻辑：
 
-- 达到 5 张时自动进入预览页
+- 达到 5 张时显示车损完成确认弹窗；辅助拍照有下一辆车时可继续下一辆车或查看已拍，最后一辆才进入预览页
 - 未达到 5 张时留在拍照页继续拍
 - 用户也可以点击 `完成拍摄` 主动进入预览页
 
@@ -734,6 +734,7 @@ SEEK -> HOLD -> SHOOT
 `pages/preview/preview.js` 会把车辆照片和单证统一拼装为 `allPhotos`，供全屏预览使用。
 
 车辆级行驶证会作为 `type = 'vehicleDocument'` 的照片项追加到对应车辆照片列表后，复用全屏预览、重拍和删除入口。
+`utils/aux-photo-api.js` 对外保留 `uploadPhoto()` 包装名，但底层真实请求路径是 `uploadPhotoBase64`，不是 multipart `uploadPhoto`。
 
 ### 2. 重拍逻辑
 
@@ -776,10 +777,13 @@ retakeMode = {
 ```text
 onSubmit()
   -> startSubmitFlow()
-  -> 若可添加三者车，先显示 thirdVehicle 弹窗
-  -> 用户点击“是，继续提交”后 checkDrivingLicenseBeforeSubmit()
+  -> checkDrivingLicenseBeforeSubmit()
   -> 若有车辆行驶证未完成，显示 drivingLicenseRisk 弹窗
-  -> 用户点击“确认提交”后 submitComplete()
+  -> checkAlbumSaveBeforeSubmit()
+  -> 若有待保存候选，显示 albumSaveConfirm 弹窗
+  -> startUploadFlow()
+  -> uploadRunner 逐张调用 uploadPhoto()
+  -> 用户在上传遮罩点击“完成采集”后 submitCompleteToBackend()
 ```
 
 `confirm-modal` 从 `v1.3.5` 起区分三种事件：
@@ -898,7 +902,7 @@ npm run test:e2e:full
 - `startCaptureFlow()` 保留原缓存初始化和 `/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
 - `pages/camera/camera.js` 在 `onConfirmPhoto()` 中只写入采集缓存并推进步骤，不再调用相册保存工具。
 - `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。
-- `pages/preview/preview.js` 在 `完成采集` 的三者车确认、行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
+- `pages/preview/preview.js` 在 `完成采集` 的行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
 - `utils/cache-selectors.js` 提供 `getAlbumSaveCandidates(cache)`，只返回当前缓存中未保存过、非相册来源且路径去重后的候选图片。
 - `utils/album.js` 提供 `savePhotosToAlbumBatch(candidates)`，顺序保存候选图片并返回批量汇总，不逐张弹失败提示。
 
@@ -909,7 +913,7 @@ npm run test:e2e:full
 ### 模块职责
 
 - `utils/documents.js`：行驶证类型常量、默认选择模式、旧数据归一化、完成态判断、面板槽位和预览项构建。
-- `utils/storage-schema.js`：schema v2 迁移与修复，保证旧缓存车辆补齐 `documents` 和 `documentSelections`。
+- `utils/storage-schema.js`：当前缓存 schema v4，负责上传会话、完成提交状态和旧缓存迁移/修复。
 - `utils/storage.js`：提供 `setVehicleDocumentSelection()`、`saveVehicleDocument()`、`deleteVehicleDocument()`。
 - `utils/cache-selectors.js`：将车辆级行驶证纳入 `photoEntries`、`allPhotos`、`documentPhotoCount` 和质量汇总。
 - `pages/preview/preview.js`：负责行驶证面板、上传来源选择、压缩、保存相册、替换、删除、预览和提交风险提示。
@@ -930,16 +934,19 @@ npm run test:e2e:full
 
 ```text
 点击完成采集
-  -> 三者车确认
   -> 行驶证风险确认
   -> cacheSelectors.getAlbumSaveCandidates(cache)
-  -> 候选为空：直接进入完成页
+  -> 候选为空：直接 startUploadFlow()
   -> 候选不为空：弹出是否保存至手机相册
-  -> 用户暂不保存：记录 albumSaveSummary.decision = skipped，进入完成页
+  -> 用户暂不保存：记录 albumSaveSummary.decision = skipped，进入 startUploadFlow()
   -> 用户确认保存：permission.ensureAlbumSavePermission()
   -> album.savePhotosToAlbumBatch(candidates)
   -> 写入 albumSaveRecords 和 albumSaveSummary
-  -> 进入完成页
+  -> startUploadFlow()
+  -> 预览页内展示上传遮罩
+  -> uploadRunner 逐张调用 uploadPhoto()
+  -> 全部成功后 submitCompleteToBackend()
+  -> complete 成功后进入完成页
 ```
 
 - 每张新拍、重拍、上传或替换的照片生成新的 `localPhotoId`。
