@@ -1,13 +1,13 @@
-const DamagePhaseController = require('../utils/damage-phase-controller')
-const DamageFrameScorer = require('../utils/damage-frame-scorer')
-const DamageTracker = require('../utils/damage-tracker')
-const DamageMotionEstimator = require('../utils/damage-motion-estimator')
-const DamageAutoCaptureEngine = require('../utils/damage-auto-capture-engine')
+const DamagePhaseController = require('../packageD/utils/damage-phase-controller')
+const DamageFrameScorer = require('../packageD/utils/damage-frame-scorer')
+const DamageTracker = require('../packageD/utils/damage-tracker')
+const DamageMotionEstimator = require('../packageD/utils/damage-motion-estimator')
+const DamageAutoCaptureEngine = require('../packageD/utils/damage-auto-capture-engine')
 const {
   PlateFrameUtils,
   createVirtualCameraMapping,
   mapDetectionToVirtualCamera
-} = require('../utils/frame-utils')
+} = require('../packageD/utils/frame-utils')
 
 describe('DamagePhaseController', () => {
   const controllerOptions = {
@@ -225,8 +225,8 @@ describe('DamageDetector', () => {
   afterEach(() => {
     delete global.wx
     jest.resetModules()
-    jest.dontMock('../utils/yolo-process-utils')
-    jest.dontMock('../utils/env-config')
+    jest.dontMock('../packageD/utils/yolo-process-utils')
+    jest.dontMock('../packageD/utils/env-config')
   })
 
   test('adds imageAreaRatio from detection box and original image area', async () => {
@@ -234,13 +234,13 @@ describe('DamageDetector', () => {
     global.wx = {
       getFileSystemManager: jest.fn(() => ({}))
     }
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getAiConfig: jest.fn(() => ({
         damageModelUrl: 'https://example.com/damage.onnx',
         damageModelPath: '/tmp/damage.onnx'
       }))
     }))
-    jest.doMock('../utils/yolo-process-utils', () => ({
+    jest.doMock('../packageD/utils/yolo-process-utils', () => ({
       letterboxToDetectInput: jest.fn(() => Promise.resolve({
         input: new Float32Array(3 * 640 * 640),
         meta: { left: 0, top: 0, scale: 1 },
@@ -250,7 +250,7 @@ describe('DamageDetector', () => {
       nms: jest.fn((boxes) => boxes),
       restoreBox: jest.fn((box) => box)
     }))
-    const DamageDetector = require('../utils/damage-detector')
+    const DamageDetector = require('../packageD/utils/damage-detector')
     const detector = new DamageDetector()
     detector.isLoaded = true
     detector.session = {

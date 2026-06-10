@@ -15,7 +15,7 @@ const {
   collectAllPhotoPaths,
   assertNoDuplicatePhotoPaths
 } = require('../support/scenario-builder')
-const cacheSelectors = require('../../utils/cache-selectors')
+const cacheSelectors = require('../../packageD/utils/cache-selectors')
 
 function eventDataset(dataset) {
   return {
@@ -36,7 +36,7 @@ async function returnToPreview(miniProgram) {
   let current = await miniProgram.currentPage()
 
   if (!current.path || !current.path.includes('preview')) {
-    current = await miniProgram.reLaunch('/pages/preview/preview')
+    current = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
   }
 
@@ -99,7 +99,7 @@ describe('P0 恢复与乱序操作 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success')
 
-    let page = await miniProgram.reLaunch('/pages/preview/preview')
+    let page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await deleteDamage(page, 0, 0)
@@ -108,7 +108,7 @@ describe('P0 恢复与乱序操作 e2e', () => {
     const beforeReentry = cloneCacheSnapshot(await readCache(miniProgram))
     const beforePaths = collectAllPhotoPaths(beforeReentry)
 
-    page = await miniProgram.reLaunch('/pages/preview/preview')
+    page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(900)
 
     const cache = await readCache(miniProgram)

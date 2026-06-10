@@ -45,8 +45,8 @@ describe('vehicle document cache support', () => {
       }
     }
 
-    storage = require('../utils/storage')
-    documents = require('../utils/documents')
+    storage = require('../packageD/utils/storage')
+    documents = require('../packageD/utils/documents')
   })
 
   afterEach(() => {

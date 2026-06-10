@@ -56,7 +56,7 @@ const DAMAGE_MODEL_URL = `${MODEL_HOST}/damage.onnx`
 
 AI 自动拍照全部集成在：
 
-- `pages/camera/camera.js`
+- `packageD/pages/camera/camera.js`
 
 相关模块：
 

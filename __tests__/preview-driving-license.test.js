@@ -31,7 +31,7 @@ describe('preview page driving license flow', () => {
 
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
 
     const page = createPageInstance(pageConfig)
@@ -44,7 +44,7 @@ describe('preview page driving license flow', () => {
 
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
 
     const page = createPageInstance(pageConfig)
@@ -98,7 +98,7 @@ describe('preview page driving license flow', () => {
       size: 456789
     }
 
-    jest.doMock('../utils/compress', () => ({
+    jest.doMock('../packageD/utils/compress', () => ({
       compressImage: jest.fn(async (filePath) => ({
         tempFilePath: filePath,
         compressedPath: `${filePath}.compressed`,
@@ -106,7 +106,7 @@ describe('preview page driving license flow', () => {
       }))
     }))
 
-    jest.doMock('../utils/album', () => ({
+    jest.doMock('../packageD/utils/album', () => ({
       SAVE_FAIL_TEXT: '照片未保存到相册，不影响拍摄',
       saveConfirmedPhotoToAlbum: jest.fn(async (photo) => ({
         saved: true,
@@ -148,17 +148,17 @@ describe('preview page driving license flow', () => {
       pageConfig = config
     })
 
-    storage = require('../utils/storage')
-    documents = require('../utils/documents')
-    compress = require('../utils/compress')
-    album = require('../utils/album')
+    storage = require('../packageD/utils/storage')
+    documents = require('../packageD/utils/documents')
+    compress = require('../packageD/utils/compress')
+    album = require('../packageD/utils/album')
   })
 
   afterEach(() => {
     delete global.wx
     delete global.Page
-    jest.dontMock('../utils/compress')
-    jest.dontMock('../utils/album')
+    jest.dontMock('../packageD/utils/compress')
+    jest.dontMock('../packageD/utils/album')
   })
 
   test('uploads front page into current vehicle documents from camera without saving album immediately', async () => {
@@ -356,7 +356,7 @@ describe('preview page driving license flow', () => {
 
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
     const page = createPageInstance(pageConfig)
     page.loadData()
@@ -411,7 +411,7 @@ describe('preview page driving license flow', () => {
       total: 0
     }))
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
     page.onUnload()
   })
@@ -435,7 +435,7 @@ describe('preview page driving license flow', () => {
 
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
     const page = createPageInstance(pageConfig)
     page.loadData()

@@ -115,9 +115,9 @@ async function runTests() {
     // 测试1: 快速跳转
     console.log('\n📌 测试1: 快速页面跳转 (5次)')
     for (let i = 0; i < 5; i++) {
-      await miniProgram.reLaunch('/pages/index/index')
+      await miniProgram.reLaunch('/packageD/pages/index/index')
       await sleep(200)
-      await miniProgram.reLaunch('/pages/camera/camera')
+      await miniProgram.reLaunch('/packageD/pages/camera/camera')
       await sleep(200)
     }
     recordResult('测试1: 快速页面跳转', true)
@@ -126,7 +126,7 @@ async function runTests() {
     console.log('\n📌 测试2: 空缓存状态')
     await miniProgram.callWxMethod('clearStorageSync')
     await sleep(200)
-    await miniProgram.reLaunch('/pages/camera/camera')
+    await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await sleep(500)
     recordResult('测试2: 空缓存状态', true)
     
@@ -134,7 +134,7 @@ async function runTests() {
     console.log('\n📌 测试3: 损坏数据状态')
     await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', 'invalid')
     await sleep(200)
-    await miniProgram.reLaunch('/pages/index/index')
+    await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(500)
     recordResult('测试3: 损坏数据状态', true)
     
@@ -142,7 +142,7 @@ async function runTests() {
     console.log('\n📌 测试4: 正常流程')
     await miniProgram.callWxMethod('clearStorageSync')
     await sleep(200)
-    let page = await miniProgram.reLaunch('/pages/index/index')
+    let page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(500)
     await page.callMethod('onStart')
     // wx.navigateTo 是异步的，需要更长时间等待跳转完成
@@ -185,13 +185,13 @@ async function runTests() {
       await withTimeout(
         (async () => {
           console.log('    → 跳转到首页')
-          await miniProgram.reLaunch('/pages/index/index')
+          await miniProgram.reLaunch('/packageD/pages/index/index')
           await sleep(500)
           console.log('    → 跳转到拍照页')
-          await miniProgram.reLaunch('/pages/camera/camera')
+          await miniProgram.reLaunch('/packageD/pages/camera/camera')
           await sleep(500)
           console.log('    → 返回首页')
-          await miniProgram.reLaunch('/pages/index/index')
+          await miniProgram.reLaunch('/packageD/pages/index/index')
           await sleep(500)
         })(),
         30000,
@@ -204,7 +204,7 @@ async function runTests() {
     
     // 测试7: 边界值
     console.log('\n📌 测试7: 边界值测试')
-    await miniProgram.reLaunch('/pages/camera/camera')
+    await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await sleep(300)
     page = await miniProgram.currentPage()
     await page.setData({ damageCount: -1 })
@@ -218,7 +218,7 @@ async function runTests() {
     // 测试8: 重复操作
     console.log('\n📌 测试8: 重复操作 (3次)')
     for (let i = 0; i < 3; i++) {
-      await miniProgram.reLaunch('/pages/index/index')
+      await miniProgram.reLaunch('/packageD/pages/index/index')
       await sleep(300)
     }
     recordResult('测试8: 重复操作', true)

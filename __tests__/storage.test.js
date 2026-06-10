@@ -38,8 +38,8 @@ describe('storage cache governance', () => {
       }
     }
 
-    storage = require('../utils/storage')
-    constants = require('../utils/constants')
+    storage = require('../packageD/utils/storage')
+    constants = require('../packageD/utils/constants')
   })
 
   afterEach(() => {

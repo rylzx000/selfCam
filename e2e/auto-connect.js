@@ -56,7 +56,7 @@ setTimeout(async () => {
     
     // 测试页面
     console.log('📱 测试页面操作...')
-    const page = await miniProgram.reLaunch('/pages/index/index')
+    const page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await page.waitFor(1000)
     
     // 截图

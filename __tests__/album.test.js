@@ -4,7 +4,7 @@ describe('album utility', () => {
 
   function loadAlbum() {
     jest.resetModules()
-    return require('../utils/album')
+    return require('../packageD/utils/album')
   }
 
   beforeEach(() => {

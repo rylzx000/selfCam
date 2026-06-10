@@ -222,15 +222,13 @@ function shouldUpload() {
 
 function getReportNo() {
   try {
-    if (typeof getApp === 'function') {
-      const app = getApp()
-      const reportNo = app && app.globalData && app.globalData.reportNo
-      if (typeof reportNo === 'string' && reportNo.trim()) {
-        return reportNo.trim().slice(0, 64)
-      }
+    const bootstrap = require('./bootstrap')
+    const reportNo = bootstrap.getReportNo()
+    if (reportNo) {
+      return reportNo
     }
   } catch (error) {
-    // getApp 在测试或极早期生命周期不可用时，继续读本地缓存。
+    // bootstrap may be unavailable in very early test lifecycles.
   }
 
   const wxRef = getWx()

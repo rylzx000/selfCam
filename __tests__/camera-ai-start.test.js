@@ -159,22 +159,22 @@ describe('camera AI detection start timing', () => {
     })
     global.getCurrentPages = jest.fn(() => [])
 
-    jest.doMock('../utils/storage', () => storage)
-    jest.doMock('../utils/cache-selectors', () => cacheSelectors)
-    jest.doMock('../utils/constants', () => constants)
-    jest.doMock('../utils/compress', () => ({
+    jest.doMock('../packageD/utils/storage', () => storage)
+    jest.doMock('../packageD/utils/cache-selectors', () => cacheSelectors)
+    jest.doMock('../packageD/utils/constants', () => constants)
+    jest.doMock('../packageD/utils/compress', () => ({
       compressImage: jest.fn()
     }))
-    jest.doMock('../utils/photo-quality', () => ({
+    jest.doMock('../packageD/utils/photo-quality', () => ({
       attachPhotoQualityMeta: jest.fn((photo) => photo),
       buildQualityHintText: jest.fn(() => ''),
       analyzePhotoQuality: jest.fn()
     }))
-    jest.doMock('../utils/runtime-logger', () => runtimeLogger)
-    jest.doMock('../utils/env-config', () => envConfig)
-    jest.doMock('../utils/plate-detector', () => PlateDetector)
-    jest.doMock('../utils/damage-detector', () => DamageDetector)
-    jest.doMock('../utils/frame-utils', () => ({
+    jest.doMock('../packageD/utils/runtime-logger', () => runtimeLogger)
+    jest.doMock('../packageD/utils/env-config', () => envConfig)
+    jest.doMock('../packageD/utils/plate-detector', () => PlateDetector)
+    jest.doMock('../packageD/utils/damage-detector', () => DamageDetector)
+    jest.doMock('../packageD/utils/frame-utils', () => ({
       PlateFrameUtils: jest.fn(),
       createVirtualCameraMapping: jest.fn(() => ({
         sourceWidth: 400,
@@ -191,8 +191,8 @@ describe('camera AI detection start timing', () => {
         offsetY: 0
       }))
     }))
-    jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
-    jest.doMock('../utils/ai-config', () => ({
+    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
+    jest.doMock('../packageD/utils/ai-config', () => ({
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3,
         DETECT_INTERVAL: 100,
@@ -234,7 +234,7 @@ describe('camera AI detection start timing', () => {
         }
       }
     }))
-    jest.doMock('../utils/workflow-state', () => ({
+    jest.doMock('../packageD/utils/workflow-state', () => ({
       STATES: {
         IDLE: 'IDLE',
         RETAKING: 'RETAKING',
@@ -242,10 +242,10 @@ describe('camera AI detection start timing', () => {
         CONFIRMING: 'CONFIRMING'
       }
     }))
-    jest.doMock('../utils/workflow-page', () => workflowPage)
-    jest.doMock('../utils/album', () => album)
+    jest.doMock('../packageD/utils/workflow-page', () => workflowPage)
+    jest.doMock('../packageD/utils/album', () => album)
 
-    require('../pages/camera/camera')
+    require('../packageD/pages/camera/camera')
   }
 
   function createPageInstance(overrides = {}) {
@@ -320,21 +320,21 @@ describe('camera AI detection start timing', () => {
     delete global.Page
     delete global.getCurrentPages
     jest.clearAllMocks()
-    jest.dontMock('../utils/storage')
-    jest.dontMock('../utils/cache-selectors')
-    jest.dontMock('../utils/constants')
-    jest.dontMock('../utils/compress')
-    jest.dontMock('../utils/photo-quality')
-    jest.dontMock('../utils/runtime-logger')
-    jest.dontMock('../utils/env-config')
-    jest.dontMock('../utils/plate-detector')
-    jest.dontMock('../utils/damage-detector')
-    jest.dontMock('../utils/frame-utils')
-    jest.dontMock('../utils/damage-auto-capture-engine')
-    jest.dontMock('../utils/ai-config')
-    jest.dontMock('../utils/workflow-state')
-    jest.dontMock('../utils/workflow-page')
-    jest.dontMock('../utils/album')
+    jest.dontMock('../packageD/utils/storage')
+    jest.dontMock('../packageD/utils/cache-selectors')
+    jest.dontMock('../packageD/utils/constants')
+    jest.dontMock('../packageD/utils/compress')
+    jest.dontMock('../packageD/utils/photo-quality')
+    jest.dontMock('../packageD/utils/runtime-logger')
+    jest.dontMock('../packageD/utils/env-config')
+    jest.dontMock('../packageD/utils/plate-detector')
+    jest.dontMock('../packageD/utils/damage-detector')
+    jest.dontMock('../packageD/utils/frame-utils')
+    jest.dontMock('../packageD/utils/damage-auto-capture-engine')
+    jest.dontMock('../packageD/utils/ai-config')
+    jest.dontMock('../packageD/utils/workflow-state')
+    jest.dontMock('../packageD/utils/workflow-page')
+    jest.dontMock('../packageD/utils/album')
   })
 
   test('retries AI detection after damage step data is applied from cache', () => {
@@ -348,7 +348,7 @@ describe('camera AI detection start timing', () => {
 
   test('camera page does not reference frozen AI model URL constants', () => {
     const fs = require('fs')
-    const cameraSource = fs.readFileSync(require.resolve('../pages/camera/camera'), 'utf8')
+    const cameraSource = fs.readFileSync(require.resolve('../packageD/pages/camera/camera'), 'utf8')
 
     expect(cameraSource).not.toContain('PLATE_MODEL_URL')
     expect(cameraSource).not.toContain('DAMAGE_MODEL_URL')
@@ -357,7 +357,7 @@ describe('camera AI detection start timing', () => {
   test('camera component requests medium realtime frames for AI preview', () => {
     const fs = require('fs')
     const path = require('path')
-    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
 
     expect(cameraWxml).toContain('frame-size="medium"')
   })
@@ -365,7 +365,7 @@ describe('camera AI detection start timing', () => {
   test('camera component renders split vehicle role, plate and dynamic finish action fields', () => {
     const fs = require('fs')
     const path = require('path')
-    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
 
     expect(cameraWxml).toContain('{{vehicleRoleName}}')
     expect(cameraWxml).toContain('{{vehiclePlateNo}}')
@@ -377,7 +377,7 @@ describe('camera AI detection start timing', () => {
   test('camera component keeps vehicle progress out of the plate card', () => {
     const fs = require('fs')
     const path = require('path')
-    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
 
     expect(cameraWxml).not.toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress">{{vehicleProgressText}}</text>')
     expect(cameraWxml).toContain('class="damage-count-header"')
@@ -387,8 +387,8 @@ describe('camera AI detection start timing', () => {
   test('camera component closes camera and hides capture during damage completion decision', () => {
     const fs = require('fs')
     const path = require('path')
-    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.wxml'), 'utf8')
-    const cameraJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../pages/camera/camera.json'), 'utf8'))
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
+    const cameraJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.json'), 'utf8'))
     const cameraTag = cameraWxml.match(/<camera[\s\S]*?>/)[0]
 
     expect(cameraWxml).not.toContain('vehicleSwitching')
@@ -399,7 +399,7 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('bind:masktap="onDamageCompleteModalMaskTap"')
     expect(cameraTag).toContain('wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"')
     expect(cameraWxml).toContain('wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"')
-    expect(cameraJson.usingComponents['confirm-modal']).toBe('/components/confirm-modal/confirm-modal')
+    expect(cameraJson.usingComponents['confirm-modal']).toBe('/packageD/components/confirm-modal/confirm-modal')
   })
 
   test('manual capture is ignored while damage completion modal is open', () => {
@@ -516,7 +516,7 @@ describe('camera AI detection start timing', () => {
 
     expect(runtimeLogger.forceWarn).toHaveBeenCalledWith('diagnostic', 'realtime_probe', expect.objectContaining({
       probe: 'selfCam_realtime_probe',
-      page: 'pages/camera/camera',
+      page: 'packageD/pages/camera/camera',
       at: expect.any(Number)
     }))
   })
@@ -960,7 +960,7 @@ describe('camera AI detection start timing', () => {
       fromPreview: false
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/preview/preview'
+      url: '/packageD/pages/preview/preview'
     }))
     expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
@@ -1016,7 +1016,7 @@ describe('camera AI detection start timing', () => {
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/preview/preview'
+      url: '/packageD/pages/preview/preview'
     }))
     expect(instance.data.cameraMounted).toBe(false)
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()

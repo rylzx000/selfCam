@@ -2,7 +2,7 @@
 
 ## 1. 设计目标
 
-本次新增并持续扩展 `utils/env-config.js`，把微信小程序端的环境识别、业务环境、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
+本次新增并持续扩展 `packageD/utils/env-config.js`，把微信小程序端的环境识别、业务环境、运行时开关、调试策略和配置默认值统一收口，解决以下问题：
 
 - `envVersion` 判断散落在多个模块，后续维护成本高
 - `ai-config`、`runtime-logger`、`quality-config` 各自维护环境策略，容易出现不一致
@@ -95,7 +95,7 @@
 
 ## 5. 对外接口
 
-`utils/env-config.js` 当前提供以下统一方法：
+`packageD/utils/env-config.js` 当前提供以下统一方法：
 
 - `getEnvVersion()`
 - `getAppEnv()`
@@ -241,10 +241,10 @@ damage-pilot-<urlHash>.onnx
 - source 默认策略复用 `getQualityConfigSourcePolicy()`
 - 显式指定 `source.type` 的现有能力继续保留，不因为收口而删除
 
-### app.js
+### packageD/utils/bootstrap.js
 
-- `app.js` 不再自己散落环境判断
-- 启动时只读取统一 `runtimeFlags`，把环境信息传给配置初始化
+- `packageD/utils/bootstrap.js` 不再自己散落环境判断
+- 分包首页启动时只读取统一 `runtimeFlags`，把环境信息传给配置初始化
 
 ## 9. 辅助拍照后端接口配置
 

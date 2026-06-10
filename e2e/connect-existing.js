@@ -26,7 +26,7 @@ async function runTests() {
     // 测试基本操作
     console.log('📱 测试页面操作...')
     
-    const page = await miniProgram.reLaunch('/pages/index/index')
+    const page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await page.waitFor(1500)
     
     // 获取页面数据

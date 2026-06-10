@@ -1,9 +1,9 @@
 # 技术架构文档
 
 > 项目名称：车辆损失辅助拍照工具
-> 代码基线：v1.4.2（`package.json`）
+> 代码基线：v1.4.6（`package.json`）
 > 文档状态：已按当前实现对齐
-> 最后更新：2026-05-18
+> 最后更新：2026-06-10
 
 ---
 
@@ -33,39 +33,19 @@ selfCam/
 ├─ app.wxss
 ├─ package.json
 ├─ pages/
-│  ├─ index/          # 开始页
-│  ├─ camera/         # 拍照页
-│  ├─ preview/        # 预览页，含单证区
-│  ├─ document/       # 备用单证页
-│  └─ complete/       # 完成页
-├─ components/
-│  └─ confirm-modal/  # 通用确认弹窗
-├─ utils/
-│  ├─ storage.js
-│  ├─ storage-schema.js
-│  ├─ compress.js
-│  ├─ documents.js
-│  ├─ permission.js
-│  ├─ album.js
-│  ├─ constants.js
-│  ├─ ai-config.js
-│  ├─ env-config.js
-│  ├─ model-cache.js
-│  ├─ quality-config-default.js
-│  ├─ quality-config-loader.js
-│  ├─ quality-config.js
-│  ├─ photo-quality.js
-│  ├─ plate-detector.js
-│  ├─ damage-detector.js
-│  ├─ frame-utils.js
-│  ├─ damage-auto-capture-engine.js
-│  ├─ damage-phase-controller.js
-│  ├─ damage-tracker.js
-│  ├─ damage-motion-estimator.js
-│  ├─ damage-frame-scorer.js
-│  ├─ cache-selectors.js
-│  ├─ runtime-logger.js
-│  └─ realtime-log.js
+│  └─ host/           # 本地主包调试壳入口
+├─ packageD/
+│  ├─ pages/
+│  │  ├─ index/       # 分包开始页
+│  │  ├─ camera/      # 拍照页
+│  │  ├─ preview/     # 预览页，含单证区
+│  │  ├─ document/    # 备用单证页
+│  │  └─ complete/    # 完成页
+│  ├─ components/
+│  │  └─ confirm-modal/
+│  ├─ utils/
+│  ├─ assets/
+│  └─ mock/
 ├─ PRDS/
 ├─ __tests__/        # 纯 Jest 单元/逻辑测试
 ├─ e2e/              # 微信开发者工具 miniprogram-automator + Jest 页面自动化
@@ -77,15 +57,21 @@ selfCam/
 
 ## 三、页面职责
 
-### 1. `pages/index`
+### 1. `pages/host/index`
+
+- 本地主包调试壳，只用于模拟公司主体小程序的主包页面
+- 提供普通采集和 `mock-2` 辅助拍照两个入口
+- 实际交付公司主体小程序时，业务代码以 `packageD` 分包接入，公司主包自行跳转到 `/packageD/pages/index/index`
+
+### 2. `packageD/pages/index`
 
 - 展示横屏单屏首页品牌 logo、拍摄须知和开始入口
 - 非正式版 logo 区域承载隐藏业务环境切换入口
 - 初始化第一辆车
 - 清空或重建拍摄缓存
-- 点击 `开始采集` 后跳转到 `pages/camera`
+- 点击 `开始采集` 后跳转到 `/packageD/pages/camera/camera`
 
-### 2. `pages/camera`
+### 3. `packageD/pages/camera`
 
 核心职责：
 
@@ -108,7 +94,7 @@ selfCam/
 - AI 判断仍使用固定虚拟 `400 x 300` 坐标系，`getPlateCaptureBox()`、`getDamageCaptureBox()`、`checkFrameStatus(..., 400, 300)` 和车损 `canvasWidth/canvasHeight` 不随显示尺寸改变。
 - 实时帧检测结果进入 AI 判定前，先通过 `createVirtualCameraMapping()` 映射到虚拟 `400 x 300` 坐标；4:3 帧沿用旧的独立缩放，宽屏帧按相机预览的 aspect-fill 裁剪逻辑换算，正方形/窄于 4:3 的帧按高度贴合并左右补边，业务阈值不随设备分辨率变化。
 
-### 3. `pages/preview`
+### 4. `packageD/pages/preview`
 
 核心职责：
 
@@ -119,12 +105,12 @@ selfCam/
 - 完成提交前按后端车辆列表检查行驶证风险
 - `previewLayout` 复用通用横屏 UI 缩放判定，普通 iOS/Android 横屏保持原 WXSS `rpx` 表现，OpenHarmony/OHOS 横屏或高分辨率横屏才为主列表、缩略图、底栏、行驶证面板和全屏预览浮层输出 `px` 样式。
 
-### 4. `pages/document`
+### 5. `packageD/pages/document`
 
 - 保留为备用单证页
 - 当前主流程默认不使用
 
-### 5. `pages/complete`
+### 6. `packageD/pages/complete`
 
 - 汇总缓存中的车辆数、车损照片数和单证照片数
 - 直接读取 `cache-selectors.getCacheSummary(cache)` 中的 `vehicleCount`、`damagePhotoCount`、`documentPhotoCount`
@@ -135,16 +121,24 @@ selfCam/
 
 ## 四、路由与主流程
 
-`app.json` 当前仍注册以下页面：
+`app.json` 当前主包只注册本地 host 页，业务页全部声明在 `packageD` 分包：
 
 ```json
 {
   "pages": [
-    "pages/index/index",
-    "pages/camera/camera",
-    "pages/preview/preview",
-    "pages/document/document",
-    "pages/complete/complete"
+    "pages/host/index"
+  ],
+  "subpackages": [
+    {
+      "root": "packageD",
+      "pages": [
+        "pages/index/index",
+        "pages/camera/camera",
+        "pages/preview/preview",
+        "pages/document/document",
+        "pages/complete/complete"
+      ]
+    }
   ]
 }
 ```
@@ -152,14 +146,15 @@ selfCam/
 主流程路由：
 
 ```text
-index
-  -> camera（标的车车牌）
-  -> camera（VIN）
-  -> camera（车损，可连续拍多张）
-  -> preview（预览、保存确认、上传遮罩）
-  -> camera（补拍 / 重拍 / 后端返回的下一辆车）
-  -> preview（预览、保存确认、上传遮罩）
-  -> complete
+pages/host/index（本地调试壳）
+  -> /packageD/pages/index/index
+  -> /packageD/pages/camera/camera（标的车车牌）
+  -> /packageD/pages/camera/camera（VIN）
+  -> /packageD/pages/camera/camera（车损，可连续拍多张）
+  -> /packageD/pages/preview/preview（预览、保存确认、上传遮罩）
+  -> /packageD/pages/camera/camera（补拍 / 重拍 / 后端返回的下一辆车）
+  -> /packageD/pages/preview/preview（预览、保存确认、上传遮罩）
+  -> /packageD/pages/complete/complete
 ```
 
 辅助跳转规则：
@@ -180,7 +175,7 @@ index
 const STORAGE_KEY = 'car_damage_photos_cache'
 ```
 
-`utils/storage.js` 中的初始化结构：
+`packageD/utils/storage.js` 中的初始化结构：
 
 ```js
 {
@@ -365,7 +360,7 @@ vehicle.documentSelections = {
 
 ### 1. 业务步骤
 
-由 `utils/constants.js` 定义：
+由 `packageD/utils/constants.js` 定义：
 
 ```js
 const SHOOT_STEP = {
@@ -384,7 +379,7 @@ licensePlate -> vinCode -> damage -> preview
 
 ### 2. 拍照页关键 `data`
 
-`pages/camera/camera.js` 当前维护的关键状态包括：
+`packageD/pages/camera/camera.js` 当前维护的关键状态包括：
 
 - `currentStep`
 - `guideTip`
@@ -464,7 +459,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 - 模型不随主包直接打包
 - 本地模型文件统一写入 `USER_DATA_PATH`，文件名包含模型类型、业务环境和模型 URL hash
-- `utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
+- `packageD/utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
 - 当前 `sit.modelHost` 为 `https://onlineclaimsit.chinalife-p.com.cn/video/model`
 - 当前 `dev.modelHost` 也指向同一 SIT 模型地址，便于开发环境调试复现体验版模型下载与推理问题
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
@@ -477,7 +472,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 ### 2. AI 调度入口
 
-`pages/camera/camera.js`
+`packageD/pages/camera/camera.js`
 
 关键方法：
 
@@ -514,7 +509,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 ### 4. 环境配置收口
 
-- `utils/env-config.js` 作为统一环境配置入口
+- `packageD/utils/env-config.js` 作为统一环境配置入口
 - 统一读取 `wx.getAccountInfoSync().miniProgram.envVersion`，并作为 `wxEnvVersion`
 - 支持 `develop / trial / release` 三种微信运行版本，并在 `wx` 不存在或 API 异常时安全降级到 `develop`
 - 新增业务环境 `appEnv: dev / sit / pilot / prod`
@@ -523,7 +518,7 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - 首页隐藏入口负责写入或清除 `SELF_CAM_APP_ENV`，切换后通过 `wx.reLaunch` 重新进入首页
 - 同一隐藏入口提供“清除 AI 模型缓存”，只删除当前环境 `plateModelPath` / `damageModelPath` 指向的 onnx 文件，不清除照片、车辆、单证或流程缓存
 - `dev / sit / pilot` 在首页、拍照页、预览页显示低权重环境标识，`prod` 不显示
-- `app.js`、`utils/ai-config.js`、`utils/runtime-logger.js`、`utils/quality-config-loader.js` 与 `pages/camera/camera.js` 复用这层能力
+- `app.js`、`packageD/utils/ai-config.js`、`packageD/utils/runtime-logger.js`、`packageD/utils/quality-config-loader.js` 与 `packageD/pages/camera/camera.js` 复用这层能力
 - `release` 默认关闭调试上传、开发面板与非必要日志，避免各模块继续散落环境判断
 
 ---
@@ -731,10 +726,10 @@ SEEK -> HOLD -> SHOOT
 
 ### 1. 照片汇总
 
-`pages/preview/preview.js` 会把车辆照片和单证统一拼装为 `allPhotos`，供全屏预览使用。
+`packageD/pages/preview/preview.js` 会把车辆照片和单证统一拼装为 `allPhotos`，供全屏预览使用。
 
 车辆级行驶证会作为 `type = 'vehicleDocument'` 的照片项追加到对应车辆照片列表后，复用全屏预览、重拍和删除入口。
-`utils/aux-photo-api.js` 对外保留 `uploadPhoto()` 包装名，但底层真实请求路径是 `uploadPhotoBase64`，不是 multipart `uploadPhoto`。
+`packageD/utils/aux-photo-api.js` 对外保留 `uploadPhoto()` 包装名，但底层真实请求路径是 `uploadPhotoBase64`，不是 multipart `uploadPhoto`。
 
 ### 2. 重拍逻辑
 
@@ -764,7 +759,7 @@ retakeMode = {
 
 ### 4. 行驶证完成态
 
-行驶证完成态由 `utils/documents.js` 统一判断：
+行驶证完成态由 `packageD/utils/documents.js` 统一判断：
 
 - `documentSelections.driving_license === 'physical'`：必须同时存在 `front_page` 和 `back_page`。
 - `documentSelections.driving_license === 'electronic'`：必须存在 `electronic`。
@@ -772,7 +767,7 @@ retakeMode = {
 
 ### 5. 提交前弹窗顺序
 
-`pages/preview/preview.js` 的提交顺序：
+`packageD/pages/preview/preview.js` 的提交顺序：
 
 ```text
 onSubmit()
@@ -886,7 +881,7 @@ npm run test:e2e:full
   - 未出现过授权结果：调用 `wx.authorize({ scope: 'scope.writePhotosAlbum' })`，失败返回 `false`。
 - 不保留权限状态机、权限历史缓存、重试计时器或 backgroundFetch 相关逻辑。
 
-### `utils/album.js`
+### `packageD/utils/album.js`
 
 - `getConfirmedPhotoPath(photo)` 按 `compressedPath -> tempFilePath -> originalPath -> filePath` 选择保存路径。
 - `saveConfirmedPhotoToAlbum(photo)` 只负责触发相册保存并返回结果对象，不向调用方抛出异常。
@@ -898,13 +893,13 @@ npm run test:e2e:full
 
 ### 页面接入点
 
-- `pages/index/index.js` 在 `onStart()` 中使用 `isStartingCapture` 防重复点击，并用 `try/catch/finally` 确保流程结束后释放锁。
-- `startCaptureFlow()` 保留原缓存初始化和 `/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
-- `pages/camera/camera.js` 在 `onConfirmPhoto()` 中只写入采集缓存并推进步骤，不再调用相册保存工具。
+- `packageD/pages/index/index.js` 在 `onStart()` 中使用 `isStartingCapture` 防重复点击，并用 `try/catch/finally` 确保流程结束后释放锁。
+- `startCaptureFlow()` 保留原缓存初始化和 `/packageD/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
+- `packageD/pages/camera/camera.js` 在 `onConfirmPhoto()` 中只写入采集缓存并推进步骤，不再调用相册保存工具。
 - `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。
-- `pages/preview/preview.js` 在 `完成采集` 的行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
-- `utils/cache-selectors.js` 提供 `getAlbumSaveCandidates(cache)`，只返回当前缓存中未保存过、非相册来源且路径去重后的候选图片。
-- `utils/album.js` 提供 `savePhotosToAlbumBatch(candidates)`，顺序保存候选图片并返回批量汇总，不逐张弹失败提示。
+- `packageD/pages/preview/preview.js` 在 `完成采集` 的行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
+- `packageD/utils/cache-selectors.js` 提供 `getAlbumSaveCandidates(cache)`，只返回当前缓存中未保存过、非相册来源且路径去重后的候选图片。
+- `packageD/utils/album.js` 提供 `savePhotosToAlbumBatch(candidates)`，顺序保存候选图片并返回批量汇总，不逐张弹失败提示。
 
 ---
 
@@ -912,11 +907,11 @@ npm run test:e2e:full
 
 ### 模块职责
 
-- `utils/documents.js`：行驶证类型常量、默认选择模式、旧数据归一化、完成态判断、面板槽位和预览项构建。
-- `utils/storage-schema.js`：当前缓存 schema v4，负责上传会话、完成提交状态和旧缓存迁移/修复。
-- `utils/storage.js`：提供 `setVehicleDocumentSelection()`、`saveVehicleDocument()`、`deleteVehicleDocument()`。
-- `utils/cache-selectors.js`：将车辆级行驶证纳入 `photoEntries`、`allPhotos`、`documentPhotoCount` 和质量汇总。
-- `pages/preview/preview.js`：负责行驶证面板、上传来源选择、压缩、保存相册、替换、删除、预览和提交风险提示。
+- `packageD/utils/documents.js`：行驶证类型常量、默认选择模式、旧数据归一化、完成态判断、面板槽位和预览项构建。
+- `packageD/utils/storage-schema.js`：当前缓存 schema v4，负责上传会话、完成提交状态和旧缓存迁移/修复。
+- `packageD/utils/storage.js`：提供 `setVehicleDocumentSelection()`、`saveVehicleDocument()`、`deleteVehicleDocument()`。
+- `packageD/utils/cache-selectors.js`：将车辆级行驶证纳入 `photoEntries`、`allPhotos`、`documentPhotoCount` 和质量汇总。
+- `packageD/pages/preview/preview.js`：负责行驶证面板、上传来源选择、压缩、保存相册、替换、删除、预览和提交风险提示。
 
 ### 上传链路
 
@@ -957,4 +952,4 @@ npm run test:e2e:full
 
 - 保存时按 `docType + docSide` 查找旧记录，存在则替换，不存在则追加。
 - 删除时按 `docType + docSide` 移除记录并同步缓存。
-- 删除或替换后由 `utils/documents.js` 重新计算当前车辆行驶证完成态。
+- 删除或替换后由 `packageD/utils/documents.js` 重新计算当前车辆行驶证完成态。

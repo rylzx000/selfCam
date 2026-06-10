@@ -51,7 +51,7 @@ Page({
     const documentSummary = cacheSelectors.getDocumentSummary(cache)
 
     if (!cache) {
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -79,7 +79,7 @@ Page({
 
     const cacheBeforeChoose = storage.loadCache()
     if (!cacheBeforeChoose) {
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -101,7 +101,7 @@ Page({
           const cache = storage.loadCache()
           if (!cache) {
             wx.hideLoading()
-            wx.redirectTo({ url: '/pages/index/index' })
+            wx.redirectTo({ url: '/packageD/pages/index/index' })
             return
           }
 
@@ -125,7 +125,7 @@ Page({
     const documentSummary = cacheSelectors.getDocumentSummary(cache)
 
     if (!cache) {
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -191,7 +191,7 @@ Page({
     const cache = storage.loadCache()
 
     if (!cache) {
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -203,6 +203,6 @@ Page({
       page: 'document',
       pageAction: 'upload_start'
     })
-    wx.redirectTo({ url: '/pages/preview/preview' })
+    wx.redirectTo({ url: '/packageD/pages/preview/preview' })
   }
 })

@@ -23,9 +23,9 @@ describe('AI realtime logging', () => {
 
   afterEach(() => {
     delete global.wx
-    jest.dontMock('../utils/realtime-log')
-    jest.dontMock('../utils/runtime-logger')
-    jest.dontMock('../utils/env-config')
+    jest.dontMock('../packageD/utils/realtime-log')
+    jest.dontMock('../packageD/utils/runtime-logger')
+    jest.dontMock('../packageD/utils/env-config')
   })
 
   function setupRuntimeLoggerTest() {
@@ -37,8 +37,8 @@ describe('AI realtime logging', () => {
       }),
       removeStorageSync: jest.fn()
     }
-    jest.doMock('../utils/realtime-log', () => realtimeLog)
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/realtime-log', () => realtimeLog)
+    jest.doMock('../packageD/utils/env-config', () => ({
       getEnvVersion: jest.fn(() => 'trial'),
       getDebugConfig: jest.fn(() => ({
         runtimeLoggerLevel: 'info',
@@ -61,7 +61,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.addLog keeps local logs but filters non-critical realtime logs', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.addLog('info', 'ai', 'model_probe', {
       modelName: 'plate',
@@ -86,7 +86,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.startSession sets filter without forwarding camera session_start', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
@@ -101,7 +101,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.getSessionId always returns a session id', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const sessionId = runtimeLogger.getSessionId()
 
@@ -112,7 +112,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.forceWarn forwards realtime log without level filtering', () => {
     setupRuntimeLoggerTest()
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getEnvVersion: jest.fn(() => 'trial'),
       getDebugConfig: jest.fn(() => ({
         runtimeLoggerLevel: 'silent',
@@ -125,7 +125,7 @@ describe('AI realtime logging', () => {
         requestTimeoutMs: 1000
       }))
     }))
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
       feedbackId: 'feedback-1',
@@ -147,7 +147,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.forceError forwards realtime log without level filtering', () => {
     setupRuntimeLoggerTest()
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getEnvVersion: jest.fn(() => 'trial'),
       getDebugConfig: jest.fn(() => ({
         runtimeLoggerLevel: 'silent',
@@ -160,7 +160,7 @@ describe('AI realtime logging', () => {
         requestTimeoutMs: 1000
       }))
     }))
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.forceError('ai', 'ai_unavailable', {
       reason: 'detector_init_failed',
@@ -181,7 +181,7 @@ describe('AI realtime logging', () => {
 
   test('runtimeLogger.forceWarn forwards slim camera geometry diagnostics for WeChat realtime logs', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.forceWarn('ai', 'auto_capture_gate_sample', {
       feedbackId: 'selfCam_feedback-4',
@@ -273,7 +273,7 @@ describe('AI realtime logging', () => {
     ['ai', 'resume_detection_skipped']
   ])('runtimeLogger.addLog filters %s/%s from realtime log', (scope, event) => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.addLog('info', scope, event, {
       feedbackId: 'feedback-2',
@@ -298,7 +298,7 @@ describe('AI realtime logging', () => {
     ['error', 'ai_model', 'session_load_failed']
   ])('runtimeLogger.addLog forwards critical %s %s/%s with slim payload', (level, scope, event) => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.addLog(level, scope, event, {
       feedbackId: 'feedback-3',
@@ -357,8 +357,8 @@ describe('AI realtime logging', () => {
       createInferenceSession: jest.fn(),
       ...wxOverrides
     }
-    jest.doMock('../utils/runtime-logger', () => runtimeLogger)
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/runtime-logger', () => runtimeLogger)
+    jest.doMock('../packageD/utils/env-config', () => ({
       getAiConfig: jest.fn(() => ({
         plateModelUrl: 'https://example.com/plate.onnx',
         plateModelPath: '/tmp/plate.onnx',
@@ -389,13 +389,13 @@ describe('AI realtime logging', () => {
   const detectorSessionCases = [
     {
       modelName: 'plate',
-      detectorPath: '../utils/plate-detector',
+      detectorPath: '../packageD/utils/plate-detector',
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx'
     },
     {
       modelName: 'damage',
-      detectorPath: '../utils/damage-detector',
+      detectorPath: '../packageD/utils/damage-detector',
       modelUrl: 'https://example.com/damage.onnx',
       modelPath: '/tmp/damage.onnx'
     }
@@ -604,7 +604,7 @@ describe('AI realtime logging', () => {
         tempFilePath: '/tmp/plate-download.onnx'
       }))
     })
-    const PlateDetector = require('../utils/plate-detector')
+    const PlateDetector = require('../packageD/utils/plate-detector')
     const detector = new PlateDetector({
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx'
@@ -642,7 +642,7 @@ describe('AI realtime logging', () => {
         errMsg: 'downloadFile:fail timeout'
       }))
     })
-    const PlateDetector = require('../utils/plate-detector')
+    const PlateDetector = require('../packageD/utils/plate-detector')
     const detector = new PlateDetector({
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx'
@@ -674,7 +674,7 @@ describe('AI realtime logging', () => {
         errMsg: 'downloadFile:fail url not in domain list'
       }))
     })
-    const DamageDetector = require('../utils/damage-detector')
+    const DamageDetector = require('../packageD/utils/damage-detector')
     const detector = new DamageDetector({
       modelUrl: 'https://example.com/damage.onnx',
       modelPath: '/tmp/damage.onnx'
@@ -708,7 +708,7 @@ describe('AI realtime logging', () => {
         tempFilePath: '/tmp/damage-download.onnx'
       }))
     })
-    const DamageDetector = require('../utils/damage-detector')
+    const DamageDetector = require('../packageD/utils/damage-detector')
     const detector = new DamageDetector({
       modelUrl: 'https://example.com/damage.onnx',
       modelPath: '/tmp/damage.onnx'
@@ -743,7 +743,7 @@ describe('AI realtime logging', () => {
         }))
       }))
     })
-    const PlateDetector = require('../utils/plate-detector')
+    const PlateDetector = require('../packageD/utils/plate-detector')
     const detector = new PlateDetector({
       modelUrl: 'https://example.com/plate.onnx',
       modelPath: '/tmp/plate.onnx'
@@ -779,7 +779,7 @@ describe('AI realtime logging', () => {
         }))
       }))
     })
-    const DamageDetector = require('../utils/damage-detector')
+    const DamageDetector = require('../packageD/utils/damage-detector')
     const detector = new DamageDetector({
       modelUrl: 'https://example.com/damage.onnx',
       modelPath: '/tmp/damage.onnx'

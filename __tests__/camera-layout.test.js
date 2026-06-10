@@ -5,9 +5,9 @@ describe('camera responsive layout', () => {
     jest.resetModules()
     pageConfig = null
 
-    jest.doMock('../utils/storage', () => ({}))
-    jest.doMock('../utils/cache-selectors', () => ({}))
-    jest.doMock('../utils/constants', () => ({
+    jest.doMock('../packageD/utils/storage', () => ({}))
+    jest.doMock('../packageD/utils/cache-selectors', () => ({}))
+    jest.doMock('../packageD/utils/constants', () => ({
       SHOOT_STEP: {
         LICENSE_PLATE: 'licensePlate',
         VIN_CODE: 'vinCode',
@@ -26,9 +26,9 @@ describe('camera responsive layout', () => {
         MAX_TOTAL_PHOTOS: 50
       }
     }))
-    jest.doMock('../utils/compress', () => ({}))
-    jest.doMock('../utils/photo-quality', () => ({}))
-    jest.doMock('../utils/runtime-logger', () => ({
+    jest.doMock('../packageD/utils/compress', () => ({}))
+    jest.doMock('../packageD/utils/photo-quality', () => ({}))
+    jest.doMock('../packageD/utils/runtime-logger', () => ({
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -38,57 +38,57 @@ describe('camera responsive layout', () => {
       endSession: jest.fn(),
       getSessionId: jest.fn(() => 'layout-test')
     }))
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getDebugConfig: jest.fn(() => ({ showAIPanel: false })),
       getAppEnvBadgeText: jest.fn(() => ''),
       getAiConfig: jest.fn(() => ({}))
     }))
-    jest.doMock('../utils/plate-detector', () => jest.fn())
-    jest.doMock('../utils/damage-detector', () => jest.fn())
-    jest.doMock('../utils/frame-utils', () => ({
+    jest.doMock('../packageD/utils/plate-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/damage-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/frame-utils', () => ({
       PlateFrameUtils: jest.fn()
     }))
-    jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
-    jest.doMock('../utils/ai-config', () => ({
+    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
+    jest.doMock('../packageD/utils/ai-config', () => ({
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3,
         STATUS_TEXT: {}
       }
     }))
-    jest.doMock('../utils/workflow-state', () => ({
+    jest.doMock('../packageD/utils/workflow-state', () => ({
       STATES: {
         IDLE: 'IDLE'
       }
     }))
-    jest.doMock('../utils/workflow-page', () => ({}))
-    jest.doMock('../utils/album', () => ({}))
+    jest.doMock('../packageD/utils/workflow-page', () => ({}))
+    jest.doMock('../packageD/utils/album', () => ({}))
 
     global.Page = jest.fn((config) => {
       pageConfig = config
       return config
     })
 
-    require('../pages/camera/camera')
+    require('../packageD/pages/camera/camera')
   })
 
   afterEach(() => {
     delete global.Page
     jest.clearAllMocks()
-    jest.dontMock('../utils/storage')
-    jest.dontMock('../utils/cache-selectors')
-    jest.dontMock('../utils/constants')
-    jest.dontMock('../utils/compress')
-    jest.dontMock('../utils/photo-quality')
-    jest.dontMock('../utils/runtime-logger')
-    jest.dontMock('../utils/env-config')
-    jest.dontMock('../utils/plate-detector')
-    jest.dontMock('../utils/damage-detector')
-    jest.dontMock('../utils/frame-utils')
-    jest.dontMock('../utils/damage-auto-capture-engine')
-    jest.dontMock('../utils/ai-config')
-    jest.dontMock('../utils/workflow-state')
-    jest.dontMock('../utils/workflow-page')
-    jest.dontMock('../utils/album')
+    jest.dontMock('../packageD/utils/storage')
+    jest.dontMock('../packageD/utils/cache-selectors')
+    jest.dontMock('../packageD/utils/constants')
+    jest.dontMock('../packageD/utils/compress')
+    jest.dontMock('../packageD/utils/photo-quality')
+    jest.dontMock('../packageD/utils/runtime-logger')
+    jest.dontMock('../packageD/utils/env-config')
+    jest.dontMock('../packageD/utils/plate-detector')
+    jest.dontMock('../packageD/utils/damage-detector')
+    jest.dontMock('../packageD/utils/frame-utils')
+    jest.dontMock('../packageD/utils/damage-auto-capture-engine')
+    jest.dontMock('../packageD/utils/ai-config')
+    jest.dontMock('../packageD/utils/workflow-state')
+    jest.dontMock('../packageD/utils/workflow-page')
+    jest.dontMock('../packageD/utils/album')
   })
 
   test('keeps normal landscape camera size close to the old rpx layout', () => {

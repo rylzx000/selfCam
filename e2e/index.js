@@ -165,7 +165,7 @@ async function runAllTests() {
     console.log('📱 模块一: 首页测试')
     console.log('='.repeat(60))
     
-    let page = await miniProgram.reLaunch('/pages/index/index')
+    let page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await page.waitFor(1500)
     
     // TC-001
@@ -397,7 +397,7 @@ async function runAllTests() {
     // 模拟跳转到预览页
     try {
       console.log('\nTC-017: 跳转到预览页')
-      page = await miniProgram.redirectTo('/pages/preview/preview')
+      page = await miniProgram.redirectTo('/packageD/pages/preview/preview')
       await page.waitFor(1500)
       await takeScreenshot(page, 'TC-017-preview-page')
       
@@ -434,7 +434,7 @@ async function runAllTests() {
     
     try {
       console.log('\nTC-019: 跳转到完成页')
-      page = await miniProgram.redirectTo('/pages/complete/complete')
+      page = await miniProgram.redirectTo('/packageD/pages/complete/complete')
       await page.waitFor(1000)
       await takeScreenshot(page, 'TC-019-complete-page')
       

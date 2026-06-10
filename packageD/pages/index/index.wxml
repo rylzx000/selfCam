@@ -4,7 +4,7 @@
 
   <!-- 左上角品牌标识 -->
   <view class="brand" bindtap="onBrandTap">
-    <image class="brand-logo" src="/assets/logo.png" mode="aspectFit"></image>
+    <image class="brand-logo" src="/packageD/assets/logo.png" mode="aspectFit"></image>
   </view>
 
   <!-- 主体内容 -->

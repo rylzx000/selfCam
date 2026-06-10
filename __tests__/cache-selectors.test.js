@@ -42,10 +42,10 @@ describe('cache selectors', () => {
 
   beforeEach(() => {
     jest.resetModules()
-    storage = require('../utils/storage')
-    selectors = require('../utils/cache-selectors')
-    constants = require('../utils/constants')
-    documents = require('../utils/documents')
+    storage = require('../packageD/utils/storage')
+    selectors = require('../packageD/utils/cache-selectors')
+    constants = require('../packageD/utils/constants')
+    documents = require('../packageD/utils/documents')
   })
 
   test('builds cache summary with shared counts and preview progress', () => {

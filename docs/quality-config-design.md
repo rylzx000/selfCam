@@ -17,24 +17,24 @@
 当前实现采用三层配置结构：
 
 1. 默认配置  
-文件：`utils/quality-config-default.js`  
+文件：`packageD/utils/quality-config-default.js`  
 作用：代码内兜底配置。即使没有远程配置、没有缓存或网络异常，业务仍然可以拿到一份可运行的配置。
 
 2. 远程静态 JSON 配置  
-文件：`utils/quality-config-loader.js`  
+文件：`packageD/utils/quality-config-loader.js`  
 作用：通过 HTTPS 地址拉取系统控制配置，用于控制轻质检总开关、子开关、阈值和处理参数。
 
 说明：
 
 - 远程下发格式仍然是 UTF-8 JSON。
-- 小程序包内 mock 配置使用 `mock/quality-config.mock.js` 这个 CommonJS 模块导出纯数据对象。
+- 小程序包内 mock 配置使用 `packageD/mock/quality-config.mock.js` 这个 CommonJS 模块导出纯数据对象。
 - 这样可以避免微信小程序运行时直接 `require('../mock/quality-config.mock.json')` 时被解析成 `.json.js` 后找不到模块的问题。
 
 3. 小程序本地缓存  
 存储 Key：`selfcam_quality_config_cache_v1`  
 作用：缓存最近一次成功拉取的远程配置。弱网或短时网络抖动时，优先使用未过期缓存。
 
-统一读取入口位于 `utils/quality-config.js`，业务层只通过以下接口获取配置：
+统一读取入口位于 `packageD/utils/quality-config.js`，业务层只通过以下接口获取配置：
 
 - `getQualityConfig()`
 - `initQualityConfig()`
@@ -85,7 +85,7 @@
 
 如果业务显式指定了 source，则按显式指定处理。
 
-当前 source 的 mock 分支只从包内 `mock/quality-config.mock.js` 读取配置，不再依赖运行时 `require JSON`。
+当前 source 的 mock 分支只从包内 `packageD/mock/quality-config.mock.js` 读取配置，不再依赖运行时 `require JSON`。
 
 ## 5. 降级策略
 
@@ -108,7 +108,7 @@
 
 最小改动点如下：
 
-1. 替换 `utils/quality-config-loader.js` 中的远程配置获取实现
+1. 替换 `packageD/utils/quality-config-loader.js` 中的远程配置获取实现
 2. 根据在线平台返回格式调整 source 解析逻辑
 3. 保留默认配置、缓存逻辑、统一读取入口和业务调用方式不变
 

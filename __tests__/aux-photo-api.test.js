@@ -2,15 +2,15 @@ describe('aux-photo api', () => {
   afterEach(() => {
     delete global.wx
     jest.resetModules()
-    jest.dontMock('../utils/env-config')
+    jest.dontMock('../packageD/utils/env-config')
   })
 
   function loadApi(config) {
     jest.resetModules()
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getAuxPhotoConfig: jest.fn(() => config)
     }))
-    return require('../utils/aux-photo-api')
+    return require('../packageD/utils/aux-photo-api')
   }
 
   test('uses mock init for mock tickets outside release', async () => {

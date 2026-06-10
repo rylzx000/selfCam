@@ -62,9 +62,9 @@ describe('cache selectors edge cases', () => {
       removeStorageSync() {}
     }
 
-    storage = require('../utils/storage')
-    selectors = require('../utils/cache-selectors')
-    constants = require('../utils/constants')
+    storage = require('../packageD/utils/storage')
+    selectors = require('../packageD/utils/cache-selectors')
+    constants = require('../packageD/utils/constants')
   })
 
   afterEach(() => {

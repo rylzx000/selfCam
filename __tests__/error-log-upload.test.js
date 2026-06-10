@@ -18,8 +18,8 @@ describe('runtimeLogger backend error upload', () => {
     jest.useRealTimers()
     delete global.wx
     delete global.getApp
-    jest.dontMock('../utils/realtime-log')
-    jest.dontMock('../utils/env-config')
+    jest.dontMock('../packageD/utils/realtime-log')
+    jest.dontMock('../packageD/utils/env-config')
   })
 
   function setupRuntimeLoggerTest({
@@ -65,8 +65,8 @@ describe('runtimeLogger backend error upload', () => {
         reportNo
       }
     }))
-    jest.doMock('../utils/realtime-log', () => realtimeLog)
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/realtime-log', () => realtimeLog)
+    jest.doMock('../packageD/utils/env-config', () => ({
       getEnvVersion: jest.fn(() => 'trial'),
       getDebugConfig: jest.fn(() => ({
         runtimeLoggerLevel: 'info',
@@ -95,7 +95,7 @@ describe('runtimeLogger backend error upload', () => {
 
   test('uploads whitelisted error logs with reportNo and safe payload', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     const entry = runtimeLogger.forceError('ai_model', 'session_create_failed', {
       feedbackId: 'selfCam_feedback-1',
@@ -153,7 +153,7 @@ describe('runtimeLogger backend error upload', () => {
 
   test('does not upload non-error diagnostic logs', () => {
     setupRuntimeLoggerTest()
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     runtimeLogger.forceWarn('ai', 'camera_layout_snapshot', {
       feedbackId: 'selfCam_feedback-2',
@@ -167,7 +167,7 @@ describe('runtimeLogger backend error upload', () => {
 
   test('does not upload when reportNo is missing', () => {
     setupRuntimeLoggerTest({ reportNo: '' })
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     runtimeLogger.forceError('camera', 'camera_error', {
       message: 'camera failed'
@@ -189,7 +189,7 @@ describe('runtimeLogger backend error upload', () => {
         }
       }
     })
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     expect(() => {
       runtimeLogger.forceError('capture', 'auto_capture_failed', {
@@ -213,7 +213,7 @@ describe('runtimeLogger backend error upload', () => {
         }
       }
     })
-    const runtimeLogger = require('../utils/runtime-logger')
+    const runtimeLogger = require('../packageD/utils/runtime-logger')
 
     runtimeLogger.forceError('camera', 'camera_error', {
       message: 'camera failed'

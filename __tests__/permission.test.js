@@ -3,7 +3,7 @@ describe('permission utility', () => {
 
   function loadPermission() {
     jest.resetModules()
-    return require('../utils/permission')
+    return require('../packageD/utils/permission')
   }
 
   beforeEach(() => {

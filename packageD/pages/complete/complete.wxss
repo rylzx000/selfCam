@@ -1,3 +1,4 @@
+@import "../../styles/common.wxss";
 /* 完成页样式 */
 
 .container {

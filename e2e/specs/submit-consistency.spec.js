@@ -14,7 +14,7 @@ const {
   collectAllPhotoPaths,
   assertNoDuplicatePhotoPaths
 } = require('../support/scenario-builder')
-const cacheSelectors = require('../../utils/cache-selectors')
+const cacheSelectors = require('../../packageD/utils/cache-selectors')
 
 function eventDataset(dataset) {
   return {
@@ -44,7 +44,7 @@ async function returnToPreview(miniProgram) {
   let current = await miniProgram.currentPage()
 
   if (!current.path || !current.path.includes('preview')) {
-    current = await miniProgram.reLaunch('/pages/preview/preview')
+    current = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
   }
 
@@ -111,7 +111,7 @@ describe('P0 提交一致性 e2e', () => {
     })
     await seedCache(miniProgram, scenario)
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await page.callMethod('onSubmit')
@@ -147,7 +147,7 @@ describe('P0 提交一致性 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success')
 
-    let page = await miniProgram.reLaunch('/pages/preview/preview')
+    let page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await deleteDamage(page, 0, 2)

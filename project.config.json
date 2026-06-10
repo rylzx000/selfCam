@@ -24,6 +24,18 @@
       },
       {
         "type": "folder",
+        "value": "coverage"
+      },
+      {
+        "type": "folder",
+        "value": "reports"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
         "value": "__tests__"
       },
       {
@@ -45,6 +57,46 @@
       {
         "type": "folder",
         "value": "versions"
+      },
+      {
+        "type": "file",
+        "value": "packageD.zip"
+      },
+      {
+        "type": "file",
+        "value": "package.json"
+      },
+      {
+        "type": "file",
+        "value": "package-lock.json"
+      },
+      {
+        "type": "file",
+        "value": "jest.config.js"
+      },
+      {
+        "type": "file",
+        "value": "CHANGELOG.md"
+      },
+      {
+        "type": "file",
+        "value": "VERSION.md"
+      },
+      {
+        "type": "file",
+        "value": "AGENTS.md"
+      },
+      {
+        "type": "file",
+        "value": "review.diff"
+      },
+      {
+        "type": "file",
+        "value": "review-summary.md"
+      },
+      {
+        "type": "file",
+        "value": "日志.txt"
       }
     ],
     "include": []

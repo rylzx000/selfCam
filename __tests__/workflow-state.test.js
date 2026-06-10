@@ -39,9 +39,9 @@ describe('workflow-state', () => {
       }
     }
 
-    storage = require('../utils/storage')
-    workflow = require('../utils/workflow-state')
-    constants = require('../utils/constants')
+    storage = require('../packageD/utils/storage')
+    workflow = require('../packageD/utils/workflow-state')
+    constants = require('../packageD/utils/constants')
   })
 
   afterEach(() => {

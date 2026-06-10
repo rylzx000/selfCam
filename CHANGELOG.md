@@ -8,13 +8,23 @@
 
 ### 调整
 
+- 将业务代码迁入 `packageD/` 分包，根主包只保留本地调试壳，贴近公司主体小程序挂载方式。
+- 分包内页面跳转、组件引用和资源路径统一调整为 `/packageD/...`，避免接入主体小程序后访问旧主包路径。
+- 分包启动初始化改为写入 `getApp().globalData.selfCam`，不再污染公司主体小程序的 `globalData.ticket` 等全局字段。
+- 无 `ticket` 启动时不再从旧缓存回捞辅助拍照 ticket，降低普通采集误进辅助拍照链路的风险。
 - 辅助拍照图片上传由 multipart `uploadPhoto` 切换为 JSON Base64 `uploadPhotoBase64`，规避 SIT 网关拦截 multipart。
 - 同步辅助拍照接口文档、版本说明和技术说明中的上传接口报文。
 
 ### 文档
 
+- 新增 `docs/packageD-integration.md`，说明公司主体小程序接入 `packageD` 分包的目录、`app.json`、启动路径和打包注意事项。
+- 同步 `PRDS/`、测试文档和 e2e 脚本中的分包路径。
 - 补齐辅助拍照后端对接、环境配置、测试指南和 PRDS 中的上传闭环口径，覆盖 mock server、联调 baseUrl、后端车辆列表控制、预览页跳转、完成态恢复、上传中断恢复和完成提交流程。
 - 同步辅助拍照测试材料：车辆列表以后端 `init` 返回为准，不再把手动新增/删除三者车和三者车确认弹窗作为辅助拍照验收项。
+
+### 版本
+
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.7`。
 
 ## [v1.4.6] - 2026-05-27
 

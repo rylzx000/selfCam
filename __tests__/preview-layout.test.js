@@ -5,7 +5,7 @@ describe('preview responsive layout', () => {
     jest.resetModules()
     pageConfig = null
 
-    jest.doMock('../utils/env-config', () => ({
+    jest.doMock('../packageD/utils/env-config', () => ({
       getAppEnvBadgeText: jest.fn(() => ''),
       getDebugConfig: jest.fn(() => ({ runtimeLoggerLevel: 'silent' })),
       getEnvVersion: jest.fn(() => 'trial')
@@ -16,13 +16,13 @@ describe('preview responsive layout', () => {
       return config
     })
 
-    require('../pages/preview/preview')
+    require('../packageD/pages/preview/preview')
   })
 
   afterEach(() => {
     delete global.Page
     jest.clearAllMocks()
-    jest.dontMock('../utils/env-config')
+    jest.dontMock('../packageD/utils/env-config')
   })
 
   test('keeps normal landscape preview UI on existing rpx styles', () => {

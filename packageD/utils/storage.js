@@ -1,7 +1,7 @@
 const schema = require('./storage-schema')
 const vehicleDocuments = require('./documents')
 
-const STORAGE_KEY = 'car_damage_photos_cache'
+const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
 
 function logStorage(level, event, payload = {}) {
   const logger = level === 'error'

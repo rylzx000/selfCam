@@ -66,7 +66,7 @@ async function main() {
   console.log('✅ 连接成功！\n')
   
   // 从首页开始
-  let page = await miniProgram.reLaunch('/pages/index/index')
+  let page = await miniProgram.reLaunch('/packageD/pages/index/index')
   await sleep(2000)
   console.log('1. 首页路径:', page.path)
   

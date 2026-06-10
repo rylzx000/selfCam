@@ -1,3 +1,4 @@
+@import "../../styles/common.wxss";
 /* 单证资料上传页样式 */
 
 .container {

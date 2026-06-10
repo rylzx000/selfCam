@@ -121,8 +121,8 @@ async function testRapidNavigation() {
     
     for (let i = 0; i < 10; i++) {
       try {
-        await miniProgram.reLaunch('/pages/index/index')
-        await miniProgram.reLaunch('/pages/camera/camera')
+        await miniProgram.reLaunch('/packageD/pages/index/index')
+        await miniProgram.reLaunch('/packageD/pages/camera/camera')
         successCount++
       } catch (e) {
         // 继续尝试
@@ -139,7 +139,7 @@ async function testRapidNavigation() {
   // TC-002: 极速跳转（无等待）
   try {
     console.log('\nTC-STRESS-002: 极速跳转（无等待）')
-    const pages = ['/pages/index/index', '/pages/camera/camera', '/pages/preview/preview', '/pages/complete/complete']
+    const pages = ['/packageD/pages/index/index', '/packageD/pages/camera/camera', '/packageD/pages/preview/preview', '/packageD/pages/complete/complete']
     
     for (let i = 0; i < 20; i++) {
       await miniProgram.reLaunch(pages[i % pages.length])
@@ -160,7 +160,7 @@ async function testRapidNavigation() {
     
     for (let i = 0; i < 10; i++) {
       try {
-        await miniProgram.reLaunch('/pages/index/index')
+        await miniProgram.reLaunch('/packageD/pages/index/index')
         await sleep(300)
       } catch (e) {
         errorCount++
@@ -189,10 +189,10 @@ async function testAbnormalStates() {
     await miniProgram.callWxMethod('clearStorageSync')
     
     const pages = [
-      '/pages/camera/camera',
-      '/pages/preview/preview',
-      '/pages/complete/complete',
-      '/pages/document/document'
+      '/packageD/pages/camera/camera',
+      '/packageD/pages/preview/preview',
+      '/packageD/pages/complete/complete',
+      '/packageD/pages/document/document'
     ]
     
     let handledCount = 0
@@ -219,7 +219,7 @@ async function testAbnormalStates() {
     await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', 'invalid')
     await sleep(200)
     
-    await miniProgram.reLaunch('/pages/index/index')
+    await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(500)
     
     recordResult('TC-STRESS-005: 损坏数据不影响启动', true)
@@ -237,7 +237,7 @@ async function testAbnormalStates() {
     await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', JSON.stringify(largeData))
     await sleep(200)
     
-    await miniProgram.reLaunch('/pages/preview/preview')
+    await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await sleep(500)
     
     recordResult('TC-STRESS-006: 超大数据正常处理', true)
@@ -250,7 +250,7 @@ async function testStepJumping() {
   console.log('🔄 场景三: 步骤跳跃与回退')
   console.log('='.repeat(60))
   
-  await miniProgram.reLaunch('/pages/index/index')
+  await miniProgram.reLaunch('/packageD/pages/index/index')
   await sleep(500)
   
   // TC-007: 跳过步骤直接到车损
@@ -287,7 +287,7 @@ async function testStepJumping() {
     
     let page = await miniProgram.currentPage()
     if (!page || !page.path.includes('camera')) {
-      await miniProgram.reLaunch('/pages/camera/camera')
+      await miniProgram.reLaunch('/packageD/pages/camera/camera')
       await sleep(500)
       page = await miniProgram.currentPage()
     }
@@ -347,7 +347,7 @@ async function testConcurrentOperations() {
   // TC-011: 页面切换中操作
   try {
     console.log('\nTC-STRESS-011: 快速页面切换')
-    await miniProgram.reLaunch('/pages/index/index')
+    await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(300)
     recordResult('TC-STRESS-011: 快速切换后状态正常', true)
   } catch (e) { recordResult('TC-STRESS-011', false, e) }
@@ -364,7 +364,7 @@ async function testMemoryPressure() {
     console.log('\nTC-STRESS-012: 页面栈压力测试')
     
     for (let i = 0; i < 10; i++) {
-      await miniProgram.reLaunch('/pages/index/index')
+      await miniProgram.reLaunch('/packageD/pages/index/index')
       await sleep(300)
     }
     
@@ -412,7 +412,7 @@ async function testErrorRecovery() {
   try {
     console.log('\nTC-STRESS-014: 错误状态恢复')
     
-    await miniProgram.reLaunch('/pages/camera/camera')
+    await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await sleep(500)
     
     let page = await miniProgram.currentPage()
@@ -434,9 +434,9 @@ async function testErrorRecovery() {
     
     for (let round = 1; round <= 3; round++) {
       await miniProgram.callWxMethod('clearStorageSync')
-      await miniProgram.reLaunch('/pages/index/index')
+      await miniProgram.reLaunch('/packageD/pages/index/index')
       await sleep(300)
-      await miniProgram.reLaunch('/pages/preview/preview')
+      await miniProgram.reLaunch('/packageD/pages/preview/preview')
       await sleep(300)
       console.log(`    第 ${round} 轮完成`)
     }

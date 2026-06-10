@@ -1,0 +1,11 @@
+<view class="host-page">
+  <view class="host-header">
+    <text class="host-title">selfCam 分包调试</text>
+    <text class="host-subtitle">模拟公司主包入口</text>
+  </view>
+
+  <view class="host-actions">
+    <button class="host-button primary" bindtap="openLocalCapture">无 ticket 采集</button>
+    <button class="host-button" bindtap="openMockAuxCapture">mock-2 辅助拍照</button>
+  </view>
+</view>

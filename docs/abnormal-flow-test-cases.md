@@ -335,7 +335,7 @@
 - 缓存初始化只执行一次
 - `wx.navigateTo` 只调用一次
 
-**关联模块**：`pages/index/index.js`
+**关联模块**：`packageD/pages/index/index.js`
 **备注**：对应 `__tests__/index-permission.test.js`
 
 ---
@@ -354,7 +354,7 @@
 - AI 检测恢复逻辑正常执行
 - 不调用 `album.saveConfirmedPhotoToAlbum()` 或 `wx.saveImageToPhotosAlbum`
 
-**关联模块**：`pages/camera/camera.js`、`utils/album.js`
+**关联模块**：`packageD/pages/camera/camera.js`、`packageD/utils/album.js`
 **备注**：对应 `__tests__/camera-ai-start.test.js`
 
 ---
@@ -371,7 +371,7 @@
 - 不调用失败 toast
 - 调用方流程继续
 
-**关联模块**：`utils/album.js`
+**关联模块**：`packageD/utils/album.js`
 **备注**：对应 `__tests__/album.test.js`
 
 ---
@@ -391,7 +391,7 @@
 - 每辆车自动补齐 `documentSelections.driving_license = 'physical'`
 - 预览页显示"上传行驶证"入口，不白屏
 
-**关联模块**：`utils/storage-schema.js`、`utils/documents.js`、`pages/preview/preview.js`
+**关联模块**：`packageD/utils/storage-schema.js`、`packageD/utils/documents.js`、`packageD/pages/preview/preview.js`
 **备注**：对应 `__tests__/vehicle-documents.test.js`
 
 ---
@@ -409,7 +409,7 @@
 - 当前车辆不会出现两个 `front_page`
 - 其他车辆 `documents[]` 不变
 
-**关联模块**：`utils/storage.js`、`utils/documents.js`
+**关联模块**：`packageD/utils/storage.js`、`packageD/utils/documents.js`
 **备注**：对应 `__tests__/vehicle-documents.test.js`
 
 ---
@@ -426,5 +426,5 @@
 - 不展示 `否，添加其他三者车`
 - 直接进入行驶证风险提示、相册保存确认或上传遮罩
 
-**关联模块**：`components/confirm-modal`、`pages/preview/preview.js`
+**关联模块**：`packageD/components/confirm-modal`、`packageD/pages/preview/preview.js`
 **备注**：对应 `__tests__/preview-driving-license.test.js`

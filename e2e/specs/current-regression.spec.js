@@ -39,7 +39,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   })
 
   test('首页冒烟：标题、须知、开始采集，并进入拍照页', async () => {
-    const page = await miniProgram.reLaunch('/pages/index/index')
+    const page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await wait(500)
 
     expect(await textOf(page, '.title')).toContain('车辆损失照片采集工具')
@@ -58,7 +58,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   test('VIN 提示：切换到 VIN 步骤后显示指定提示', async () => {
     let page = await miniProgram.currentPage()
     if (!page.path || !page.path.includes('camera')) {
-      const indexPage = await miniProgram.reLaunch('/pages/index/index')
+      const indexPage = await miniProgram.reLaunch('/packageD/pages/index/index')
       await wait(500)
       const startButton = await indexPage.$('.start-button')
       await startButton.tap()
@@ -85,7 +85,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
     })
     await seedCache(miniProgram, cache)
 
-    const page = await miniProgram.reLaunch('/pages/camera/camera')
+    const page = await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(800)
     await page.setData({
       showConfirmModal: true,
@@ -108,7 +108,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
     await installWxMediaMocks(miniProgram, mode)
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -134,7 +134,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
     await installWxMediaMocks(miniProgram, 'success')
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -156,7 +156,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
       currentStep: SHOOT_STEP.DAMAGE
     }))
 
-    const page = await miniProgram.reLaunch('/pages/camera/camera')
+    const page = await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(800)
     await page.setData({
       currentStep: SHOOT_STEP.DAMAGE,
@@ -194,7 +194,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
       currentStep: SHOOT_STEP.DAMAGE
     }))
 
-    const page = await miniProgram.reLaunch('/pages/camera/camera')
+    const page = await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(800)
     await patchCameraAiForE2E(miniProgram)
     await page.setData({
@@ -227,7 +227,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   test('破坏性：连续打开/关闭添加图片弹层 20 次，最终必须关闭', async () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     for (let i = 0; i < 20; i += 1) {
@@ -241,7 +241,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   test('破坏性：车牌、VIN、车损步骤快速切换后 currentStep 仍合法', async () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
 
-    const page = await miniProgram.reLaunch('/pages/camera/camera')
+    const page = await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(800)
 
     const rapidSteps = [
@@ -265,7 +265,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   test('破坏性：损坏缓存进入页面不白屏，可恢复或回到首页', async () => {
     await corruptCache(miniProgram)
 
-    await miniProgram.reLaunch('/pages/camera/camera')
+    await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(1200)
 
     const current = await miniProgram.currentPage()

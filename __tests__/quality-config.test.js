@@ -42,9 +42,9 @@ describe('quality config system', () => {
       request: requestMock
     }
 
-    loader = require('../utils/quality-config-loader')
-    qualityConfig = require('../utils/quality-config')
-    defaultConfig = require('../utils/quality-config-default').cloneQualityConfigDefaults()
+    loader = require('../packageD/utils/quality-config-loader')
+    qualityConfig = require('../packageD/utils/quality-config')
+    defaultConfig = require('../packageD/utils/quality-config-default').cloneQualityConfigDefaults()
   })
 
   afterEach(() => {
@@ -326,7 +326,7 @@ describe('quality config system', () => {
   })
 
   test('uses JS module path for bundled mock config', () => {
-    const source = require('../utils/quality-config-default').cloneQualityConfigSource()
+    const source = require('../packageD/utils/quality-config-default').cloneQualityConfigSource()
 
     expect(source.mockModulePath).toBe('../mock/quality-config.mock')
   })

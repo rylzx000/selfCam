@@ -4,8 +4,8 @@ describe('aux-photo mapper', () => {
 
   beforeEach(() => {
     jest.resetModules()
-    storage = require('../utils/storage')
-    mapper = require('../utils/aux-photo-mapper')
+    storage = require('../packageD/utils/storage')
+    mapper = require('../packageD/utils/aux-photo-mapper')
   })
 
   test('maps init response vehicles into backend-controlled cache', () => {

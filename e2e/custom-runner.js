@@ -195,7 +195,7 @@ async function runTests() {
     console.log('📱 模块一: 首页测试')
     console.log('='.repeat(60))
     
-    let page = await miniProgram.reLaunch('/pages/index/index')
+    let page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await page.waitFor(1500)
     
     // TC-001

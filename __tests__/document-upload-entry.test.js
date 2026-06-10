@@ -44,7 +44,7 @@ describe('document page upload entry', () => {
   function loadDocumentPage() {
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/document/document')
+      require('../packageD/pages/document/document')
     })
     const page = createPageInstance(pageConfig)
     page.loadData()
@@ -82,8 +82,8 @@ describe('document page upload entry', () => {
       pageConfig = config
     })
 
-    storage = require('../utils/storage')
-    constants = require('../utils/constants')
+    storage = require('../packageD/utils/storage')
+    constants = require('../packageD/utils/constants')
   })
 
   afterEach(() => {
@@ -107,10 +107,10 @@ describe('document page upload entry', () => {
     }))
     expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/preview/preview'
+      url: '/packageD/pages/preview/preview'
     })
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
   })
 })

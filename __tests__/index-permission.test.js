@@ -7,6 +7,7 @@ describe('index start permission flow', () => {
   let modelCache
   let auxPhotoApi
   let auxPhotoMapper
+  let bootstrap
   let consoleLogSpy
   let consoleWarnSpy
 
@@ -61,6 +62,10 @@ describe('index start permission flow', () => {
     auxPhotoApi = {
       init: jest.fn()
     }
+    bootstrap = {
+      bootstrap: jest.fn(),
+      getTicket: jest.fn(() => '')
+    }
     auxPhotoMapper = {
       buildCacheFromInit: jest.fn(() => ({
         auxPhoto: {
@@ -95,15 +100,16 @@ describe('index start permission flow', () => {
       return config
     })
 
-    jest.doMock('../utils/storage', () => storage)
-    jest.doMock('../utils/constants', () => constants)
-    jest.doMock('../utils/permission', () => permission)
-    jest.doMock('../utils/env-config', () => envConfig)
-    jest.doMock('../utils/model-cache', () => modelCache)
-    jest.doMock('../utils/aux-photo-api', () => auxPhotoApi)
-    jest.doMock('../utils/aux-photo-mapper', () => auxPhotoMapper)
+    jest.doMock('../packageD/utils/storage', () => storage)
+    jest.doMock('../packageD/utils/constants', () => constants)
+    jest.doMock('../packageD/utils/permission', () => permission)
+    jest.doMock('../packageD/utils/env-config', () => envConfig)
+    jest.doMock('../packageD/utils/model-cache', () => modelCache)
+    jest.doMock('../packageD/utils/bootstrap', () => bootstrap)
+    jest.doMock('../packageD/utils/aux-photo-api', () => auxPhotoApi)
+    jest.doMock('../packageD/utils/aux-photo-mapper', () => auxPhotoMapper)
 
-    require('../pages/index/index')
+    require('../packageD/pages/index/index')
   }
 
   beforeEach(() => {
@@ -119,13 +125,14 @@ describe('index start permission flow', () => {
     consoleLogSpy.mockRestore()
     consoleWarnSpy.mockRestore()
     jest.clearAllMocks()
-    jest.dontMock('../utils/storage')
-    jest.dontMock('../utils/constants')
-    jest.dontMock('../utils/permission')
-    jest.dontMock('../utils/env-config')
-    jest.dontMock('../utils/model-cache')
-    jest.dontMock('../utils/aux-photo-api')
-    jest.dontMock('../utils/aux-photo-mapper')
+    jest.dontMock('../packageD/utils/storage')
+    jest.dontMock('../packageD/utils/constants')
+    jest.dontMock('../packageD/utils/permission')
+    jest.dontMock('../packageD/utils/env-config')
+    jest.dontMock('../packageD/utils/model-cache')
+    jest.dontMock('../packageD/utils/bootstrap')
+    jest.dontMock('../packageD/utils/aux-photo-api')
+    jest.dontMock('../packageD/utils/aux-photo-mapper')
   })
 
   test('does not initialize capture flow when camera permission is denied', async () => {
@@ -156,7 +163,7 @@ describe('index start permission flow', () => {
       vehicles: [expect.objectContaining({ type: 'target' })]
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/camera/camera'
+      url: '/packageD/pages/camera/camera'
     }))
   })
 
@@ -195,11 +202,7 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
-    global.getApp = jest.fn(() => ({
-      globalData: {
-        ticket: 'mock-2'
-      }
-    }))
+    bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
@@ -208,7 +211,7 @@ describe('index start permission flow', () => {
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(existingCache.vehicles[0].licensePlate.status).toBe('completed')
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/camera/camera'
+      url: '/packageD/pages/camera/camera'
     }))
   })
 
@@ -231,18 +234,14 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
-    global.getApp = jest.fn(() => ({
-      globalData: {
-        ticket: 'mock-2'
-      }
-    }))
+    bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
     expect(auxPhotoApi.init).not.toHaveBeenCalled()
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/preview/preview'
+      url: '/packageD/pages/preview/preview'
     }))
   })
 
@@ -268,18 +267,14 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
-    global.getApp = jest.fn(() => ({
-      globalData: {
-        ticket: 'mock-2'
-      }
-    }))
+    bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
     expect(auxPhotoApi.init).not.toHaveBeenCalled()
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     }))
   })
 
@@ -298,11 +293,7 @@ describe('index start permission flow', () => {
         ]
       }
     })
-    global.getApp = jest.fn(() => ({
-      globalData: {
-        ticket: 'mock-2'
-      }
-    }))
+    bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
@@ -322,7 +313,7 @@ describe('index start permission flow', () => {
       ]
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/camera/camera'
+      url: '/packageD/pages/camera/camera'
     }))
   })
 
@@ -353,11 +344,7 @@ describe('index start permission flow', () => {
         vehicles: []
       }
     })
-    global.getApp = jest.fn(() => ({
-      globalData: {
-        ticket: 'mock-2'
-      }
-    }))
+    bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
@@ -369,7 +356,7 @@ describe('index start permission flow', () => {
       })
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/camera/camera'
+      url: '/packageD/pages/camera/camera'
     }))
   })
 

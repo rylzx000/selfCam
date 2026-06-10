@@ -1,14 +1,21 @@
 {
   "pages": [
-    "pages/index/index",
-    "pages/camera/camera",
-    "pages/preview/preview",
-    "pages/document/document",
-    "pages/complete/complete"
+    "pages/host/index"
+  ],
+  "subpackages": [
+    {
+      "root": "packageD",
+      "pages": [
+        "pages/index/index",
+        "pages/camera/camera",
+        "pages/preview/preview",
+        "pages/document/document",
+        "pages/complete/complete"
+      ]
+    }
   ],
   "window": {
-    "pageOrientation": "landscape",
-    "navigationStyle": "custom",
+    "navigationBarTitleText": "selfCam host",
     "backgroundColor": "#FFFFFF"
   },
   "sitemapLocation": "sitemap.json",

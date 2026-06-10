@@ -64,16 +64,16 @@ describe('camera photo quality integration', () => {
       return config
     })
 
-    jest.doMock('../utils/storage', () => storage)
-    jest.doMock('../utils/cache-selectors', () => ({
+    jest.doMock('../packageD/utils/storage', () => storage)
+    jest.doMock('../packageD/utils/cache-selectors', () => ({
       getCurrentFlowContext: jest.fn(() => ({
         currentStep: constants.SHOOT_STEP.LICENSE_PLATE
       }))
     }))
-    jest.doMock('../utils/constants', () => constants)
-    jest.doMock('../utils/compress', () => compress)
-    jest.doMock('../utils/photo-quality', () => photoQuality)
-    jest.doMock('../utils/runtime-logger', () => ({
+    jest.doMock('../packageD/utils/constants', () => constants)
+    jest.doMock('../packageD/utils/compress', () => compress)
+    jest.doMock('../packageD/utils/photo-quality', () => photoQuality)
+    jest.doMock('../packageD/utils/runtime-logger', () => ({
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -81,25 +81,25 @@ describe('camera photo quality integration', () => {
       endSession: jest.fn(),
       getSessionId: jest.fn(() => 'test-session')
     }))
-    jest.doMock('../utils/plate-detector', () => jest.fn())
-    jest.doMock('../utils/damage-detector', () => jest.fn())
-    jest.doMock('../utils/frame-utils', () => ({
+    jest.doMock('../packageD/utils/plate-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/damage-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/frame-utils', () => ({
       PlateFrameUtils: {}
     }))
-    jest.doMock('../utils/damage-auto-capture-engine', () => jest.fn())
-    jest.doMock('../utils/ai-config', () => ({
+    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
+    jest.doMock('../packageD/utils/ai-config', () => ({
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3
       }
     }))
-    jest.doMock('../utils/workflow-state', () => ({
+    jest.doMock('../packageD/utils/workflow-state', () => ({
       STATES: {
         IDLE: 'IDLE'
       }
     }))
-    jest.doMock('../utils/workflow-page', () => ({}))
+    jest.doMock('../packageD/utils/workflow-page', () => ({}))
 
-    require('../pages/camera/camera')
+    require('../packageD/pages/camera/camera')
 
     return pageConfig
   }
@@ -124,19 +124,19 @@ describe('camera photo quality integration', () => {
     delete global.wx
     delete global.Page
     jest.clearAllMocks()
-    jest.dontMock('../utils/storage')
-    jest.dontMock('../utils/cache-selectors')
-    jest.dontMock('../utils/constants')
-    jest.dontMock('../utils/compress')
-    jest.dontMock('../utils/photo-quality')
-    jest.dontMock('../utils/runtime-logger')
-    jest.dontMock('../utils/plate-detector')
-    jest.dontMock('../utils/damage-detector')
-    jest.dontMock('../utils/frame-utils')
-    jest.dontMock('../utils/damage-auto-capture-engine')
-    jest.dontMock('../utils/ai-config')
-    jest.dontMock('../utils/workflow-state')
-    jest.dontMock('../utils/workflow-page')
+    jest.dontMock('../packageD/utils/storage')
+    jest.dontMock('../packageD/utils/cache-selectors')
+    jest.dontMock('../packageD/utils/constants')
+    jest.dontMock('../packageD/utils/compress')
+    jest.dontMock('../packageD/utils/photo-quality')
+    jest.dontMock('../packageD/utils/runtime-logger')
+    jest.dontMock('../packageD/utils/plate-detector')
+    jest.dontMock('../packageD/utils/damage-detector')
+    jest.dontMock('../packageD/utils/frame-utils')
+    jest.dontMock('../packageD/utils/damage-auto-capture-engine')
+    jest.dontMock('../packageD/utils/ai-config')
+    jest.dontMock('../packageD/utils/workflow-state')
+    jest.dontMock('../packageD/utils/workflow-page')
   })
 
   test('still analyzes retake photos and passes quality metadata forward', async () => {

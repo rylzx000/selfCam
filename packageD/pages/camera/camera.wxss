@@ -1,3 +1,4 @@
+@import "../../styles/common.wxss";
 /* 鎷嶇収椤垫牱寮?*/
 
 page {

@@ -63,7 +63,7 @@ async function main() {
   console.log('✅ 连接成功！\n')
   
   // 获取页面
-  let page = await miniProgram.reLaunch('/pages/index/index')
+  let page = await miniProgram.reLaunch('/packageD/pages/index/index')
   
   console.log('页面路径:', page.path)
   console.log('等待页面加载...')

@@ -175,7 +175,7 @@ qualityConfig.getQualityConfig()
 
 本轮已经完成拍后确认流程的最小接入，接入点位于：
 
-- `pages/camera/camera.js` 的拍照处理链路
+- `packageD/pages/camera/camera.js` 的拍照处理链路
 - 时机是“拍照成功并压缩完成后、进入确认弹层前”
 
 当前接入规则如下：

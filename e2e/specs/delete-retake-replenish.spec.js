@@ -8,7 +8,7 @@ const {
   appendDamageForE2E
 } = require('../support/automator')
 const { createPhoto } = require('../support/fixtures')
-const cacheSelectors = require('../../utils/cache-selectors')
+const cacheSelectors = require('../../packageD/utils/cache-selectors')
 const {
   createFullDamageScenario,
   collectAllPhotoPaths,
@@ -36,7 +36,7 @@ function buildPhoto(pathKey) {
 async function openPreviewPage(miniProgram, scenario) {
   await seedCache(miniProgram, scenario)
   await installWxMediaMocks(miniProgram, 'success')
-  const page = await miniProgram.reLaunch('/pages/preview/preview')
+  const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
   await wait(800)
   return page
 }

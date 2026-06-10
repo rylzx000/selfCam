@@ -1,10 +1,10 @@
-jest.mock('../utils/quality-config', () => ({
+jest.mock('../packageD/utils/quality-config', () => ({
   getQualityConfig: jest.fn()
 }))
 
-const qualityConfig = require('../utils/quality-config')
-const { cloneQualityConfigDefaults } = require('../utils/quality-config-default')
-const photoQuality = require('../utils/photo-quality')
+const qualityConfig = require('../packageD/utils/quality-config')
+const { cloneQualityConfigDefaults } = require('../packageD/utils/quality-config-default')
+const photoQuality = require('../packageD/utils/photo-quality')
 
 function createConfig(overrides = {}) {
   const defaults = cloneQualityConfigDefaults()

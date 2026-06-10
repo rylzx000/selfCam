@@ -60,11 +60,11 @@ describe('complete page', () => {
       return config
     })
 
-    jest.doMock('../utils/storage', () => storage)
-    jest.doMock('../utils/cache-selectors', () => cacheSelectors)
-    jest.doMock('../utils/workflow-state', () => workflow)
+    jest.doMock('../packageD/utils/storage', () => storage)
+    jest.doMock('../packageD/utils/cache-selectors', () => cacheSelectors)
+    jest.doMock('../packageD/utils/workflow-state', () => workflow)
 
-    require('../pages/complete/complete')
+    require('../packageD/pages/complete/complete')
 
     return pageConfig
   }
@@ -73,9 +73,9 @@ describe('complete page', () => {
     delete global.wx
     delete global.Page
     jest.clearAllMocks()
-    jest.dontMock('../utils/storage')
-    jest.dontMock('../utils/cache-selectors')
-    jest.dontMock('../utils/workflow-state')
+    jest.dontMock('../packageD/utils/storage')
+    jest.dontMock('../packageD/utils/cache-selectors')
+    jest.dontMock('../packageD/utils/workflow-state')
   })
 
   test('reads vehicle damage and document counts from cache summary', () => {

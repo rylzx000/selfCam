@@ -63,53 +63,53 @@
             <cover-view class="plate-distance-frame" hidden="{{plateBlinkFrame !== 'a'}}">
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-1"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-2"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-3"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-4"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-5"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-6"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
             </cover-view>
             <cover-view class="plate-distance-frame" hidden="{{plateBlinkFrame !== 'b'}}">
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-1"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-2"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-3"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-4"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-5"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="plate-distance-arrow plate-distance-arrow-6"
-                src="{{plateDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{plateDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
             </cover-view>
           </cover-view>
@@ -135,53 +135,53 @@
             <cover-view class="damage-distance-frame" hidden="{{plateBlinkFrame !== 'a'}}">
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-1"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-2"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-3"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-4"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-5"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-6"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
             </cover-view>
             <cover-view class="damage-distance-frame" hidden="{{plateBlinkFrame !== 'b'}}">
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-1"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-2"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-3"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-4"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-5"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-white.png' : '/assets/arrow-down-white.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-white.png' : '/packageD/assets/arrow-down-white.png'}}"
               ></cover-image>
               <cover-image
                 class="damage-distance-arrow damage-distance-arrow-6"
-                src="{{damageDistanceHint === 'forward' ? '/assets/arrow-up-blue.png' : '/assets/arrow-down-blue.png'}}"
+                src="{{damageDistanceHint === 'forward' ? '/packageD/assets/arrow-up-blue.png' : '/packageD/assets/arrow-down-blue.png'}}"
               ></cover-image>
             </cover-view>
           </cover-view>

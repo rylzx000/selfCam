@@ -1,6 +1,7 @@
 const storage = require('../../utils/storage')
 const constants = require('../../utils/constants')
 const permission = require('../../utils/permission')
+const bootstrap = require('../../utils/bootstrap')
 const envConfig = require('../../utils/env-config')
 const modelCache = require('../../utils/model-cache')
 const auxPhotoApi = require('../../utils/aux-photo-api')
@@ -9,10 +10,10 @@ const workflow = require('../../utils/workflow-state')
 
 const APP_ENV_SWITCH_TAP_COUNT = 7
 const APP_ENV_SWITCH_RESET_MS = 1200
-const INDEX_PAGE_URL = '/pages/index/index'
-const CAMERA_PAGE_URL = '/pages/camera/camera'
-const PREVIEW_PAGE_URL = '/pages/preview/preview'
-const COMPLETE_PAGE_URL = '/pages/complete/complete'
+const INDEX_PAGE_URL = '/packageD/pages/index/index'
+const CAMERA_PAGE_URL = '/packageD/pages/camera/camera'
+const PREVIEW_PAGE_URL = '/packageD/pages/preview/preview'
+const COMPLETE_PAGE_URL = '/packageD/pages/complete/complete'
 const RESUMABLE_UPLOAD_PHASES = {
   uploading: true,
   failed: true,
@@ -29,13 +30,30 @@ Page({
   appEnvTapCount: 0,
   appEnvTapTimer: null,
 
-  onLoad() {
+  onLoad(options = {}) {
     console.log('[index] onLoad')
+    bootstrap.bootstrap({ query: options })
     this.updateAppEnvBadge()
   },
 
   onShow() {
+    this.syncLaunchContext()
     this.updateAppEnvBadge()
+  },
+
+  syncLaunchContext() {
+    if (typeof wx === 'undefined' || typeof wx.getEnterOptionsSync !== 'function') {
+      return
+    }
+
+    try {
+      const enterOptions = wx.getEnterOptionsSync()
+      if (enterOptions && enterOptions.query) {
+        bootstrap.bootstrap(enterOptions)
+      }
+    } catch (error) {
+      // Some isolated package and test environments do not expose enter options.
+    }
   },
 
   onUnload() {
@@ -206,13 +224,7 @@ Page({
   },
 
   getLaunchTicket() {
-    if (typeof getApp !== 'function') {
-      return ''
-    }
-
-    const app = getApp()
-    const ticket = app && app.globalData && app.globalData.ticket
-    return typeof ticket === 'string' ? ticket.trim() : ''
+    return bootstrap.getTicket()
   },
 
   shouldBlockMissingTicket(ticket) {

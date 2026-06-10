@@ -18,7 +18,7 @@ const {
   assertNoDuplicatePhotoPaths
 } = require('../support/scenario-builder')
 const { SHOOT_STEP, createPhoto } = require('../support/fixtures')
-const cacheSelectors = require('../../utils/cache-selectors')
+const cacheSelectors = require('../../packageD/utils/cache-selectors')
 
 function hasCapacityToast(state) {
   return (state.toastTitles || []).some((title) => title.includes('50') && title.includes('删除'))
@@ -39,7 +39,7 @@ describe('P0 容量边界 e2e', () => {
     const scenario = createFullDamageScenario({ vehicleCount: 1, damageCountPerVehicle: 5 })
     await seedCache(miniProgram, scenario)
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     const cache = await readCache(miniProgram)
@@ -62,7 +62,7 @@ describe('P0 容量边界 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success', { uniqueCompressedPath: true })
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -84,7 +84,7 @@ describe('P0 容量边界 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success', { uniqueCompressedPath: true })
 
-    const page = await miniProgram.reLaunch('/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
     await wait(800)
 
     await page.callMethod('onDeleteDocument', {
@@ -132,7 +132,7 @@ describe('P0 容量边界 e2e', () => {
     const runtimeErrors = createCameraRuntimeErrorCollector(miniProgram)
 
     try {
-      const page = await miniProgram.reLaunch('/pages/camera/camera')
+      const page = await miniProgram.reLaunch('/packageD/pages/camera/camera')
     await wait(800)
     await page.setData({
       currentStep: SHOOT_STEP.DAMAGE,

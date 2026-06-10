@@ -77,7 +77,7 @@ async function main() {
   
   // 获取页面
   console.log('\n获取页面...')
-  const page = await miniProgram.reLaunch('/pages/index/index')
+  const page = await miniProgram.reLaunch('/packageD/pages/index/index')
   await new Promise(r => setTimeout(r, 2000))
   
   console.log('\npage 可用方法:')

@@ -510,7 +510,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -672,7 +672,7 @@ Page({
     this.isLeaving = true
     this.clearUploadMockTimer()
     this.setData({ showUploadOverlay: false })
-    wx.redirectTo({ url: '/pages/complete/complete' })
+    wx.redirectTo({ url: '/packageD/pages/complete/complete' })
   },
 
   restoreUploadOverlay(cache = storage.loadCache()) {
@@ -919,7 +919,7 @@ Page({
 
       if (!cacheBeforeChoose) {
         this.isLeaving = true
-        wx.redirectTo({ url: '/pages/index/index' })
+        wx.redirectTo({ url: '/packageD/pages/index/index' })
         resolve(null)
         return
       }
@@ -1047,7 +1047,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1058,7 +1058,7 @@ Page({
     cache.fromPreview = true
     storage.saveCache(cache)
     this.isLeaving = true
-    wx.navigateTo({ url: '/pages/camera/camera' })
+    wx.navigateTo({ url: '/packageD/pages/camera/camera' })
   },
 
   onAddDamage(e) {
@@ -1067,7 +1067,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1087,7 +1087,7 @@ Page({
     cache.fromPreview = true
     storage.saveCache(cache)
     this.isLeaving = true
-    wx.navigateTo({ url: '/pages/camera/camera' })
+    wx.navigateTo({ url: '/packageD/pages/camera/camera' })
   },
 
   onRetake() {
@@ -1106,7 +1106,7 @@ Page({
     const cache = storage.loadCache()
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1125,7 +1125,7 @@ Page({
     cache.fromPreview = true
     storage.saveCache(cache)
     this.isLeaving = true
-    wx.navigateTo({ url: '/pages/camera/camera' })
+    wx.navigateTo({ url: '/packageD/pages/camera/camera' })
   },
 
   onDelete() {
@@ -1171,7 +1171,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1181,7 +1181,7 @@ Page({
   startSubmitFlow(cache = storage.loadCache()) {
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1203,7 +1203,7 @@ Page({
   checkDrivingLicenseBeforeSubmit(cache = storage.loadCache()) {
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1224,7 +1224,7 @@ Page({
   checkAlbumSaveBeforeSubmit(cache = storage.loadCache()) {
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1414,7 +1414,7 @@ Page({
   startUploadFlow(cache = storage.loadCache()) {
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1603,7 +1603,7 @@ Page({
       })
       this.isLeaving = true
       this.setData({ showUploadOverlay: false })
-      wx.redirectTo({ url: '/pages/complete/complete' })
+      wx.redirectTo({ url: '/packageD/pages/complete/complete' })
       return completedSession
     } catch (error) {
       const latestCache = storage.loadCache()
@@ -1623,7 +1623,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1646,12 +1646,12 @@ Page({
 
       this.isLeaving = true
       wx.navigateTo({
-        url: '/pages/camera/camera',
+        url: '/packageD/pages/camera/camera',
         fail: () => {
           wx.redirectTo({
-            url: '/pages/camera/camera',
+            url: '/packageD/pages/camera/camera',
             fail: () => {
-              wx.reLaunch({ url: '/pages/camera/camera' })
+              wx.reLaunch({ url: '/packageD/pages/camera/camera' })
             }
           })
         }
@@ -1704,7 +1704,7 @@ Page({
     const cacheBeforeChoose = storage.loadCache()
     if (!cacheBeforeChoose) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1727,7 +1727,7 @@ Page({
           if (!cache) {
             wx.hideLoading()
             this.isLeaving = true
-            wx.redirectTo({ url: '/pages/index/index' })
+            wx.redirectTo({ url: '/packageD/pages/index/index' })
             return
           }
 
@@ -1756,7 +1756,7 @@ Page({
 
     if (!cache) {
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 

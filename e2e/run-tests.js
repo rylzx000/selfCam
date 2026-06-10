@@ -120,7 +120,7 @@ async function runTests() {
     console.log('📱 模块一: 首页测试')
     console.log('='.repeat(60))
     
-    let page = await miniProgram.reLaunch('/pages/index/index')
+    let page = await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(2000)
     
     try {
@@ -245,7 +245,7 @@ async function runTests() {
     
     try {
       console.log('\nTC-017: 跳转到预览页')
-      page = await miniProgram.redirectTo('/pages/preview/preview')
+      page = await miniProgram.redirectTo('/packageD/pages/preview/preview')
       await sleep(1500)
       if (page.path.includes('preview')) { recordResult('TC-017: 跳转到预览页成功', true) }
       else { throw new Error(`当前页面: ${page.path}`) }
@@ -265,7 +265,7 @@ async function runTests() {
     
     try {
       console.log('\nTC-019: 跳转到完成页')
-      page = await miniProgram.redirectTo('/pages/complete/complete')
+      page = await miniProgram.redirectTo('/packageD/pages/complete/complete')
       await sleep(1000)
       if (page.path.includes('complete')) { recordResult('TC-019: 跳转到完成页成功', true) }
       else { throw new Error(`当前页面: ${page.path}`) }

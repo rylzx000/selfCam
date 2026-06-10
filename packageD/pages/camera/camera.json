@@ -2,6 +2,6 @@
   "pageOrientation": "landscape",
   "navigationStyle": "custom",
   "usingComponents": {
-    "confirm-modal": "/components/confirm-modal/confirm-modal"
+    "confirm-modal": "/packageD/components/confirm-modal/confirm-modal"
   }
 }

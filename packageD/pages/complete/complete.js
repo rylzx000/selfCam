@@ -48,7 +48,7 @@ Page({
     }
 
     if (summary.flowContext.workflowState !== workflow.STATES.LOCAL_COMPLETED) {
-      wx.redirectTo({ url: '/pages/preview/preview' })
+      wx.redirectTo({ url: '/packageD/pages/preview/preview' })
       return
     }
 
@@ -69,7 +69,7 @@ Page({
         console.log('退出成功')
       },
       fail: () => {
-        wx.reLaunch({ url: '/pages/index/index' })
+        wx.reLaunch({ url: '/packageD/pages/index/index' })
       }
     })
   }

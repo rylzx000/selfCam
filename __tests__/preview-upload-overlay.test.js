@@ -117,7 +117,7 @@ describe('preview upload overlay flow', () => {
   function createPreviewPage() {
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
     return createPageInstance(pageConfig)
   }
@@ -132,15 +132,15 @@ describe('preview upload overlay flow', () => {
     jest.resetModules()
     memoryStorage = {}
 
-    jest.doMock('../utils/album', () => ({
+    jest.doMock('../packageD/utils/album', () => ({
       savePhotosToAlbumBatch: jest.fn()
     }))
 
-    jest.doMock('../utils/permission', () => ({
+    jest.doMock('../packageD/utils/permission', () => ({
       ensureAlbumSavePermission: jest.fn()
     }))
 
-    jest.doMock('../utils/aux-photo-api', () => ({
+    jest.doMock('../packageD/utils/aux-photo-api', () => ({
       uploadPhoto: jest.fn(async (item) => ({
         success: true,
         code: '0000',
@@ -198,19 +198,19 @@ describe('preview upload overlay flow', () => {
       pageConfig = config
     })
 
-    storage = require('../utils/storage')
-    constants = require('../utils/constants')
-    documents = require('../utils/documents')
-    uploadState = require('../utils/upload-state')
-    auxPhotoApi = require('../utils/aux-photo-api')
+    storage = require('../packageD/utils/storage')
+    constants = require('../packageD/utils/constants')
+    documents = require('../packageD/utils/documents')
+    uploadState = require('../packageD/utils/upload-state')
+    auxPhotoApi = require('../packageD/utils/aux-photo-api')
   })
 
   afterEach(() => {
     delete global.wx
     delete global.Page
-    jest.dontMock('../utils/album')
-    jest.dontMock('../utils/permission')
-    jest.dontMock('../utils/aux-photo-api')
+    jest.dontMock('../packageD/utils/album')
+    jest.dontMock('../packageD/utils/permission')
+    jest.dontMock('../packageD/utils/aux-photo-api')
   })
 
   test('uploads photos one by one and calls complete only after upload ready', async () => {
@@ -230,7 +230,7 @@ describe('preview upload overlay flow', () => {
     }))
     expect(page.data.uploadOverlayPrimaryText).toBe('完成采集')
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
 
     page.onUploadOverlayPrimaryTap()
@@ -241,7 +241,7 @@ describe('preview upload overlay flow', () => {
     expect(cache.uploadSession.phase).toBe('completed')
     expect(cache.workflowState.current).toBe('LOCAL_COMPLETED')
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
   })
 
@@ -258,7 +258,7 @@ describe('preview upload overlay flow', () => {
     expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
     expect(auxPhotoApi.complete).not.toHaveBeenCalled()
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
   })
 
@@ -274,7 +274,7 @@ describe('preview upload overlay flow', () => {
 
     expect(global.wx.redirectTo).toHaveBeenCalledTimes(1)
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
     expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
     expect(auxPhotoApi.complete).not.toHaveBeenCalled()
@@ -296,7 +296,7 @@ describe('preview upload overlay flow', () => {
     expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
     expect(auxPhotoApi.complete).not.toHaveBeenCalled()
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
   })
 
@@ -424,7 +424,7 @@ describe('preview upload overlay flow', () => {
     expect(auxPhotoApi.complete).toHaveBeenCalledTimes(2)
     expect(cache.uploadSession.phase).toBe('completed')
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/complete/complete'
+      url: '/packageD/pages/complete/complete'
     })
   })
 })

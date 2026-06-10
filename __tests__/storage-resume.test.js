@@ -40,9 +40,9 @@ describe('storage safe resume and fault injection', () => {
       }
     }
 
-    storage = require('../utils/storage')
-    schema = require('../utils/storage-schema')
-    constants = require('../utils/constants')
+    storage = require('../packageD/utils/storage')
+    schema = require('../packageD/utils/storage-schema')
+    constants = require('../packageD/utils/constants')
   })
 
   afterEach(() => {

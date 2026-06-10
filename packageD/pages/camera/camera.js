@@ -1,4 +1,4 @@
-﻿const storage = require('../../utils/storage')
+const storage = require('../../utils/storage')
 const cacheSelectors = require('../../utils/cache-selectors')
 const constants = require('../../utils/constants')
 const compress = require('../../utils/compress')
@@ -504,7 +504,7 @@ Page({
     this.updateAppEnvBadge()
     runtimeLogger.forceWarn('diagnostic', 'realtime_probe', {
       probe: 'selfCam_realtime_probe',
-      page: 'pages/camera/camera',
+      page: 'packageD/pages/camera/camera',
       at: Date.now()
     })
     runtimeLogger.info('camera', 'page_show', {
@@ -1832,14 +1832,14 @@ Page({
       // 婵犵數濮烽弫鍛婃叏閻戣棄鏋侀柟闂寸绾剧粯绻涢幋鐐垫噧缂佸墎鍋ら弻娑㈠Ψ椤旂厧顫╃紓浣插亾闁割偆鍠撶弧鈧梻鍌氱墛缁嬫帡鏁嶉弮鍫熺厾闁哄娉曟禒銏ゆ婢舵劖鐓ユ繝闈涙婢ф稒銇勮箛鏇炐ラ柣銉邯瀹曪綁濡疯閻撴捇姊洪崫鍕伇闁哥姵鐗犻悰顕€宕卞鍏夹梻浣瑰缁嬫垹绮旇ぐ鎺戣摕闁绘柨鍚嬮崑鈺呮倶閻愮紟鎺楀几閸涘瓨鈷戦柛婵嗗椤箓鏌涢弬璺ㄧ劯闁糕斂鍎插鍕箾閵忋垹鏋涢柟铏墵閸┾剝鎷呴幇鐔哄仧缁辨捇宕掑顑藉亾閻戣姤鍤勯柛鎾茬閸ㄦ繃銇勯弽顐粶闁搞劌鍊块弻娑⑩€﹂幋婵囩亾闂佸搫妫寸粻鎾诲蓟濞戙埄鏁冮柨婵嗘椤︺劑姊虹粙鍖″姛闁稿繑锕㈠濠氬Χ閸パ勭€抽梺鍛婎殘閸嬫盯锝為锔解拺闁圭娴烽埊鏇犵磼鐎ｎ偄绗ч柟骞垮灩閳规垿宕辫箛鏃備簴闂備礁澹婇悡鍫ュ窗濡ゅ懏鍊堕柛顐ｇ箥濞撳鏌曢崼婵囶棞闁诲繈鍎查妵鍕晝閳ь剟鎮樺顓犫攳?
       runtimeLogger.warn('camera', 'cache_missing_redirect_index')
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
     if (!flowContext.hasVehicles) {
       runtimeLogger.warn('camera', 'vehicles_missing_redirect_index')
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1848,7 +1848,7 @@ Page({
         workflowState: flowContext.workflowState
       })
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/preview/preview' })
+      wx.redirectTo({ url: '/packageD/pages/preview/preview' })
       return
     }
 
@@ -1856,7 +1856,7 @@ Page({
     if (flowContext.currentVehicleIndex === undefined || flowContext.currentVehicleIndex === null) {
       runtimeLogger.warn('camera', 'vehicle_index_invalid_redirect_index')
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -1867,7 +1867,7 @@ Page({
         currentVehicleIndex: flowContext.currentVehicleIndex
       })
       this.isLeaving = true
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
     
@@ -2049,7 +2049,7 @@ Page({
       }
       wx.navigateBack({
         fail: () => {
-          wx.redirectTo({ url: '/pages/preview/preview' })
+          wx.redirectTo({ url: '/packageD/pages/preview/preview' })
         }
       })
       return
@@ -2113,15 +2113,15 @@ Page({
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     wx.navigateTo({
-      url: '/pages/preview/preview',
+      url: '/packageD/pages/preview/preview',
       fail: (err) => {
         runtimeLogger.warn('camera', 'navigate_preview_failed', {
           message: err?.errMsg || ''
         })
         wx.redirectTo({
-          url: '/pages/preview/preview',
+          url: '/packageD/pages/preview/preview',
           fail: () => {
-            wx.reLaunch({ url: '/pages/preview/preview' })
+            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
           }
         })
       }
@@ -2139,16 +2139,16 @@ Page({
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
-    const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
+    const hasPreviewInStack = pages.some((page) => page.route === 'packageD/pages/preview/preview')
 
     if (hasPreviewInStack) {
       wx.navigateBack({
         fail: () => {
           runtimeLogger.warn('camera', 'navigate_back_preview_failed')
           wx.redirectTo({
-            url: '/pages/preview/preview',
+            url: '/packageD/pages/preview/preview',
             fail: () => {
-              wx.reLaunch({ url: '/pages/preview/preview' })
+              wx.reLaunch({ url: '/packageD/pages/preview/preview' })
             }
           })
         }
@@ -2157,9 +2157,9 @@ Page({
     }
 
     wx.redirectTo({
-      url: '/pages/preview/preview',
+      url: '/packageD/pages/preview/preview',
       fail: () => {
-        wx.reLaunch({ url: '/pages/preview/preview' })
+        wx.reLaunch({ url: '/packageD/pages/preview/preview' })
       }
     })
   },
@@ -2268,7 +2268,7 @@ Page({
     const cache = storage.loadCache()
     if (!cache) {
       this.closeDamageCompleteModal({ isNavigating: false })
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -2290,7 +2290,7 @@ Page({
     const cache = storage.loadCache()
     if (!cache) {
       this.closeDamageCompleteModal({ isNavigating: false })
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
 
@@ -2487,7 +2487,7 @@ Page({
       runtimeLogger.warn('camera', 'finish_damage_without_cache')
       this.setData({ isNavigating: false })
       this.isLeaving = false
-      wx.redirectTo({ url: '/pages/index/index' })
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
       return
     }
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -2587,7 +2587,7 @@ Page({
       success: () => {
         wx.navigateBack({
           fail: () => {
-            wx.redirectTo({ url: '/pages/index/index' })
+            wx.redirectTo({ url: '/packageD/pages/index/index' })
           }
         })
       }
@@ -2640,24 +2640,24 @@ Page({
     if (cache && flowContext.fromPreview) {
       storage.saveCache(storage.clearPreviewFlags(cache))
       const pages = getCurrentPages()
-      const hasPreviewInStack = pages.some((page) => page.route === 'pages/preview/preview')
+      const hasPreviewInStack = pages.some((page) => page.route === 'packageD/pages/preview/preview')
 
       if (hasPreviewInStack) {
         wx.navigateBack({
           fail: () => {
             wx.redirectTo({
-              url: '/pages/preview/preview',
+              url: '/packageD/pages/preview/preview',
               fail: () => {
-                wx.reLaunch({ url: '/pages/preview/preview' })
+                wx.reLaunch({ url: '/packageD/pages/preview/preview' })
               }
             })
           }
         })
       } else {
         wx.redirectTo({
-          url: '/pages/preview/preview',
+          url: '/packageD/pages/preview/preview',
           fail: () => {
-            wx.reLaunch({ url: '/pages/preview/preview' })
+            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
           }
         })
       }
@@ -2665,12 +2665,12 @@ Page({
     }
 
     wx.navigateTo({
-      url: '/pages/preview/preview',
+      url: '/packageD/pages/preview/preview',
       fail: () => {
         wx.redirectTo({
-          url: '/pages/preview/preview',
+          url: '/packageD/pages/preview/preview',
           fail: () => {
-            wx.reLaunch({ url: '/pages/preview/preview' })
+            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
           }
         })
       }

@@ -84,7 +84,7 @@
 1. 点击"开始采集"按钮
 
 **Expected Result**:
-- 跳转到拍照页 (`/pages/camera/camera`)
+- 跳转到拍照页 (`/packageD/pages/camera/camera`)
 - 当前步骤为"车牌拍摄"
 - 显示车牌引导框
 - 提示文字："将车牌号放入框内"
@@ -1432,7 +1432,7 @@
 3. 同意相册权限
 
 **Expected Result**:
-- 进入 `/pages/camera/camera`
+- 进入 `/packageD/pages/camera/camera`
 - 当前步骤为车牌拍摄
 - 不重复初始化缓存
 
@@ -1472,7 +1472,7 @@
 1. 点击 `开始采集`
 
 **Expected Result**:
-- 仍进入 `/pages/camera/camera`
+- 仍进入 `/packageD/pages/camera/camera`
 - 不因相册权限拒绝阻断拍摄
 
 ### TC-056: 连续快速点击开始采集不会重复跳转 [P]

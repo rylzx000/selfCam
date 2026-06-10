@@ -1,3 +1,4 @@
+@import "../../styles/common.wxss";
 /* 预览页样式 */
 
 page {

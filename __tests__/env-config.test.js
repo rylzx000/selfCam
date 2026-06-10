@@ -1,7 +1,7 @@
 describe('env-config', () => {
   function loadEnvConfig() {
     jest.resetModules()
-    return require('../utils/env-config')
+    return require('../packageD/utils/env-config')
   }
 
   function mockWxEnv(envVersion, extra = {}) {
@@ -189,7 +189,7 @@ describe('env-config', () => {
   test('release 环境下 ai-config 默认关闭调试日志与上传', () => {
     mockWxEnv('release')
     loadEnvConfig()
-    const aiConfig = require('../utils/ai-config')
+    const aiConfig = require('../packageD/utils/ai-config')
 
     expect(aiConfig.DEBUG_LOG.enabled).toBe(false)
     expect(aiConfig.DEBUG_LOG.uploadEnabled).toBe(false)

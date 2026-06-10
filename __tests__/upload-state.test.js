@@ -69,9 +69,9 @@ describe('upload state', () => {
 
   beforeEach(() => {
     jest.resetModules()
-    storage = require('../utils/storage')
-    documents = require('../utils/documents')
-    uploadState = require('../utils/upload-state')
+    storage = require('../packageD/utils/storage')
+    documents = require('../packageD/utils/documents')
+    uploadState = require('../packageD/utils/upload-state')
   })
 
   test('builds reusable upload items from vehicle photos and driving license documents', () => {

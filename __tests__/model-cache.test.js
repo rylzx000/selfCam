@@ -27,17 +27,17 @@ describe('AI model cache utilities', () => {
       getFileSystemManager: jest.fn(() => fsMock)
     }
 
-    jest.doMock('../utils/env-config', () => envConfig)
-    jest.doMock('../utils/runtime-logger', () => runtimeLogger)
+    jest.doMock('../packageD/utils/env-config', () => envConfig)
+    jest.doMock('../packageD/utils/runtime-logger', () => runtimeLogger)
 
-    return require('../utils/model-cache')
+    return require('../packageD/utils/model-cache')
   }
 
   afterEach(() => {
     delete global.wx
     jest.clearAllMocks()
-    jest.dontMock('../utils/env-config')
-    jest.dontMock('../utils/runtime-logger')
+    jest.dontMock('../packageD/utils/env-config')
+    jest.dontMock('../packageD/utils/runtime-logger')
   })
 
   test('getAiModelCachePaths reads current AI config paths', () => {

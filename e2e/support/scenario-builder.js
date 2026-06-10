@@ -1,5 +1,5 @@
-const constants = require('../../utils/constants')
-const vehicleDocuments = require('../../utils/documents')
+const constants = require('../../packageD/utils/constants')
+const vehicleDocuments = require('../../packageD/utils/documents')
 const { SHOOT_STEP, createPhoto, createCache } = require('./fixtures')
 
 function nowIso() {

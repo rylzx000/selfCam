@@ -2,46 +2,46 @@
 
 ## 当前版本
 
-**版本号**: v1.4.6
-**发布日期**: 2026-05-27
-**状态**: main 已包含：辅助拍照后端提交闭环，上传方式已切换为 JSON Base64
+**版本号**: v1.4.7
+**发布日期**: 2026-06-10
+**状态**: main 已包含：公司主体小程序 packageD 分包接入改造
 
 ---
 
 ## 版本概述
 
-当前版本在 `v1.4.5` 上传准备流程基础上接入真实 `uploadPhotoBase64` 逐张上传和 `complete` 完成接口。完成采集后仍复用预览页上传遮罩，先逐张上传照片，全部成功后再提交完成；`complete` 成功后进入完成页。2026-06-03 当前 main 已将辅助拍照上传统一为 JSON Base64 请求，避免 multipart 上传被 SIT 网关拦截。
+当前版本在 `v1.4.6` 辅助拍照后端提交闭环基础上，将业务代码调整为公司主体小程序可挂载的 `packageD` 分包形态。根主包仅保留本地调试壳，页面、工具、组件、资源、mock 与样式统一迁入 `packageD/`，并补齐分包路径、启动上下文和接入说明。
 
 ### 本版本重点
 
-- 完成采集按后端 `init` 返回的车辆列表检查行驶证风险和相册保存候选，不再提供手动增减三者车入口，提交前展示预览页上传遮罩。
-- 上传遮罩保持从简：上传中只展示进度，照片上传失败提供 `重试上传`，完成提交失败提供 `重试完成`。
-- 本地 `uploadSession` 队列按车辆照片和车辆级行驶证资料保存 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`，并记录后端上传结果。
-- 新增开发期本地 mock 后端脚本，验证上传失败和 complete 失败重试。
-- 备用 `document` 页提交入口改为回到预览页统一走上传遮罩，不再绕过上传准备流程。
+- 根 `app.json` 声明 `pages/host/index` 本地调试入口和 `packageD` 分包，业务入口为 `/packageD/pages/index/index`。
+- 分包内页面跳转、组件引用和 WXML 资源统一使用 `/packageD/...` 路径，避免接入公司主体小程序后访问旧主包路径。
+- 业务初始化从根 `app.onLaunch` 下沉到分包首页和 `packageD/utils/bootstrap.js`，只写 `getApp().globalData.selfCam`，避免污染公司主包全局字段。
+- 无 `ticket` 启动时不再从旧缓存回捞辅助拍照 ticket，降低公司主包普通采集误进辅助拍照链路的风险。
+- 补充分包接入说明、PRDS 和测试/e2e 路径，便于后续按 `packageD/` 目录重新打包交付。
 
-## v1.4.6 变更摘要
+## v1.4.7 变更摘要
 
-### 上传提交流程
+### 分包接入
 
-- `utils/aux-photo-api.js` 封装 `uploadPhotoBase64` 和 `complete`，图片通过 `wx.request` 以 JSON Base64 上传。
-- `utils/upload-state.js` 统一构建待上传队列，并推进 `uploading/failed/ready/completing/complete_failed/completed` 状态。
-- `pages/preview/preview.js` 在最终提交前创建 `uploadSession`，逐张上传照片，并在页面恢复时按缓存恢复上传遮罩。
-- `pages/preview/preview.wxml` 和 `pages/preview/preview.wxss` 增加轻量遮罩、进度条、失败重试和上传完成状态。
-- `utils/storage-schema.js` 升级到 schema v4，缓存结构增加上传成功记录和 complete 结果。
-- `utils/workflow-state.js` 增加 `COMPLETING/COMPLETE_FAILED`，避免完成提交态被恢复逻辑误降级。
-- `scripts/aux-photo-mock-server.js` 提供本地 mock 后端验证入口。
+- 将原主包业务页面、工具、组件、资源、mock 和样式迁入 `packageD/`，根主包只保留本地调试壳。
+- `app.json` 新增 `packageD` 分包声明，业务入口改为 `/packageD/pages/index/index`。
+- 分包内跳转、组件引用和资源路径改为 `/packageD/...`，修复接入公司主体小程序后的路径解析风险。
+- 新增 `packageD/utils/bootstrap.js`，承接分包启动上下文、runtime flags 和质量配置初始化。
+- `bootstrap` 只同步 `getApp().globalData.selfCam`，不再写 `globalData.ticket/reportNo/runtimeFlags/envVersion`。
+- 无 `ticket` 启动时清空本轮上下文，不再复用旧 `selfcam_aux_ticket` 缓存。
 
 ### 文档与版本
 
-- `PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 同步上传提交闭环和本地 mock 后端验证方式。
-- `CHANGELOG.md` 增加未发布中文变更记录。
-- `package.json` 增加 `mock:aux-photo` 开发验证脚本。
+- 新增 `docs/packageD-integration.md`，说明公司主体小程序接入方式、启动参数、主包兼容约定和打包注意事项。
+- 同步 `PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md`、测试文档和 e2e 脚本中的分包路径。
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.7`。
 
 ### 测试与验证
 
-- 已新增并运行接口、状态、预览页、缓存和 workflow 相关 Jest 测试。
-- 真机和真实后端联调仍需在后端环境可用后执行。
+- 新增 `__tests__/subpackage-paths.test.js`，覆盖分包声明、页面文件、资源路径和错误路径扫描。
+- 新增 `__tests__/bootstrap.test.js`，覆盖分包启动上下文、`globalData.selfCam` 同步和无 ticket 启动行为。
+- 已将现有 Jest 与 e2e 脚本引用路径迁移到 `packageD/...`。
 
 ---
 
@@ -49,6 +49,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.7 | 2026-06-10 | main 已包含：公司主体小程序 packageD 分包接入改造 | 业务代码迁入 `packageD/`，根主包保留本地调试壳，补齐分包路径、启动上下文和接入文档 |
 | v1.4.6 | 2026-05-27 | main 已包含：辅助拍照后端提交闭环 | 接入真实 `uploadPhotoBase64` 逐张上传、`complete` 完成提交、本地 mock 后端和失败重试恢复 |
 | v1.4.5 | 2026-05-25 | SIT 体验版辅助拍照上传准备 | 预览页上传遮罩、本地 `uploadSession` 队列和失败重试 mock |
 | v1.4.4 | 2026-05-25 | SIT 体验版辅助拍照预览单证规则适配 | 预览页行驶证槽位对齐后端 `uploadItems/photoType`，补齐电子行驶证独立类型和车辆锁定 |

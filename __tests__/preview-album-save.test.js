@@ -73,7 +73,7 @@ describe('preview final album save flow', () => {
   function loadPreviewPage() {
     pageConfig = null
     jest.isolateModules(() => {
-      require('../pages/preview/preview')
+      require('../packageD/pages/preview/preview')
     })
 
     const page = createPageInstance(pageConfig)
@@ -92,7 +92,7 @@ describe('preview final album save flow', () => {
         total: expectedTotal
       }))
       expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
-        url: '/pages/complete/complete'
+        url: '/packageD/pages/complete/complete'
       })
     } finally {
       page.onUnload()
@@ -103,7 +103,7 @@ describe('preview final album save flow', () => {
     jest.resetModules()
     memoryStorage = {}
 
-    jest.doMock('../utils/album', () => ({
+    jest.doMock('../packageD/utils/album', () => ({
       savePhotosToAlbumBatch: jest.fn(async (candidates) => ({
         total: candidates.length,
         saved: candidates.length,
@@ -117,8 +117,40 @@ describe('preview final album save flow', () => {
       }))
     }))
 
-    jest.doMock('../utils/permission', () => ({
+    jest.doMock('../packageD/utils/permission', () => ({
       ensureAlbumSavePermission: jest.fn(async () => true)
+    }))
+
+    jest.doMock('../packageD/utils/aux-photo-api', () => ({
+      uploadPhoto: jest.fn(async (item) => ({
+        success: true,
+        code: '0000',
+        message: 'ok',
+        data: {
+          uploadRecordId: `${item.id}-record`,
+          photoId: `${item.id}-photo`,
+          vehicleId: item.vehicleId,
+          uploadItemId: item.uploadItemId,
+          photoType: item.photoType,
+          duplicate: false,
+          itemUploadedCount: item.sortNo || 1,
+          ticketStatus: 'UPLOADING'
+        }
+      })),
+      complete: jest.fn(async ({ ticket, clientUploadCount }) => ({
+        success: true,
+        code: '0000',
+        message: 'ok',
+        data: {
+          ticket,
+          ticketStatus: 'COMPLETED',
+          uploadedCount: clientUploadCount,
+          requiredPassed: true,
+          missingItems: [],
+          completeTime: '2026-05-26 10:30:00',
+          phase2TriggerStatus: 'NOT_ENABLED'
+        }
+      }))
     }))
 
     global.wx = {
@@ -147,18 +179,19 @@ describe('preview final album save flow', () => {
       pageConfig = config
     })
 
-    storage = require('../utils/storage')
-    constants = require('../utils/constants')
-    documents = require('../utils/documents')
-    album = require('../utils/album')
-    permission = require('../utils/permission')
+    storage = require('../packageD/utils/storage')
+    constants = require('../packageD/utils/constants')
+    documents = require('../packageD/utils/documents')
+    album = require('../packageD/utils/album')
+    permission = require('../packageD/utils/permission')
   })
 
   afterEach(() => {
     delete global.wx
     delete global.Page
-    jest.dontMock('../utils/album')
-    jest.dontMock('../utils/permission')
+    jest.dontMock('../packageD/utils/album')
+    jest.dontMock('../packageD/utils/permission')
+    jest.dontMock('../packageD/utils/aux-photo-api')
   })
 
   test('shows final album save prompt after third vehicle and driving license confirmations', () => {
