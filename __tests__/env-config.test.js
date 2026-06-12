@@ -171,8 +171,9 @@ describe('env-config', () => {
       envVersion: 'release',
       appEnv: 'prod',
       allowLocalModelHost: false,
-      plateModelUrl: '',
-      damageModelUrl: ''
+      modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model',
+      plateModelUrl: 'https://videoclaim.chinalife-p.com.cn/video/model/plate.onnx',
+      damageModelUrl: 'https://videoclaim.chinalife-p.com.cn/video/model/damage.onnx'
     }))
 
     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({
@@ -282,7 +283,7 @@ describe('env-config', () => {
     expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
       wxEnvVersion: 'release',
       appEnv: 'prod',
-      modelHost: ''
+      modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model'
     }))
   })
 
@@ -391,7 +392,7 @@ describe('env-config', () => {
     }))
   })
 
-  test('aux photo config stays mock-only when backend url is missing', () => {
+  test('aux photo config enables SIT backend in trial', () => {
     mockWxEnv('trial')
     const envConfig = loadEnvConfig()
 
@@ -399,9 +400,24 @@ describe('env-config', () => {
       wxEnvVersion: 'trial',
       envVersion: 'trial',
       appEnv: 'sit',
-      requestEnabled: false,
-      baseUrl: '',
+      requestEnabled: true,
+      baseUrl: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/',
       mockEnabled: true,
+      requestTimeoutMs: 5000
+    }))
+  })
+
+  test('aux photo config enables PROD backend in release', () => {
+    mockWxEnv('release')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAuxPhotoConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'release',
+      envVersion: 'release',
+      appEnv: 'prod',
+      requestEnabled: true,
+      baseUrl: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/',
+      mockEnabled: false,
       requestTimeoutMs: 5000
     }))
   })

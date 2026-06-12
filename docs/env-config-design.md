@@ -258,11 +258,12 @@ damage-pilot-<urlHash>.onnx
 配置优先级：
 
 - `develop` 环境优先读取本地缓存 `SELF_CAM_AUX_PHOTO_HOST` 作为 `baseUrl`
-- `trial` 和 `release` 不读取本地 `SELF_CAM_AUX_PHOTO_HOST`
+- `trial` 和 `release` 不读取本地 `SELF_CAM_AUX_PHOTO_HOST`，直接使用 `BUSINESS_ENV_ENDPOINTS` 内置的体验版/正式版后端地址
+- 当前 `sit/prod` 已配置辅助拍照真实后端地址；`pilot` 已配置实盘联调地址
 - `baseUrl` 为空时，真实请求不可用；辅助拍照接口会直接报“接口未配置”
 - `mockEnabled` 只表示允许 `mock-*` ticket 走本地 mock 逻辑，不等于自动启用真实 mock 后端
 
-本地联调时，开发者工具可通过 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')` 配置 mock 服务地址；文档只保留本地示例，不写真实生产域名。
+本地联调时，开发者工具可通过 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')` 配置 mock 服务地址；体验版和正式版使用内置环境地址，不依赖本地缓存覆盖。
 
 ## 10. 后续接在线平台接口时如何扩展
 
