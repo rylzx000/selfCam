@@ -415,7 +415,10 @@
 
 ### 开始采集权限规则
 
-- 用户点击 `开始采集` 后，首页先执行开始采集权限检查，再初始化拍摄缓存并跳转到 `/packageD/pages/camera/camera`。
+- 有 `ticket` 时，用户点击 `开始采集` 后，首页先调用 `POST /onlineclaim/AuxPhotoService/init`，优先读取 `data.ticketStatus`、兼容 `data.status`，状态值 trim 并转大写后判断。
+- `ticketStatus` 为 `COMPLETED / EXPIRED / REVOKED` 时，只显示对应轻提示，停留首页，不申请相机权限、不恢复本地缓存、不进入拍照页、预览页或完成页。
+- `ticketStatus` 为 `CREATED / OPENED / UPLOADING` 或其他非拦截状态时，继续开始采集权限检查；同 `ticket` 有可恢复缓存则按原状态恢复，无可恢复缓存则用 `init` 返回数据初始化采集缓存并跳转到 `/packageD/pages/camera/camera`。
+- 无 `ticket` 的本地采集链路仍先执行开始采集权限检查，再初始化本地拍摄缓存并跳转到 `/packageD/pages/camera/camera`。
 - 相机权限是必需权限；用户拒绝或在设置页仍未开启时，不进入拍摄页。
 - 相册保存权限是可选权限；用户拒绝后仍允许进入拍摄页并继续车辆照片采集。
 - `开始采集` 入口需要防重复点击；权限检查或跳转尚未结束时，连续点击不能重复初始化缓存或重复跳转。
@@ -448,6 +451,7 @@
 - 用户选择 `暂不保存` 时不申请相册权限，直接进入预览页上传遮罩。
 - 用户选择 `保存至手机` 时再申请相册保存权限，并批量保存车牌、VIN、车损和拍照来源的行驶证/单证图片；相册来源图片不重复保存。
 - 上传遮罩展示上传中进度、上传完成确认、上传失败重试和完成提交失败重试；上传失败重试只继续未成功照片，完成失败重试只重试 `complete`。
+- 辅助拍照预览页如果本地 `cache.auxPhoto.ticketStatus` 已是 `COMPLETED / EXPIRED / REVOKED`，点击完成采集、重试上传或重试完成时只显示对应轻提示，不调用 `uploadPhotoBase64` 或 `complete`。
 - 上传完成后用户点击 `完成采集` 调用 `complete`，`complete` 成功后进入完成页。
 - 完成页不提供 `返回修改` 入口；用户需要修改时应在完成前从预览页处理。
 - 安卓或微信系统层可能在保存成功后显示系统提示，该提示不是业务 toast，当前小程序代码不做绕过处理。

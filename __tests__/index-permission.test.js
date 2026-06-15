@@ -11,6 +11,12 @@ describe('index start permission flow', () => {
   let consoleLogSpy
   let consoleWarnSpy
 
+  const blockedMessages = {
+    COMPLETED: '照片已完成采集，请勿重复操作。',
+    EXPIRED: '辅助拍照链接已过期，请联系查勘员重新发送链接。',
+    REVOKED: '辅助拍照链接已作废，请联系查勘员重新发送链接。'
+  }
+
   function loadIndexPage() {
     jest.resetModules()
     pageConfig = null
@@ -173,7 +179,87 @@ describe('index start permission flow', () => {
     expect(storage.clearCache).not.toHaveBeenCalled()
   })
 
-  test('resumes same ticket aux photo capture cache without init or overwrite', async () => {
+  test.each([
+    ['COMPLETED', ' completed '],
+    ['EXPIRED', 'expired'],
+    ['REVOKED', 'REVOKED']
+  ])('blocks aux photo start when init ticketStatus is %s', async (status, rawStatus) => {
+    bootstrap.getTicket.mockReturnValue('mock-2')
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus: rawStatus
+      }
+    })
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
+    expect(permission.ensureStartCapturePermissions).not.toHaveBeenCalled()
+    expect(storage.loadCacheForResume).not.toHaveBeenCalled()
+    expect(auxPhotoMapper.buildCacheFromInit).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: blockedMessages[status],
+      icon: 'none'
+    })
+  })
+
+  test('blocks aux photo start when init data.status is expired', async () => {
+    bootstrap.getTicket.mockReturnValue('mock-2')
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        status: ' expired '
+      }
+    })
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
+    expect(permission.ensureStartCapturePermissions).not.toHaveBeenCalled()
+    expect(auxPhotoMapper.buildCacheFromInit).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: blockedMessages.EXPIRED,
+      icon: 'none'
+    })
+  })
+
+  test.each(['CREATED', 'OPENED', 'UPLOADING'])('continues aux photo init flow when ticketStatus is %s', async (ticketStatus) => {
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus,
+        vehicles: []
+      }
+    })
+    bootstrap.getTicket.mockReturnValue('mock-2')
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
+    expect(permission.ensureStartCapturePermissions).toHaveBeenCalledTimes(1)
+    expect(auxPhotoMapper.buildCacheFromInit).toHaveBeenCalledWith(expect.objectContaining({
+      ticket: 'mock-2',
+      ticketStatus
+    }))
+    expect(storage.saveCache).toHaveBeenCalled()
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test('resumes same ticket aux photo capture cache after init without overwrite', async () => {
     const existingCache = {
       auxPhoto: {
         enabled: true,
@@ -202,11 +288,18 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus: 'OPENED'
+      }
+    })
     bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
-    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
     expect(auxPhotoMapper.buildCacheFromInit).not.toHaveBeenCalled()
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(existingCache.vehicles[0].licensePlate.status).toBe('completed')
@@ -234,11 +327,18 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus: 'UPLOADING'
+      }
+    })
     bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
-    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/preview/preview'
@@ -267,11 +367,18 @@ describe('index start permission flow', () => {
       cameraGranted: true,
       albumGranted: true
     })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus: 'OPENED'
+      }
+    })
     bootstrap.getTicket.mockReturnValue('mock-2')
 
     await pageConfig.onStart.call(pageConfig)
 
-    expect(auxPhotoApi.init).not.toHaveBeenCalled()
+    expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/complete/complete'

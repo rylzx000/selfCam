@@ -95,4 +95,13 @@ describe('aux-photo mapper', () => {
 
     expect(cache.vehicles[0].displayName).toBe('标的车 车牌待确认')
   })
+  test('maps legacy status field to normalized ticketStatus', () => {
+    const cache = mapper.buildCacheFromInit({
+      ticket: 'AUX202605220003',
+      status: ' expired ',
+      vehicles: []
+    })
+
+    expect(cache.auxPhoto.ticketStatus).toBe('EXPIRED')
+  })
 })

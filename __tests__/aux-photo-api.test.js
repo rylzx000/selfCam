@@ -87,7 +87,7 @@ describe('aux-photo api', () => {
       timeout: 5000,
       data: {
         ticket: 'AUX_REAL_001',
-        clientVersion: '1.4.6'
+        clientVersion: '1.4.8'
       }
     }))
   })

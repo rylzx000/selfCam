@@ -44,6 +44,18 @@ function buildUploadItemsByPhotoType(uploadItems) {
   }, {})
 }
 
+function normalizeTicketStatus(initData = {}) {
+  const rawStatus = typeof initData.ticketStatus === 'undefined'
+    ? initData.status
+    : initData.ticketStatus
+
+  if (typeof rawStatus === 'undefined' || rawStatus === null) {
+    return ''
+  }
+
+  return sanitizeString(String(rawStatus), '', 64).toUpperCase()
+}
+
 function mapVehicle(rawVehicle = {}, index = 0) {
   const vehicleId = sanitizeString(rawVehicle.vehicleId, `AUX_VEHICLE_${index}`, 128)
   const vehicleRole = sanitizeString(rawVehicle.vehicleRole, index === 0 ? 'INSURED' : 'THIRD_PARTY', 64)
@@ -87,7 +99,7 @@ function buildCacheFromInit(initData = {}) {
   cache.auxPhoto = {
     enabled: true,
     ticket: sanitizeString(initData.ticket, '', 256),
-    ticketStatus: sanitizeString(initData.ticketStatus, '', 64),
+    ticketStatus: normalizeTicketStatus(initData),
     registNo: sanitizeString(initData.registNo, '', 64),
     expireTime: sanitizeString(initData.expireTime, '', 64)
   }

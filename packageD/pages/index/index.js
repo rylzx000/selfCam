@@ -21,6 +21,38 @@ const RESUMABLE_UPLOAD_PHASES = {
   completing: true,
   complete_failed: true
 }
+const TICKET_BLOCKED_MESSAGES = {
+  COMPLETED: '照片已完成采集，请勿重复操作。',
+  EXPIRED: '辅助拍照链接已过期，请联系查勘员重新发送链接。',
+  REVOKED: '辅助拍照链接已作废，请联系查勘员重新发送链接。'
+}
+
+function getInitData(initResponse = {}) {
+  return initResponse && initResponse.data && typeof initResponse.data === 'object'
+    ? initResponse.data
+    : (initResponse || {})
+}
+
+function normalizeTicketStatus(initResponse = {}) {
+  const initData = getInitData(initResponse)
+  const rawStatus = typeof initData.ticketStatus === 'undefined'
+    ? initData.status
+    : initData.ticketStatus
+
+  if (typeof rawStatus === 'undefined' || rawStatus === null) {
+    return ''
+  }
+
+  return String(rawStatus).trim().toUpperCase()
+}
+
+function isTicketBlocked(status) {
+  return !!TICKET_BLOCKED_MESSAGES[status]
+}
+
+function getTicketBlockedMessage(status) {
+  return TICKET_BLOCKED_MESSAGES[status] || ''
+}
 
 Page({
   data: {
@@ -206,15 +238,22 @@ Page({
         return
       }
 
+      const initResponse = ticket ? await auxPhotoApi.init(ticket) : null
+      const ticketStatus = this.normalizeTicketStatus(initResponse)
+      if (this.isTicketBlocked(ticketStatus)) {
+        this.showTicketBlockedToast(ticketStatus)
+        return
+      }
+
       const permissionResult = await permission.ensureStartCapturePermissions()
       console.log('[index] permission result:', permissionResult)
 
-      if (!permissionResult.cameraGranted) {
+      if (!permissionResult || !permissionResult.cameraGranted) {
         console.warn('[index] start blocked: camera permission denied')
         return
       }
 
-      await this.startCaptureFlow(ticket)
+      await this.startCaptureFlow(ticket, initResponse)
     } catch (err) {
       console.warn('[index] start capture failed:', err)
       this.showStartFailedToast()
@@ -233,16 +272,28 @@ Page({
       && !ticket
   },
 
-  async startCaptureFlow(ticket = '') {
+  normalizeTicketStatus,
+
+  isTicketBlocked,
+
+  getTicketBlockedMessage,
+
+  async startCaptureFlow(ticket = '', initResponse = null) {
     if (ticket) {
+      const effectiveInitResponse = initResponse || await auxPhotoApi.init(ticket)
+      const ticketStatus = this.normalizeTicketStatus(effectiveInitResponse)
+      if (this.isTicketBlocked(ticketStatus)) {
+        this.showTicketBlockedToast(ticketStatus)
+        return
+      }
+
       const resumeCache = this.getResumableAuxPhotoCache(ticket)
 
       if (resumeCache) {
         return this.navigateToUrl(this.getAuxPhotoResumeUrl(resumeCache))
       }
 
-      const initResponse = await auxPhotoApi.init(ticket)
-      const cache = auxPhotoMapper.buildCacheFromInit(initResponse.data || initResponse)
+      const cache = auxPhotoMapper.buildCacheFromInit(getInitData(effectiveInitResponse))
       storage.saveCache(cache)
       console.log('[index] saved aux photo cache:', storage.loadCache())
       return this.navigateToCamera()
@@ -341,6 +392,13 @@ Page({
   showStartFailedToast() {
     if (typeof wx !== 'undefined' && typeof wx.showToast === 'function') {
       wx.showToast({ title: '\u5f00\u59cb\u91c7\u96c6\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5', icon: 'none' })
+    }
+  },
+
+  showTicketBlockedToast(status) {
+    const message = this.getTicketBlockedMessage(status)
+    if (message && typeof wx !== 'undefined' && typeof wx.showToast === 'function') {
+      wx.showToast({ title: message, icon: 'none' })
     }
   }
 })

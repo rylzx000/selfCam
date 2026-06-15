@@ -1,5 +1,36 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.4.8 新增测试目标
+
+- 覆盖辅助拍照 ticket 状态前端拦截：`COMPLETED / EXPIRED / REVOKED` 在首页 `init` 返回后只提示，不申请相机权限、不跳转、不恢复缓存、不新建缓存。
+- 覆盖 `data.ticketStatus` 优先、`data.status` 兼容，以及状态 trim 后转大写判断。
+- 覆盖 `CREATED / OPENED / UPLOADING` 等非拦截状态继续原流程；同 `ticket` 可恢复缓存时先调用 `init`，非拦截后再恢复原缓存。
+- 覆盖预览页本地 blocked `cache.auxPhoto.ticketStatus` 防御：不调用 `uploadPhotoBase64` 或 `complete`。
+
+## v1.4.8 重点测试文件
+
+- `__tests__/index-permission.test.js`
+- `__tests__/preview-upload-overlay.test.js`
+- `__tests__/aux-photo-mapper.test.js`
+- `__tests__/aux-photo-api.test.js`
+
+## v1.4.8 推荐验证方式
+
+提交前优先跑轻量检查：
+
+```powershell
+node --check packageD/pages/index/index.js
+node --check packageD/pages/preview/preview.js
+node --check packageD/utils/aux-photo-mapper.js
+node --check packageD/utils/aux-photo-api.js
+npm test -- --runInBand __tests__/index-permission.test.js
+npm test -- --runInBand __tests__/preview-upload-overlay.test.js
+npm test -- --runInBand __tests__/aux-photo-mapper.test.js
+npm test -- --runInBand __tests__/aux-photo-api.test.js
+```
+
+微信开发者工具 mock 验证时，`mock-2` 主要覆盖非拦截状态进入辅助拍照流程；`COMPLETED / EXPIRED / REVOKED` 可用单测或后端联调返回对应状态验证。
+
 ## v1.4.6 新增测试目标
 
 - 覆盖辅助拍照 Base64 上传闭环：`uploadPhotoBase64` 逐张上传、`complete` 完成提交、单张失败后只重试未成功照片、`complete` 失败后只重试完成提交。

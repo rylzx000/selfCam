@@ -295,6 +295,10 @@ cache.uploadSession = {
 
 恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
 
+`packageD/pages/index/index.js` 在有 `ticket` 的 `onStart()` 中先调用 `auxPhotoApi.init(ticket)`，优先用 `data.ticketStatus`、兼容 `data.status`，trim 并转大写判断 `COMPLETED / EXPIRED / REVOKED`。命中拦截状态时只 toast，不申请相机权限、不读取可恢复缓存、不调用 `auxPhotoMapper.buildCacheFromInit()`、不写新缓存、不跳转；非拦截状态才继续权限检查、同 `ticket` 缓存恢复或用 init 数据建缓存。
+
+`packageD/pages/preview/preview.js` 只做本地防御，不新增 init 调用。上传启动、上传 runner、重试上传、上传遮罩主按钮和 `complete` 提交前都会读取 `cache.auxPhoto.ticketStatus`；若已是 `COMPLETED / EXPIRED / REVOKED`，只显示对应提示并阻止 `uploadPhotoBase64` / `complete`。
+
 开发期可运行 `npm run mock:aux-photo` 启动本地 mock 后端，再在微信开发者工具中执行 `wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')`，用真实 `wx.request` 验证 JSON Base64 报文、上传失败和 complete 失败重试。
 
 车辆级选择方式：

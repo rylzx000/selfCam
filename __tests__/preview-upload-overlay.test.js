@@ -74,11 +74,12 @@ describe('preview upload overlay flow', () => {
     return vehicle
   }
 
-  function saveReadyPreviewCache(ticket = 'mock-2') {
+  function saveReadyPreviewCache(ticket = 'mock-2', options = {}) {
     const cache = storage.initCache()
     cache.auxPhoto = {
       enabled: true,
-      ticket
+      ticket,
+      ticketStatus: options.ticketStatus || ''
     }
     cache.vehicles.push(completeVehicle(0), completeVehicle(1), completeVehicle(2))
     cache.currentStep = constants.SHOOT_STEP.PREVIEW
@@ -242,6 +243,58 @@ describe('preview upload overlay flow', () => {
     expect(cache.workflowState.current).toBe('LOCAL_COMPLETED')
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
       url: '/packageD/pages/complete/complete'
+    })
+  })
+
+  test.each([
+    ['COMPLETED', '照片已完成采集，请勿重复操作。'],
+    ['EXPIRED', '辅助拍照链接已过期，请联系查勘员重新发送链接。'],
+    ['REVOKED', '辅助拍照链接已作废，请联系查勘员重新发送链接。']
+  ])('blocks upload when cached aux photo ticketStatus is %s', async (ticketStatus, message) => {
+    saveReadyPreviewCache('mock-2', { ticketStatus })
+    const page = loadPreviewPage()
+
+    page.onSubmit()
+    await Promise.resolve()
+
+    const cache = storage.loadCache()
+    expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(cache.uploadSession).toBeFalsy()
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: message,
+      icon: 'none'
+    })
+  })
+
+  test.each([
+    ['COMPLETED', '照片已完成采集，请勿重复操作。'],
+    ['EXPIRED', '辅助拍照链接已过期，请联系查勘员重新发送链接。'],
+    ['REVOKED', '辅助拍照链接已作废，请联系查勘员重新发送链接。']
+  ])('blocks complete when cached aux photo ticketStatus is %s', async (ticketStatus, message) => {
+    const cache = saveReadyPreviewCache('mock-2', { ticketStatus })
+    const session = uploadState.createUploadSession(cache)
+    session.items = session.items.map((item) => ({
+      ...item,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1
+    }))
+    session.phase = uploadState.UPLOAD_PHASE.READY
+    session.uploaded = session.items.length
+    session.failed = 0
+    cache.uploadSession = session
+    storage.saveCache(cache)
+    const page = createPreviewPage()
+
+    await page.onUploadOverlayPrimaryTap()
+
+    const latestCache = storage.loadCache()
+    expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(latestCache.uploadSession.phase).toBe(uploadState.UPLOAD_PHASE.READY)
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: message,
+      icon: 'none'
     })
   })
 

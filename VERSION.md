@@ -2,23 +2,22 @@
 
 ## 当前版本
 
-**版本号**: v1.4.7
-**发布日期**: 2026-06-10
-**状态**: main 已包含：公司主体小程序 packageD 分包接入改造
+**版本号**: v1.4.8
+**发布日期**: 2026-06-15
+**状态**: main 已包含：辅助拍照 ticket 状态前端拦截
 
 ---
 
 ## 版本概述
 
-当前版本在 `v1.4.6` 辅助拍照后端提交闭环基础上，将业务代码调整为公司主体小程序可挂载的 `packageD` 分包形态。根主包仅保留本地调试壳，页面、工具、组件、资源、mock 与样式统一迁入 `packageD/`，并补齐分包路径、启动上下文和接入说明。
+当前版本在 `v1.4.7` 公司主体小程序 packageD 分包接入改造基础上，补上辅助拍照 ticket 状态前端拦截。入口会先看后端 `init` 返回状态，再决定是否进入相机、预览和完成链路。
 
 ### 本版本重点
 
-- 根 `app.json` 声明 `pages/host/index` 本地调试入口和 `packageD` 分包，业务入口为 `/packageD/pages/index/index`。
-- 分包内页面跳转、组件引用和 WXML 资源统一使用 `/packageD/...` 路径，避免接入公司主体小程序后访问旧主包路径。
-- 业务初始化从根 `app.onLaunch` 下沉到分包首页和 `packageD/utils/bootstrap.js`，只写 `getApp().globalData.selfCam`，避免污染公司主包全局字段。
-- 无 `ticket` 启动时不再从旧缓存回捞辅助拍照 ticket，降低公司主包普通采集误进辅助拍照链路的风险。
-- 补充分包接入说明、PRDS 和测试/e2e 路径，便于后续按 `packageD/` 目录重新打包交付。
+- 有 `ticket` 时，首页先调用 `AuxPhotoService/init`，读取 `data.ticketStatus`，兼容 `data.status`，状态 trim 后转大写再判断。
+- `COMPLETED / EXPIRED / REVOKED` 直接 toast 拦截，不申请相机权限，不进入拍照页，不恢复缓存。
+- 预览页对本地 `cache.auxPhoto.ticketStatus` 做防御，blocked 状态下不触发 `uploadPhotoBase64` 和 `complete`。
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.8`。
 
 ## v1.4.7 变更摘要
 
@@ -49,6 +48,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.8 | 2026-06-15 | main 已包含：辅助拍照 ticket 状态前端拦截 | 有 ticket 时先看 `init` 状态，拦截 completed/expired/revoked，预览页本地 blocked 状态也会防御上传和 complete |
 | v1.4.7 | 2026-06-10 | main 已包含：公司主体小程序 packageD 分包接入改造 | 业务代码迁入 `packageD/`，根主包保留本地调试壳，补齐分包路径、启动上下文和接入文档 |
 | v1.4.6 | 2026-05-27 | main 已包含：辅助拍照后端提交闭环 | 接入真实 `uploadPhotoBase64` 逐张上传、`complete` 完成提交、本地 mock 后端和失败重试恢复 |
 | v1.4.5 | 2026-05-25 | SIT 体验版辅助拍照上传准备 | 预览页上传遮罩、本地 `uploadSession` 队列和失败重试 mock |

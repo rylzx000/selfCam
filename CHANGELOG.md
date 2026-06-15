@@ -8,6 +8,7 @@
 
 ### 调整
 
+- 辅助拍照 ticket 状态前端拦截：有 `ticket` 时先调用 `init`，优先读取 `data.ticketStatus`，兼容 `data.status`；`COMPLETED / EXPIRED / REVOKED` 直接轻提示拦截，预览页本地 blocked `ticketStatus` 也会阻断上传和 `complete`。
 - 将业务代码迁入 `packageD/` 分包，根主包只保留本地调试壳，贴近公司主体小程序挂载方式。
 - 分包内页面跳转、组件引用和资源路径统一调整为 `/packageD/...`，避免接入主体小程序后访问旧主包路径。
 - 分包启动初始化改为写入 `getApp().globalData.selfCam`，不再污染公司主体小程序的 `globalData.ticket` 等全局字段。
@@ -24,7 +25,7 @@
 
 ### 版本
 
-- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.7`。
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.8`。
 
 ## [v1.4.6] - 2026-05-27
 

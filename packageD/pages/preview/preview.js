@@ -28,8 +28,31 @@ const AUX_UPLOAD_ITEM_MISSING_TIP = '当前任务未下发该证件类型'
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
 
+const TICKET_BLOCKED_MESSAGES = {
+  COMPLETED: '照片已完成采集，请勿重复操作。',
+  EXPIRED: '辅助拍照链接已过期，请联系查勘员重新发送链接。',
+  REVOKED: '辅助拍照链接已作废，请联系查勘员重新发送链接。'
+}
+
 const PREVIEW_BASE_RPX_WIDTH = 750
 const PREVIEW_BASE_RPX_HEIGHT = 390
+function normalizeTicketStatusFromCache(cache) {
+  const rawStatus = cache && cache.auxPhoto && cache.auxPhoto.ticketStatus
+  if (typeof rawStatus === 'undefined' || rawStatus === null) {
+    return ''
+  }
+
+  return String(rawStatus).trim().toUpperCase()
+}
+
+function isTicketBlocked(status) {
+  return !!TICKET_BLOCKED_MESSAGES[status]
+}
+
+function getTicketBlockedMessage(status) {
+  return TICKET_BLOCKED_MESSAGES[status] || ''
+}
+
 function computeResponsivePreviewLayout(info = {}) {
   const {
     rawWindowWidth,
@@ -406,6 +429,28 @@ Page({
   uploadFlowPromise: null,
   completeFlowPromise: null,
 
+  getBlockedTicketStatus(cache) {
+    const ticketStatus = normalizeTicketStatusFromCache(cache)
+    return isTicketBlocked(ticketStatus) ? ticketStatus : ''
+  },
+
+  showTicketBlockedToast(status) {
+    const message = getTicketBlockedMessage(status)
+    if (message && typeof wx !== 'undefined' && typeof wx.showToast === 'function') {
+      wx.showToast({ title: message, icon: 'none' })
+    }
+  },
+
+  blockIfTicketBlocked(cache = storage.loadCache()) {
+    const ticketStatus = this.getBlockedTicketStatus(cache)
+    if (!ticketStatus) {
+      return false
+    }
+
+    this.showTicketBlockedToast(ticketStatus)
+    return true
+  },
+
   onLoad() {
     this.isRedirectingToComplete = false
     this.isLeaving = false
@@ -679,6 +724,14 @@ Page({
     if (!cache || !cache.uploadSession) {
       if (this.data.showUploadOverlay) {
         this.clearUploadMockTimer()
+        this.setData({ showUploadOverlay: false })
+      }
+      return
+    }
+
+    if (cache.uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING && this.blockIfTicketBlocked(cache)) {
+      this.clearUploadMockTimer()
+      if (this.data.showUploadOverlay) {
         this.setData({ showUploadOverlay: false })
       }
       return
@@ -1185,6 +1238,10 @@ Page({
       return
     }
 
+    if (this.blockIfTicketBlocked(cache)) {
+      return
+    }
+
     const vehicleSummary = cacheSelectors.getVehicleSummary(cache)
 
     if (vehicleSummary.canAddThirdVehicle) {
@@ -1418,6 +1475,10 @@ Page({
       return
     }
 
+    if (this.blockIfTicketBlocked(cache)) {
+      return
+    }
+
     this.clearUploadMockTimer()
     const uploadSession = uploadState.createUploadSession(cache)
     cache.uploadSession = uploadSession
@@ -1489,6 +1550,10 @@ Page({
         return session
       }
 
+      if (this.blockIfTicketBlocked(cache)) {
+        return session
+      }
+
       const nextItem = uploadState.getNextUploadItem(session)
       if (!nextItem) {
         const readySession = uploadState.recalculateSession(session)
@@ -1536,6 +1601,10 @@ Page({
       return
     }
 
+    if (this.blockIfTicketBlocked(cache)) {
+      return
+    }
+
     const nextSession = uploadState.retryFailedItems(session)
     cache.uploadSession = nextSession
     storage.saveCache(cache)
@@ -1553,6 +1622,10 @@ Page({
     const session = cache && cache.uploadSession
 
     if (!session) {
+      return
+    }
+
+    if (this.blockIfTicketBlocked(cache)) {
       return
     }
 
@@ -1577,6 +1650,10 @@ Page({
 
     if (!session || session.sessionId !== sessionId) {
       return null
+    }
+
+    if (this.blockIfTicketBlocked(cache)) {
+      return session
     }
 
     const submittingSession = uploadState.markCompleteSubmitting(session)
