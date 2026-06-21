@@ -83,27 +83,23 @@ const ENV_POLICY_MAP = {
 const BUSINESS_ENV_ENDPOINTS = {
   dev: {
     modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
-    errorLogHost: '',
     auxPhotoHost: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/'
   },
   sit: {
     modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
-    errorLogHost: '',
     auxPhotoHost: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/'
   },
   pilot: {
     modelHost: 'https://videoclaimtest.chinalife-p.com.cn/video/model',
-    errorLogHost: '',
     auxPhotoHost: 'https://videoclaimtest.chinalife-p.com.cn/onlineclaim/rest/'
   },
   prod: {
     modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model',
-    errorLogHost: '',
     auxPhotoHost: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/'
   }
 }
 
-const ERROR_LOG_UPLOAD_PATH = '/api/selfcam/v1/error-logs/batch'
+const ERROR_LOG_UPLOAD_PATH = '/onlineclaim/AuxPhotoService/reportMiniappError'
 const AUX_PHOTO_REQUEST_TIMEOUT_MS = 5000
 
 function clonePlainData(value) {
@@ -345,14 +341,6 @@ function resolveModelHost(appEnv, options = {}) {
   return isModelHostAllowed(appEnv, modelHost) ? modelHost : ''
 }
 
-function resolveErrorLogHost(appEnv, options = {}) {
-  const endpoints = options.businessEnvEndpoints || BUSINESS_ENV_ENDPOINTS
-  const envEndpoints = endpoints[sanitizeAppEnv(appEnv, 'dev')] || {}
-  const errorLogHost = sanitizeString(envEndpoints.errorLogHost, '')
-
-  return isModelHostAllowed(appEnv, errorLogHost) ? errorLogHost : ''
-}
-
 function resolveAuxPhotoHost(appEnv, options = {}) {
   const overrideHost = sanitizeString(options.auxPhotoHostOverride, '')
   if (overrideHost) {
@@ -506,20 +494,18 @@ function getDebugConfig(options = {}) {
 }
 
 function getErrorLogConfig(options = {}) {
-  const runtimeFlags = getRuntimeFlags(options)
-  const errorLogHost = resolveErrorLogHost(runtimeFlags.appEnv, options)
-  const uploadUrl = errorLogHost ? joinUrl(errorLogHost, ERROR_LOG_UPLOAD_PATH) : ''
+  const auxPhotoConfig = getAuxPhotoConfig(options)
+  const uploadUrl = auxPhotoConfig.baseUrl ? joinUrl(auxPhotoConfig.baseUrl, ERROR_LOG_UPLOAD_PATH) : ''
 
   return {
-    wxEnvVersion: runtimeFlags.wxEnvVersion,
-    envVersion: runtimeFlags.envVersion,
-    appEnv: runtimeFlags.appEnv,
+    wxEnvVersion: auxPhotoConfig.wxEnvVersion,
+    envVersion: auxPhotoConfig.envVersion,
+    appEnv: auxPhotoConfig.appEnv,
     uploadEnabled: !!uploadUrl,
     uploadUrl,
-    batchSize: 20,
     maxPendingEntries: 20,
     uploadThrottleMs: 1500,
-    requestTimeoutMs: 2500
+    requestTimeoutMs: auxPhotoConfig.requestTimeoutMs || AUX_PHOTO_REQUEST_TIMEOUT_MS
   }
 }
 

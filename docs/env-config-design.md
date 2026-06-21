@@ -118,7 +118,7 @@
 
 - `getRuntimeFlags()` 负责给应用层提供统一的环境能力开关
 - `getDebugConfig()` 负责给调试日志、开发面板、AI 调试信息提供默认策略
-- `getErrorLogConfig()` 负责给在线平台错误日志上传提供统一地址与开关
+- `getErrorLogConfig()` 负责给在线平台错误日志上传提供统一地址与开关，错误日志地址复用辅助拍照 `baseUrl`
 - `getAuxPhotoConfig()` 负责给辅助拍照 `init/uploadPhotoBase64/complete` 提供统一 `baseUrl`、请求开关和 mock 开关
 - `getAiConfig()` 负责统一业务环境、模型路径、模型地址和模型缓存隔离 key
 - `getAppEnvBadgeText()` 负责提供非生产环境右下角透明环境标识文案，`prod` 返回空字符串
@@ -277,17 +277,22 @@ damage-pilot-<urlHash>.onnx
 
 这样后续即使接入在线平台，也不会破坏当前“配置失败不能阻断主流程”的原则。
 
-在线平台错误日志接口单独按 `docs/backend-integration/error-log-api.md` 设计，不复用调试日志上传语义。后续实现时建议在 `env-config` 中补充以下独立配置：
+在线平台错误日志接口单独按 `docs/backend-integration/error-log-api.md` 设计，不复用调试日志上传语义。当前错误日志配置由 `getErrorLogConfig()` 统一提供：
 
-- `errorLogUploadEnabled`：是否启用在线平台错误日志上传
-- `errorLogUploadUrl`：在线平台错误日志批量上报地址
-- `errorLogBatchSize`：单批错误日志数量，默认不超过 20
-- `errorLogRequestTimeoutMs`：错误日志上传超时时间
+- `uploadEnabled`：是否启用在线平台错误日志上传，只要辅助拍照 `baseUrl` 可用即开启
+- `uploadUrl`：`getAuxPhotoConfig().baseUrl + /onlineclaim/AuxPhotoService/reportMiniappError`
+- `maxPendingEntries`：错误日志待上传队列上限，默认 20
+- `uploadThrottleMs`：错误日志上报节流时间
+- `requestTimeoutMs`：复用辅助拍照接口超时时间，默认 5000ms
+- `appEnv / wxEnvVersion / envVersion`：同步当前运行环境
 
 错误日志配置必须满足：
 
-- 缺少启动参数 `reportNo` 时不上报后台，只保留本地日志
+- `develop / trial / release` 都开启错误日志上报，只要辅助拍照 `baseUrl` 可用
+- 缺少启动参数 `ticket` 时不上报后台，只保留本地日志
+- `ticket` 以 `mock` 开头时不上报后台
 - 只上传错误事件白名单内的报错，不上传正常状态和诊断快照
+- 每条错误单独调用 `reportMiniappError`，不再发送批量 `logs` 数组
 - 上传失败静默处理，不阻断拍照和完成采集主流程
 
 ## 11. 注意事项

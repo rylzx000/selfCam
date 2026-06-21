@@ -356,24 +356,7 @@ describe('env-config', () => {
     expect(sitConfig.damageModelPath).not.toBe(pilotConfig.damageModelPath)
   })
 
-  test('error log config stays disabled when backend url is missing', () => {
-    mockWxEnv('trial')
-    const envConfig = loadEnvConfig()
-
-    expect(envConfig.getErrorLogConfig()).toEqual(expect.objectContaining({
-      wxEnvVersion: 'trial',
-      envVersion: 'trial',
-      appEnv: 'sit',
-      uploadEnabled: false,
-      uploadUrl: '',
-      batchSize: 20,
-      maxPendingEntries: 20,
-      uploadThrottleMs: 1500,
-      requestTimeoutMs: 2500
-    }))
-  })
-
-  test('error log config enables upload when business endpoint is configured', () => {
+  test('error log config stays disabled when aux photo host is missing', () => {
     mockWxEnv('trial')
     const envConfig = loadEnvConfig()
 
@@ -382,13 +365,53 @@ describe('env-config', () => {
       appEnv: 'sit',
       businessEnvEndpoints: {
         sit: {
-          errorLogHost: 'https://online-platform.example.com'
+          modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
+        }
+      }
+    })).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      uploadEnabled: false,
+      uploadUrl: '',
+      maxPendingEntries: 20,
+      uploadThrottleMs: 1500,
+      requestTimeoutMs: 5000
+    }))
+  })
+
+  test('error log config reuses aux photo backend in trial', () => {
+    mockWxEnv('trial')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getErrorLogConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      uploadEnabled: true,
+      uploadUrl: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/onlineclaim/AuxPhotoService/reportMiniappError',
+      maxPendingEntries: 20,
+      uploadThrottleMs: 1500,
+      requestTimeoutMs: 5000
+    }))
+  })
+
+  test('error log config uses configured aux photo host', () => {
+    mockWxEnv('trial')
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getErrorLogConfig({
+      envVersion: 'trial',
+      appEnv: 'sit',
+      businessEnvEndpoints: {
+        sit: {
+          auxPhotoHost: 'https://onlineclaim.example.com/onlineclaim/rest/'
         }
       }
     })).toEqual(expect.objectContaining({
       appEnv: 'sit',
       uploadEnabled: true,
-      uploadUrl: 'https://online-platform.example.com/api/selfcam/v1/error-logs/batch'
+      uploadUrl: 'https://onlineclaim.example.com/onlineclaim/rest/onlineclaim/AuxPhotoService/reportMiniappError'
     }))
   })
 

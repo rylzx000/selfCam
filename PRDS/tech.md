@@ -20,7 +20,7 @@
 | AI 推理 | `wx.createInferenceSession` + ONNX | 车牌 / 车损检测 |
 | AI 模型交付 | 运行时下载到 `wx.env.USER_DATA_PATH` | 按业务环境和模型 URL 隔离缓存 |
 | 实时日志 | `wx.getRealtimeLogManager()` | 仅上报 AI 排障关键事件，本地 runtime 日志保留完整 |
-| 后台错误日志（待实现） | 在线平台错误日志接口 + Oracle | 只上传明确报错事件，按 `reportNo` 落库排障 |
+| 后台错误日志 | 在线平台错误日志接口 + Oracle | 只上传明确报错事件，按 `ticket` 关联后端业务信息落库排障 |
 
 ---
 
@@ -527,13 +527,13 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 
 ---
 
-### 5. 在线平台错误日志对接（待实现）
+### 5. 在线平台错误日志对接
 
-- 小程序启动参数中的报案号字段名为 `reportNo`。
-- 当前阶段不新增缺少 `reportNo` 的入口阻断；接口闭环前，缺少 `reportNo` 时只保留本地日志，不调用后台错误日志接口。
-- 后续在 `runtime-logger` 内部增加在线平台错误上传通道，不在每个页面报错点直接调用后台接口。
+- 错误日志通过小程序启动参数 `ticket` 关联后端业务信息，前端不再上传 `reportNo`。
+- 当前阶段不新增缺少 `ticket` 的入口阻断；缺少 `ticket` 或 `ticket` 以 `mock` 开头时只保留本地日志，不调用后台错误日志接口。
+- 已在 `runtime-logger` 内部增加在线平台错误上传通道，不在每个页面报错点直接调用后台接口。
 - 页面和工具模块仍只调用 `runtimeLogger.error(...)` 或 `runtimeLogger.forceError(...)`，由 `runtime-logger` 统一按错误事件白名单过滤、入队和上传。
-- 后台错误日志只上传明确失败事件，不上传页面生命周期、正常拍照流程、AI 几何诊断快照或普通调试日志。
+- 后台错误日志只上传 `error` 级别明确失败事件，不上传 `warning`、页面生命周期、正常拍照流程、AI 几何诊断快照或普通调试日志。
 - 首批上报事件限定为：
   - `ai_model/download_failed`
   - `ai_model/download_status_failed`
@@ -546,8 +546,8 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
   - `ai/detect_loop_error`
   - `capture/auto_capture_failed`
   - `camera/camera_error`
-  - `api/request_failed`
-- 接口按批量设计，前端第一版可单条或小批量发送，最多缓存 20 条待上传错误；失败静默处理，不阻断主流程。
+- `api/request_failed`，覆盖辅助拍照 `init / uploadPhotoBase64 / complete` 真实请求失败
+- 接口按 `reportMiniappError` 单条平铺字段上报，最多缓存 20 条待上传错误；失败静默处理，不阻断主流程。
 - 详细接口和 Oracle 表设计见 `docs/backend-integration/error-log-api.md`。
 
 ---

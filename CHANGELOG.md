@@ -4,7 +4,7 @@
 
 ---
 
-## 未发布
+## [v1.4.9] - 2026-06-22
 
 ### 调整
 
@@ -14,6 +14,8 @@
 - 分包启动初始化改为写入 `getApp().globalData.selfCam`，不再污染公司主体小程序的 `globalData.ticket` 等全局字段。
 - 无 `ticket` 启动时不再从旧缓存回捞辅助拍照 ticket，降低普通采集误进辅助拍照链路的风险。
 - 辅助拍照图片上传由 multipart `uploadPhoto` 切换为 JSON Base64 `uploadPhotoBase64`，规避 SIT 网关拦截 multipart。
+- 辅助拍照错误日志上报由旧 `reportNo + batch logs` 改为 `ticket + reportMiniappError` 单条平铺字段；缺少 `ticket`、mock ticket 和 warning 日志均不上报后台。
+- `init / uploadPhotoBase64 / complete` 真实请求失败统一进入 `runtimeLogger.error('api', 'request_failed', ...)`，只携带安全摘要字段，不上传请求体、图片路径或 base64。
 - 同步辅助拍照接口文档、版本说明和技术说明中的上传接口报文。
 
 ### 文档
@@ -21,11 +23,12 @@
 - 新增 `docs/packageD-integration.md`，说明公司主体小程序接入 `packageD` 分包的目录、`app.json`、启动路径和打包注意事项。
 - 同步 `PRDS/`、测试文档和 e2e 脚本中的分包路径。
 - 补齐辅助拍照后端对接、环境配置、测试指南和 PRDS 中的上传闭环口径，覆盖 mock server、联调 baseUrl、后端车辆列表控制、预览页跳转、完成态恢复、上传中断恢复和完成提交流程。
+- 同步错误日志后端对接、环境配置和 PRDS 口径：日志接口复用辅助拍照 `baseUrl`，只通过 `ticket` 关联后端业务信息。
 - 同步辅助拍照测试材料：车辆列表以后端 `init` 返回为准，不再把手动新增/删除三者车和三者车确认弹窗作为辅助拍照验收项。
 
 ### 版本
 
-- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.8`。
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.9`。
 
 ## [v1.4.6] - 2026-05-27
 

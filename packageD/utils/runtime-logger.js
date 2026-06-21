@@ -3,7 +3,7 @@ const realtimeLog = require('./realtime-log')
 
 const LOG_STORAGE_KEY = 'selfcam_runtime_logs'
 const SESSION_STORAGE_KEY = 'selfcam_runtime_session'
-const REPORT_NO_STORAGE_KEY = 'selfcam_report_no'
+const AUX_TICKET_STORAGE_KEY = 'selfcam_aux_ticket'
 
 let uploadTimer = null
 let uploading = false
@@ -48,6 +48,34 @@ const ERROR_UPLOAD_EVENTS = {
   capture: new Set(['auto_capture_failed']),
   camera: new Set(['camera_error']),
   api: new Set(['request_failed'])
+}
+
+const ERROR_UPLOAD_DETAILS = {
+  ai_model: {
+    download_failed: ['AI_MODEL_DOWNLOAD_FAILED', '模型下载失败'],
+    download_status_failed: ['AI_MODEL_DOWNLOAD_FAILED', '模型下载失败'],
+    cache_copy_failed: ['AI_MODEL_DOWNLOAD_FAILED', '模型下载失败'],
+    model_file_invalid: ['AI_MODEL_DOWNLOAD_FAILED', '模型下载失败'],
+    session_create_failed: ['AI_MODEL_SESSION_CREATE_FAILED', '模型会话创建失败'],
+    session_load_failed: ['AI_MODEL_SESSION_LOAD_FAILED', '模型会话加载失败']
+  },
+  ai: {
+    ai_unavailable: ['AI_UNAVAILABLE', 'AI能力不可用'],
+    detector_init_failed: ['AI_DETECTOR_INIT_FAILED', '检测器初始化失败'],
+    detect_loop_error: ['AI_DETECT_LOOP_ERROR', 'AI检测循环异常']
+  },
+  capture: {
+    auto_capture_failed: ['CAPTURE_AUTO_CAPTURE_FAILED', '自动拍照失败']
+  },
+  camera: {
+    camera_error: ['CAMERA_ERROR', '相机异常']
+  }
+}
+
+const API_ERROR_DETAILS = {
+  init: ['AUX_INIT_FAILED', '辅助拍照初始化失败'],
+  uploadPhotoBase64: ['AUX_UPLOAD_FAILED', '图片上传失败'],
+  complete: ['AUX_COMPLETE_FAILED', '完成采集失败']
 }
 
 const SENSITIVE_KEY_PATTERN = /(token|cookie|secret|sessionkey|session_key|authorization|password|credential)/i
@@ -220,12 +248,23 @@ function shouldUpload() {
     && typeof wxRef.request === 'function'
 }
 
-function getReportNo() {
+function normalizeTicket(value) {
+  return typeof value === 'string' ? value.trim().slice(0, 256) : ''
+}
+
+function isMockTicket(ticket) {
+  return /^mock(?:-|$)/i.test(normalizeTicket(ticket))
+}
+
+function getTicket() {
   try {
     const bootstrap = require('./bootstrap')
-    const reportNo = bootstrap.getReportNo()
-    if (reportNo) {
-      return reportNo
+    if (bootstrap && typeof bootstrap.getTicket === 'function') {
+      try {
+        return normalizeTicket(bootstrap.getTicket())
+      } catch (error) {
+        return ''
+      }
     }
   } catch (error) {
     // bootstrap may be unavailable in very early test lifecycles.
@@ -237,8 +276,7 @@ function getReportNo() {
   }
 
   try {
-    const reportNo = wxRef.getStorageSync(REPORT_NO_STORAGE_KEY)
-    return typeof reportNo === 'string' ? reportNo.trim().slice(0, 64) : ''
+    return normalizeTicket(wxRef.getStorageSync(AUX_TICKET_STORAGE_KEY))
   } catch (error) {
     return ''
   }
@@ -253,12 +291,12 @@ function getSystemInfoSnapshot() {
   try {
     const info = wxRef.getSystemInfoSync() || {}
     return {
-      brand: safeClone(info.brand || ''),
-      model: safeClone(info.model || ''),
-      system: safeClone(info.system || ''),
-      platform: safeClone(info.platform || ''),
-      SDKVersion: safeClone(info.SDKVersion || ''),
-      wechatVersion: safeClone(info.version || '')
+      sdkVersion: normalizeLogString(info.SDKVersion || '', 32),
+      systemBrand: normalizeLogString(info.brand || '', 64),
+      systemModel: normalizeLogString(info.model || '', 128),
+      systemOs: normalizeLogString(info.system || '', 128),
+      systemPlatform: normalizeLogString(info.platform || '', 64),
+      systemLanguage: normalizeLogString(info.language || '', 64)
     }
   } catch (error) {
     return {}
@@ -352,6 +390,120 @@ function buildErrorLogPayload(payload = {}) {
 
 function normalizeLogString(value, maxLength = 1000) {
   return typeof value === 'string' ? value.slice(0, maxLength) : ''
+}
+
+function normalizeStackValue(value, maxLength = 256) {
+  if (value === undefined || value === null) {
+    return ''
+  }
+
+  const normalized = String(value).replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return ''
+  }
+
+  if (/^data:image\//i.test(normalized) || normalized.length > 256 && /^[A-Za-z0-9+/=]+$/.test(normalized)) {
+    return '[redacted]'
+  }
+
+  return normalized.slice(0, maxLength)
+}
+
+function padTimeNumber(value) {
+  return String(value).padStart(2, '0')
+}
+
+function formatClientTime(timestamp = getNow()) {
+  const date = new Date(timestamp)
+  return `${date.getFullYear()}-${padTimeNumber(date.getMonth() + 1)}-${padTimeNumber(date.getDate())} ${padTimeNumber(date.getHours())}:${padTimeNumber(date.getMinutes())}:${padTimeNumber(date.getSeconds())}`
+}
+
+function getClientVersion() {
+  try {
+    const auxPhotoApi = require('./aux-photo-api')
+    return normalizeStackValue(auxPhotoApi.CLIENT_VERSION, 32)
+  } catch (error) {
+    return ''
+  }
+}
+
+function getErrorUploadDetail(entry) {
+  const payload = entry && entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+
+  if (entry && entry.scope === 'api' && entry.event === 'request_failed') {
+    const apiName = normalizeStackValue(payload.apiName, 64)
+    const detail = API_ERROR_DETAILS[apiName]
+    if (detail) {
+      return {
+        errorCode: detail[0],
+        errorMessage: detail[1]
+      }
+    }
+  }
+
+  const detail = entry && ERROR_UPLOAD_DETAILS[entry.scope] && ERROR_UPLOAD_DETAILS[entry.scope][entry.event]
+  return {
+    errorCode: detail ? detail[0] : 'MINIAPP_ERROR',
+    errorMessage: detail ? detail[1] : '小程序异常'
+  }
+}
+
+function buildSafeErrorStack(entry) {
+  const payload = entry && entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+  const fields = [
+    ['scope', entry && entry.scope],
+    ['event', entry && entry.event],
+    ['apiName', payload.apiName],
+    ['stage', payload.stage],
+    ['statusCode', payload.statusCode],
+    ['errorCode', payload.errorCode || payload.code],
+    ['message', payload.message],
+    ['errMsg', payload.errMsg]
+  ]
+  const parts = []
+
+  fields.forEach(([key, value]) => {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      return
+    }
+    const normalized = normalizeStackValue(value, 256)
+    if (normalized) {
+      parts.push(`${key}=${normalized}`)
+    }
+  })
+
+  return parts.join('; ').slice(0, 1000)
+}
+
+function resolveNetworkType(callback) {
+  const wxRef = getWx()
+
+  if (!wxRef || typeof wxRef.getNetworkType !== 'function') {
+    callback('unknown')
+    return
+  }
+
+  let settled = false
+  const done = (networkType) => {
+    if (settled) {
+      return
+    }
+    settled = true
+    callback(normalizeStackValue(networkType, 32) || 'unknown')
+  }
+
+  try {
+    wxRef.getNetworkType({
+      success: (res = {}) => {
+        done(res.networkType)
+      },
+      fail: () => {
+        done('unknown')
+      }
+    })
+  } catch (error) {
+    done('unknown')
+  }
 }
 
 function buildRealtimePayload(sessionId, payload = {}) {
@@ -487,11 +639,12 @@ function scheduleErrorUpload() {
 function shouldUploadErrorQueue() {
   const wxRef = getWx()
   const loggerConfig = getErrorLoggerConfig()
-  const reportNo = getReportNo()
+  const ticket = getTicket()
 
   return !!loggerConfig.uploadEnabled
     && !!loggerConfig.uploadUrl
-    && !!reportNo
+    && !!ticket
+    && !isMockTicket(ticket)
     && !!wxRef
     && typeof wxRef.request === 'function'
 }
@@ -530,77 +683,67 @@ function flush() {
   })
 }
 
-function buildBackendLogItem(entry) {
-  const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : {}
+function buildErrorUploadRequest(entry, loggerConfig, ticket, networkType) {
+  const detail = getErrorUploadDetail(entry)
+  const systemInfo = getSystemInfoSnapshot()
+
   return {
-    clientLogId: entry.id,
-    level: entry.level,
-    scope: entry.scope,
-    event: entry.event,
-    page: normalizeLogString(payload.page || '', 64),
-    step: normalizeLogString(payload.step || '', 64),
-    occurredAt: entry.at,
-    message: normalizeLogString(payload.message || payload.errMsg || '', 1000),
-    errMsg: normalizeLogString(payload.errMsg || '', 1000),
-    stage: normalizeLogString(payload.stage || '', 128),
-    statusCode: payload.statusCode === undefined || payload.statusCode === null
-      ? ''
-      : payload.statusCode,
-    payload: buildErrorLogPayload(payload)
+    ticket,
+    errorCode: detail.errorCode,
+    errorMessage: detail.errorMessage,
+    errorStack: buildSafeErrorStack(entry),
+    appVersion: getClientVersion(),
+    envVersion: loggerConfig.wxEnvVersion || loggerConfig.envVersion || getEnvVersion(),
+    sdkVersion: systemInfo.sdkVersion || '',
+    networkType: normalizeStackValue(networkType, 32) || 'unknown',
+    clientTime: formatClientTime(entry && entry.timestamp ? entry.timestamp : getNow()),
+    systemBrand: systemInfo.systemBrand || '',
+    systemModel: systemInfo.systemModel || '',
+    systemOs: systemInfo.systemOs || '',
+    systemPlatform: systemInfo.systemPlatform || '',
+    systemLanguage: systemInfo.systemLanguage || ''
   }
 }
 
-function buildErrorUploadRequest(batch, loggerConfig, reportNo) {
-  const firstEntry = batch[0] || {}
-  const firstPayload = firstEntry.payload || {}
-  const sessionId = firstEntry.sessionId || getSessionId()
-  const feedbackId = firstPayload.feedbackId || (sessionId ? `selfCam_${sessionId}` : '')
-
-  return {
-    appCode: 'selfCam',
-    appVersion: '',
-    clientType: 'wechat_miniprogram',
-    appEnv: loggerConfig.appEnv || '',
-    wxEnvVersion: loggerConfig.wxEnvVersion || loggerConfig.envVersion || getEnvVersion(),
-    reportNo,
-    sessionId,
-    feedbackId,
-    sentAt: getIsoTime(),
-    device: getSystemInfoSnapshot(),
-    logs: batch.map(buildBackendLogItem)
+function finishErrorUpload() {
+  pendingErrorUploadQueue = pendingErrorUploadQueue.slice(1)
+  errorUploading = false
+  if (pendingErrorUploadQueue.length > 0) {
+    scheduleErrorUpload()
   }
 }
 
 function flushErrorLogs() {
   const wxRef = getWx()
   const loggerConfig = getErrorLoggerConfig()
-  const reportNo = getReportNo()
+  const ticket = getTicket()
 
   if (!shouldUploadErrorQueue() || errorUploading || pendingErrorUploadQueue.length === 0) {
     return
   }
 
-  const batchSize = Math.max(1, Math.min(loggerConfig.batchSize || 20, 20))
-  const batch = pendingErrorUploadQueue.slice(0, batchSize)
+  const entry = pendingErrorUploadQueue[0]
   errorUploading = true
-  let uploaded = false
+  let finished = false
+  const finish = () => {
+    if (finished) {
+      return
+    }
+    finished = true
+    finishErrorUpload()
+  }
 
-  wxRef.request({
-    url: loggerConfig.uploadUrl,
-    method: 'POST',
-    timeout: loggerConfig.requestTimeoutMs,
-    data: buildErrorUploadRequest(batch, loggerConfig, reportNo),
-    success: (res) => {
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        pendingErrorUploadQueue = pendingErrorUploadQueue.slice(batch.length)
-        uploaded = true
-      }
-    },
-    complete: () => {
-      errorUploading = false
-      if (uploaded && pendingErrorUploadQueue.length > 0) {
-        scheduleErrorUpload()
-      }
+  resolveNetworkType((networkType) => {
+    try {
+      wxRef.request({
+        url: loggerConfig.uploadUrl,
+        method: 'POST',
+        timeout: loggerConfig.requestTimeoutMs,
+        data: buildErrorUploadRequest(entry, loggerConfig, ticket, networkType),
+        complete: finish
+      })
+    } catch (error) {
+      finish()
     }
   })
 }
@@ -611,7 +754,8 @@ function enqueueErrorUpload(entry) {
   }
 
   const loggerConfig = getErrorLoggerConfig()
-  if (!loggerConfig.uploadEnabled || !loggerConfig.uploadUrl || !getReportNo()) {
+  const ticket = getTicket()
+  if (!loggerConfig.uploadEnabled || !loggerConfig.uploadUrl || !ticket || isMockTicket(ticket)) {
     return
   }
 

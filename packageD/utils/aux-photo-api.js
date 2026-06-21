@@ -1,7 +1,7 @@
 const envConfig = require('./env-config')
 const auxPhotoMock = require('./aux-photo-mock')
 
-const CLIENT_VERSION = '1.4.8'
+const CLIENT_VERSION = '1.4.9'
 const INIT_PATH = '/onlineclaim/AuxPhotoService/init'
 const UPLOAD_PHOTO_BASE64_PATH = '/onlineclaim/AuxPhotoService/uploadPhotoBase64'
 const COMPLETE_PATH = '/onlineclaim/AuxPhotoService/complete'
@@ -31,6 +31,35 @@ function buildError(code, message, detail = {}) {
     code,
     message,
     ...detail
+  }
+}
+
+function logApiRequestFailed(apiName, errorPayload = {}, extra = {}, ticket = '') {
+  if (auxPhotoMock.isMockTicket(ticket)) {
+    return
+  }
+
+  try {
+    const runtimeLogger = require('./runtime-logger')
+    if (!runtimeLogger || typeof runtimeLogger.error !== 'function') {
+      return
+    }
+
+    const payload = {
+      apiName,
+      stage: sanitizeString(extra.stage || errorPayload.stage, 'request', 64),
+      errorCode: sanitizeString(errorPayload.code || errorPayload.errorCode, '', 128),
+      message: sanitizeString(errorPayload.message, '', 256),
+      errMsg: sanitizeString(errorPayload.errMsg, '', 256)
+    }
+    const statusCode = extra.statusCode !== undefined ? extra.statusCode : errorPayload.statusCode
+    if (statusCode !== undefined && statusCode !== null) {
+      payload.statusCode = statusCode
+    }
+
+    runtimeLogger.error('api', 'request_failed', payload)
+  } catch (error) {
+    // Logging failures must not change API rejection behavior.
   }
 }
 
@@ -243,6 +272,10 @@ function requestInit(ticket, config) {
       success: (res = {}) => {
         const statusCode = Number(res.statusCode || 0)
         if (statusCode < 200 || statusCode >= 300) {
+          logApiRequestFailed('init', {
+            code: 'AUX_PHOTO_HTTP_ERROR',
+            statusCode
+          }, { stage: 'response', statusCode }, ticket)
           reject(buildError('AUX_PHOTO_HTTP_ERROR', '辅助拍照初始化失败', {
             statusCode
           }))
@@ -251,6 +284,9 @@ function requestInit(ticket, config) {
 
         const payload = normalizeSuccessPayload(res.data)
         if (!payload) {
+          logApiRequestFailed('init', {
+            code: (res.data && res.data.code) || 'AUX_PHOTO_INIT_FAILED'
+          }, { stage: 'response' }, ticket)
           reject(buildError(
             (res.data && res.data.code) || 'AUX_PHOTO_INIT_FAILED',
             (res.data && res.data.message) || '辅助拍照初始化失败'
@@ -261,6 +297,10 @@ function requestInit(ticket, config) {
         resolve(payload)
       },
       fail: (err = {}) => {
+        logApiRequestFailed('init', {
+          code: 'AUX_PHOTO_REQUEST_FAILED',
+          errMsg: err.errMsg || ''
+        }, { stage: 'request' }, ticket)
         reject(buildError('AUX_PHOTO_REQUEST_FAILED', '辅助拍照初始化请求失败', {
           errMsg: err.errMsg || ''
         }))
@@ -301,6 +341,10 @@ function requestUploadPhoto(item, ticket, config) {
         const payloadData = parseResponseData(res.data)
 
         if (statusCode < 200 || statusCode >= 300) {
+          logApiRequestFailed('uploadPhotoBase64', {
+            code: 'AUX_PHOTO_UPLOAD_HTTP_ERROR',
+            statusCode
+          }, { stage: 'response', statusCode }, ticket)
           reject(buildError('AUX_PHOTO_UPLOAD_HTTP_ERROR', '图片上传失败', {
             statusCode,
             data: payloadData
@@ -311,6 +355,9 @@ function requestUploadPhoto(item, ticket, config) {
         const duplicatePayload = normalizeDuplicatePayload(payloadData, item)
         const payload = duplicatePayload || normalizeSuccessPayload(payloadData)
         if (!payload) {
+          logApiRequestFailed('uploadPhotoBase64', {
+            code: (payloadData && payloadData.code) || 'AUX_PHOTO_UPLOAD_FAILED'
+          }, { stage: 'response' }, ticket)
           reject(getResponseError(
             payloadData,
             'AUX_PHOTO_UPLOAD_FAILED',
@@ -322,6 +369,10 @@ function requestUploadPhoto(item, ticket, config) {
         resolve(payload)
       },
       fail: (err = {}) => {
+        logApiRequestFailed('uploadPhotoBase64', {
+          code: 'AUX_PHOTO_UPLOAD_REQUEST_FAILED',
+          errMsg: err.errMsg || ''
+        }, { stage: 'request' }, ticket)
         reject(buildError('AUX_PHOTO_UPLOAD_REQUEST_FAILED', '图片上传请求失败', {
           errMsg: err.errMsg || ''
         }))
@@ -366,6 +417,10 @@ function requestComplete(params, config) {
       success: (res = {}) => {
         const statusCode = Number(res.statusCode || 0)
         if (statusCode < 200 || statusCode >= 300) {
+          logApiRequestFailed('complete', {
+            code: 'AUX_PHOTO_COMPLETE_HTTP_ERROR',
+            statusCode
+          }, { stage: 'response', statusCode }, ticket)
           reject(buildError('AUX_PHOTO_COMPLETE_HTTP_ERROR', '完成提交失败', {
             statusCode
           }))
@@ -375,6 +430,9 @@ function requestComplete(params, config) {
         const completedPayload = normalizeCompletedPayload(res.data, ticket)
         const payload = completedPayload || normalizeSuccessPayload(res.data)
         if (!payload) {
+          logApiRequestFailed('complete', {
+            code: (res.data && res.data.code) || 'AUX_PHOTO_COMPLETE_FAILED'
+          }, { stage: 'response' }, ticket)
           reject(getResponseError(
             res.data,
             'AUX_PHOTO_COMPLETE_FAILED',
@@ -386,6 +444,10 @@ function requestComplete(params, config) {
         resolve(payload)
       },
       fail: (err = {}) => {
+        logApiRequestFailed('complete', {
+          code: 'AUX_PHOTO_COMPLETE_REQUEST_FAILED',
+          errMsg: err.errMsg || ''
+        }, { stage: 'request' }, ticket)
         reject(buildError('AUX_PHOTO_COMPLETE_REQUEST_FAILED', '完成提交请求失败', {
           errMsg: err.errMsg || ''
         }))

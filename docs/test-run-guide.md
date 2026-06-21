@@ -1,35 +1,39 @@
 # selfCam 测试运行与结果查看指引
 
+## v1.4.9 新增测试目标
+
+- 覆盖辅助拍照异常日志上报：错误日志复用辅助拍照 `baseUrl`，调用 `reportMiniappError` 单条上报。
+- 覆盖只上传 `error` 级白名单事件，`warning`、诊断快照、缺少 `ticket` 和 `mock-*` ticket 均不上报后台。
+- 覆盖 `init / uploadPhotoBase64 / complete` 真实请求失败进入 `runtimeLogger.error('api', 'request_failed', ...)`。
+- 覆盖上报失败静默处理，不弹窗、不阻断拍照、上传或完成采集流程。
+
+## v1.4.9 重点测试文件
+
+- `__tests__/error-log-upload.test.js`
+- `__tests__/aux-photo-api.test.js`
+- `__tests__/env-config.test.js`
+
+## v1.4.9 推荐验证方式
+
+提交前优先跑轻量检查：
+
+```powershell
+node --check packageD/utils/runtime-logger.js
+node --check packageD/utils/env-config.js
+node --check packageD/utils/aux-photo-api.js
+npm test -- --runInBand __tests__/error-log-upload.test.js
+npm test -- --runInBand __tests__/aux-photo-api.test.js
+npm test -- --runInBand __tests__/env-config.test.js
+```
+
+微信开发者工具验证时，优先使用非敏感测试 ticket 触发一条 `camera_error` 或辅助拍照接口失败；mock ticket 不应触发后台异常日志请求。
+
 ## v1.4.8 新增测试目标
 
 - 覆盖辅助拍照 ticket 状态前端拦截：`COMPLETED / EXPIRED / REVOKED` 在首页 `init` 返回后只提示，不申请相机权限、不跳转、不恢复缓存、不新建缓存。
 - 覆盖 `data.ticketStatus` 优先、`data.status` 兼容，以及状态 trim 后转大写判断。
 - 覆盖 `CREATED / OPENED / UPLOADING` 等非拦截状态继续原流程；同 `ticket` 可恢复缓存时先调用 `init`，非拦截后再恢复原缓存。
 - 覆盖预览页本地 blocked `cache.auxPhoto.ticketStatus` 防御：不调用 `uploadPhotoBase64` 或 `complete`。
-
-## v1.4.8 重点测试文件
-
-- `__tests__/index-permission.test.js`
-- `__tests__/preview-upload-overlay.test.js`
-- `__tests__/aux-photo-mapper.test.js`
-- `__tests__/aux-photo-api.test.js`
-
-## v1.4.8 推荐验证方式
-
-提交前优先跑轻量检查：
-
-```powershell
-node --check packageD/pages/index/index.js
-node --check packageD/pages/preview/preview.js
-node --check packageD/utils/aux-photo-mapper.js
-node --check packageD/utils/aux-photo-api.js
-npm test -- --runInBand __tests__/index-permission.test.js
-npm test -- --runInBand __tests__/preview-upload-overlay.test.js
-npm test -- --runInBand __tests__/aux-photo-mapper.test.js
-npm test -- --runInBand __tests__/aux-photo-api.test.js
-```
-
-微信开发者工具 mock 验证时，`mock-2` 主要覆盖非拦截状态进入辅助拍照流程；`COMPLETED / EXPIRED / REVOKED` 可用单测或后端联调返回对应状态验证。
 
 ## v1.4.6 新增测试目标
 

@@ -2,22 +2,23 @@
 
 ## 当前版本
 
-**版本号**: v1.4.8
-**发布日期**: 2026-06-15
-**状态**: main 已包含：辅助拍照 ticket 状态前端拦截
+**版本号**: v1.4.9
+**发布日期**: 2026-06-22
+**状态**: 待提交：辅助拍照异常日志上报后端数据库
 
 ---
 
 ## 版本概述
 
-当前版本在 `v1.4.7` 公司主体小程序 packageD 分包接入改造基础上，补上辅助拍照 ticket 状态前端拦截。入口会先看后端 `init` 返回状态，再决定是否进入相机、预览和完成链路。
+当前版本在 `v1.4.8` 辅助拍照 ticket 状态前端拦截基础上，接入辅助拍照异常日志上报后端数据库。前端只通过 `ticket` 关联后端业务信息，不再上传 `reportNo`。
 
 ### 本版本重点
 
-- 有 `ticket` 时，首页先调用 `AuxPhotoService/init`，读取 `data.ticketStatus`，兼容 `data.status`，状态 trim 后转大写再判断。
-- `COMPLETED / EXPIRED / REVOKED` 直接 toast 拦截，不申请相机权限，不进入拍照页，不恢复缓存。
-- 预览页对本地 `cache.auxPhoto.ticketStatus` 做防御，blocked 状态下不触发 `uploadPhotoBase64` 和 `complete`。
-- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.8`。
+- 错误日志接口复用辅助拍照 `baseUrl`，调用 `AuxPhotoService/reportMiniappError` 单条上报。
+- 只上报 `error` 级白名单事件，`warning`、诊断快照、缺少 `ticket` 和 `mock-*` ticket 均不上报后台。
+- `init / uploadPhotoBase64 / complete` 真实请求失败统一进入 `runtimeLogger.error('api', 'request_failed', ...)`。
+- 上报失败静默处理，不弹窗、不阻断拍照、上传或完成采集流程。
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.4.9`。
 
 ## v1.4.7 变更摘要
 
@@ -48,6 +49,7 @@
 
 | 版本 | 发布日期 | 状态 | 说明 |
 | --- | --- | --- | --- |
+| v1.4.9 | 2026-06-22 | 待提交：辅助拍照异常日志上报后端数据库 | 错误日志改为 `ticket + reportMiniappError` 单条上报，复用辅助拍照 `baseUrl`，只上传 error 级白名单事件并静默处理失败 |
 | v1.4.8 | 2026-06-15 | main 已包含：辅助拍照 ticket 状态前端拦截 | 有 ticket 时先看 `init` 状态，拦截 completed/expired/revoked，预览页本地 blocked 状态也会防御上传和 complete |
 | v1.4.7 | 2026-06-10 | main 已包含：公司主体小程序 packageD 分包接入改造 | 业务代码迁入 `packageD/`，根主包保留本地调试壳，补齐分包路径、启动上下文和接入文档 |
 | v1.4.6 | 2026-05-27 | main 已包含：辅助拍照后端提交闭环 | 接入真实 `uploadPhotoBase64` 逐张上传、`complete` 完成提交、本地 mock 后端和失败重试恢复 |
