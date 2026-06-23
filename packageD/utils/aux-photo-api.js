@@ -249,10 +249,12 @@ function buildUploadBase64Payload(metadata, fileBase64) {
 
 function requestInit(ticket, config) {
   if (typeof wx === 'undefined' || typeof wx.request !== 'function') {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_REQUEST_UNAVAILABLE',
       '当前环境不支持辅助拍照接口请求'
-    ))
+    )
+    logApiRequestFailed('init', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   return new Promise((resolve, reject) => {
@@ -311,21 +313,28 @@ function requestInit(ticket, config) {
 
 function requestUploadPhoto(item, ticket, config) {
   if (typeof wx === 'undefined' || typeof wx.request !== 'function') {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_UPLOAD_UNAVAILABLE',
       '当前环境不支持图片上传'
-    ))
+    )
+    logApiRequestFailed('uploadPhotoBase64', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   const metadata = buildUploadMetadata(item, ticket)
   if (!metadata.ticket || !metadata.vehicleId || !metadata.uploadItemId || !metadata.photoType || !item.filePath) {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_UPLOAD_PARAM_INVALID',
       '图片上传参数不完整'
-    ))
+    )
+    logApiRequestFailed('uploadPhotoBase64', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
-  return readFileBase64(item.filePath).then((fileBase64) => new Promise((resolve, reject) => {
+  return readFileBase64(item.filePath).catch((errorPayload) => {
+    logApiRequestFailed('uploadPhotoBase64', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
+  }).then((fileBase64) => new Promise((resolve, reject) => {
     wx.request({
       url: joinUrl(config.baseUrl, UPLOAD_PHOTO_BASE64_PATH),
       method: 'POST',
@@ -382,19 +391,24 @@ function requestUploadPhoto(item, ticket, config) {
 }
 
 function requestComplete(params, config) {
+  const ticket = sanitizeTicket(params && params.ticket)
+
   if (typeof wx === 'undefined' || typeof wx.request !== 'function') {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_REQUEST_UNAVAILABLE',
       '当前环境不支持辅助拍照接口请求'
-    ))
+    )
+    logApiRequestFailed('complete', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
-  const ticket = sanitizeTicket(params && params.ticket)
   if (!ticket) {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_COMPLETE_PARAM_INVALID',
       '完成提交参数不完整'
-    ))
+    )
+    logApiRequestFailed('complete', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   return new Promise((resolve, reject) => {
@@ -521,10 +535,12 @@ function init(rawTicket) {
   }
 
   if (!config.requestEnabled || !config.baseUrl) {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_BASE_URL_MISSING',
       '辅助拍照接口未配置'
-    ))
+    )
+    logApiRequestFailed('init', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   return requestInit(ticket, config)
@@ -539,10 +555,12 @@ function uploadPhoto(item = {}, options = {}) {
   }
 
   if (!config.requestEnabled || !config.baseUrl) {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_BASE_URL_MISSING',
       '辅助拍照接口未配置'
-    ))
+    )
+    logApiRequestFailed('uploadPhotoBase64', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   return requestUploadPhoto(item, ticket, config)
@@ -557,10 +575,12 @@ function complete(params = {}) {
   }
 
   if (!config.requestEnabled || !config.baseUrl) {
-    return Promise.reject(buildError(
+    const errorPayload = buildError(
       'AUX_PHOTO_BASE_URL_MISSING',
       '辅助拍照接口未配置'
-    ))
+    )
+    logApiRequestFailed('complete', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
   }
 
   return requestComplete({ ...params, ticket }, config)

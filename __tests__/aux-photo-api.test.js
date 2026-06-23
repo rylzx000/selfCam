@@ -254,6 +254,51 @@ describe('aux-photo api', () => {
     }))
   })
 
+  test('logs init pre-request failures through runtimeLogger.error', async () => {
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: false,
+      baseUrl: '',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.init('AUX_REAL_001')).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'init',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+  })
+
+  test('logs init request unavailable before wx.request is called', async () => {
+    delete global.wx
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.init('AUX_REAL_001')).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_REQUEST_UNAVAILABLE'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'init',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_REQUEST_UNAVAILABLE'
+    }))
+  })
+
   test('logs uploadPhotoBase64 request failure through runtimeLogger.error without image data', async () => {
     const readFile = jest.fn(({ success }) => {
       success({ data: 'BASE64_IMAGE_DATA' })
@@ -301,6 +346,141 @@ describe('aux-photo api', () => {
     expect(JSON.stringify(payload)).not.toContain('wxfile://tmp/damage-2.jpg')
   })
 
+  test('logs upload base url missing before request for real tickets', async () => {
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: false,
+      baseUrl: '',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.uploadPhoto({
+      clientPhotoId: 'damage-local-id',
+      vehicleId: 'LOSS_VEHICLE_100001',
+      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+      photoType: 'DAMAGE',
+      sortNo: 2,
+      filePath: 'wxfile://tmp/damage-2.jpg',
+      fileSize: 2048
+    }, {
+      ticket: 'AUX_REAL_001'
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'uploadPhotoBase64',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+  })
+
+  test('logs upload parameter validation failure without file path', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.uploadPhoto({
+      clientPhotoId: 'damage-local-id',
+      vehicleId: 'LOSS_VEHICLE_100001',
+      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+      photoType: 'DAMAGE',
+      sortNo: 2,
+      fileSize: 2048
+    }, {
+      ticket: 'AUX_REAL_001'
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_UPLOAD_PARAM_INVALID'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'uploadPhotoBase64',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_UPLOAD_PARAM_INVALID'
+    }))
+    expect(JSON.stringify(runtimeLogger.error.mock.calls[0][2])).not.toContain('wxfile://')
+  })
+
+  test.each([
+    [
+      'file system unavailable',
+      () => ({
+        request: jest.fn()
+      }),
+      'AUX_PHOTO_UPLOAD_UNAVAILABLE',
+      ''
+    ],
+    [
+      'base64 empty',
+      () => ({
+        getFileSystemManager: jest.fn(() => ({
+          readFile: jest.fn(({ success }) => success({ data: '' }))
+        })),
+        request: jest.fn()
+      }),
+      'AUX_PHOTO_BASE64_EMPTY',
+      ''
+    ],
+    [
+      'read file failed',
+      () => ({
+        getFileSystemManager: jest.fn(() => ({
+          readFile: jest.fn(({ fail }) => fail({ errMsg: 'readFile:fail permission denied' }))
+        })),
+        request: jest.fn()
+      }),
+      'AUX_PHOTO_READ_FILE_FAILED',
+      'readFile:fail permission denied'
+    ]
+  ])('logs upload read-file pre-request failure: %s', async (_, createWx, expectedCode, expectedErrMsg) => {
+    global.wx = createWx()
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.uploadPhoto({
+      clientPhotoId: 'damage-local-id',
+      vehicleId: 'LOSS_VEHICLE_100001',
+      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+      photoType: 'DAMAGE',
+      sortNo: 2,
+      filePath: 'wxfile://tmp/damage-2.jpg',
+      fileSize: 2048
+    }, {
+      ticket: 'AUX_REAL_001'
+    })).rejects.toEqual(expect.objectContaining({
+      code: expectedCode
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'uploadPhotoBase64',
+      stage: 'before_request',
+      errorCode: expectedCode,
+      errMsg: expectedErrMsg
+    }))
+    const payload = runtimeLogger.error.mock.calls[0][2]
+    expect(JSON.stringify(payload)).not.toContain('wxfile://tmp/damage-2.jpg')
+    expect(JSON.stringify(payload)).not.toContain('BASE64_IMAGE_DATA')
+  })
+
   test('logs complete request failure through runtimeLogger.error', async () => {
     global.wx = {
       request: jest.fn(({ fail }) => {
@@ -329,6 +509,59 @@ describe('aux-photo api', () => {
       stage: 'request',
       errorCode: 'AUX_PHOTO_COMPLETE_REQUEST_FAILED',
       errMsg: 'request:fail timeout'
+    }))
+  })
+
+  test('logs complete base url missing before request for real tickets', async () => {
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: false,
+      baseUrl: '',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.complete({
+      ticket: 'AUX_REAL_001',
+      clientUploadCount: 3
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'complete',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_BASE_URL_MISSING'
+    }))
+  })
+
+  test('logs complete parameter validation failure before request', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.complete({
+      ticket: '',
+      clientUploadCount: 3
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_COMPLETE_PARAM_INVALID'
+    }))
+
+    expect(runtimeLogger.error).toHaveBeenCalledWith('api', 'request_failed', expect.objectContaining({
+      apiName: 'complete',
+      stage: 'before_request',
+      errorCode: 'AUX_PHOTO_COMPLETE_PARAM_INVALID'
     }))
   })
 
