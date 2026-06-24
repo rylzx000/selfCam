@@ -294,6 +294,131 @@ async function getWxMediaState(miniProgram) {
   })
 }
 
+async function installAuxUploadMocks(miniProgram) {
+  await miniProgram.evaluate(function () {
+    const originalGetFileSystemManager = wx.getFileSystemManager
+    const originalRequest = wx.request
+
+    wx.__e2eAuxUpload = {
+      readFileCalls: 0,
+      uploadCalls: 0,
+      completeCalls: 0,
+      requests: []
+    }
+
+    wx.getFileSystemManager = function () {
+      const fs = typeof originalGetFileSystemManager === 'function'
+        ? originalGetFileSystemManager.call(wx)
+        : {}
+      const wrappedFs = {}
+
+      Object.keys(fs || {}).forEach(function (key) {
+        wrappedFs[key] = fs[key]
+      })
+
+      wrappedFs.readFile = function (options) {
+        options = options || {}
+        const filePath = options.filePath || ''
+
+        if (filePath.indexOf('wxfile://tmp/') === 0) {
+          wx.__e2eAuxUpload.readFileCalls += 1
+          setTimeout(function () {
+            options.success && options.success({ data: 'ZTJldGVzdA==' })
+            options.complete && options.complete({})
+          }, 0)
+          return
+        }
+
+        if (fs && typeof fs.readFile === 'function') {
+          return fs.readFile(options)
+        }
+
+        options.fail && options.fail({ errMsg: 'readFile:fail e2e mock unavailable' })
+        options.complete && options.complete({})
+      }
+
+      return wrappedFs
+    }
+
+    wx.request = function (options) {
+      options = options || {}
+      const url = options.url || ''
+      const data = options.data || {}
+
+      if (url.indexOf('/uploadPhotoBase64') >= 0) {
+        wx.__e2eAuxUpload.uploadCalls += 1
+        wx.__e2eAuxUpload.requests.push({
+          type: 'upload',
+          ticket: data.ticket,
+          vehicleId: data.vehicleId,
+          uploadItemId: data.uploadItemId,
+          photoType: data.photoType,
+          clientPhotoId: data.clientPhotoId
+        })
+        setTimeout(function () {
+          options.success && options.success({
+            statusCode: 200,
+            data: {
+              success: true,
+              code: '0000',
+              message: 'e2e upload ok',
+              data: {
+                uploadRecordId: `E2E_UPLOAD_${data.clientPhotoId || wx.__e2eAuxUpload.uploadCalls}`,
+                photoId: `E2E_PHOTO_${data.clientPhotoId || wx.__e2eAuxUpload.uploadCalls}`,
+                vehicleId: data.vehicleId,
+                uploadItemId: data.uploadItemId,
+                photoType: data.photoType,
+                duplicate: false,
+                itemUploadedCount: Number.isFinite(data.sortNo) ? data.sortNo : 1,
+                ticketStatus: 'UPLOADING'
+              }
+            }
+          })
+          options.complete && options.complete({})
+        }, 0)
+        return
+      }
+
+      if (url.indexOf('/complete') >= 0) {
+        wx.__e2eAuxUpload.completeCalls += 1
+        wx.__e2eAuxUpload.requests.push({
+          type: 'complete',
+          ticket: data.ticket,
+          clientUploadCount: data.clientUploadCount
+        })
+        setTimeout(function () {
+          options.success && options.success({
+            statusCode: 200,
+            data: {
+              success: true,
+              code: '0000',
+              message: 'e2e complete ok',
+              data: {
+                ticket: data.ticket,
+                ticketStatus: 'COMPLETED',
+                uploadedCount: Number.isFinite(data.clientUploadCount) ? data.clientUploadCount : 0,
+                requiredPassed: true,
+                missingItems: [],
+                completeTime: '2026-06-24 00:00:00',
+                phase2TriggerStatus: 'NOT_ENABLED'
+              }
+            }
+          })
+          options.complete && options.complete({})
+        }, 0)
+        return
+      }
+
+      if (typeof originalRequest === 'function') {
+        return originalRequest.call(wx, options)
+      }
+
+      options.fail && options.fail({ errMsg: 'request:fail e2e mock unavailable' })
+      options.complete && options.complete({})
+    }
+  })
+}
+
 async function installCurrentPageCameraMock(miniProgram, tempImagePath = 'wxfile://tmp/e2e-camera-shot.jpg') {
   return miniProgram.evaluate(function (payload) {
     const pages = getCurrentPages()
@@ -550,6 +675,7 @@ module.exports = {
   waitForCondition,
   installWxMediaMocks,
   getWxMediaState,
+  installAuxUploadMocks,
   installCurrentPageCameraMock,
   getCameraMockState,
   createCameraRuntimeErrorCollector,

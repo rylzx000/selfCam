@@ -14,7 +14,7 @@
 ### TC-AF-001: 无缓存时返回安全结果 [P]
 
 **自动化 / 手工**：自动化
-**前置条件**：本地不存在 `car_damage_photos_cache`  
+**前置条件**：本地不存在 `selfcam_car_damage_photos_cache`
 **操作步骤**：
 1. 调用 `storage.loadCache()`
 2. 调用 `storage.loadCacheForResume()`

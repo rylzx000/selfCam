@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'car_damage_photos_cache'
+const { STORAGE_KEY } = require('../../packageD/utils/storage')
 
 const SHOOT_STEP = {
   LICENSE_PLATE: 'licensePlate',

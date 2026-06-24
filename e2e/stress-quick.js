@@ -7,6 +7,7 @@ const { spawn } = require('child_process')
 const WebSocket = require('ws')
 const fs = require('fs')
 const path = require('path')
+const { STORAGE_KEY } = require('./support/fixtures')
 
 const CLI_PATH = 'D:\\environment\\wechat-devtools\\cli.bat'
 const PROJECT_PATH = 'D:\\project\\selfCam'
@@ -132,7 +133,7 @@ async function runTests() {
     
     // 测试3: 损坏数据
     console.log('\n📌 测试3: 损坏数据状态')
-    await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', 'invalid')
+    await miniProgram.callWxMethod('setStorageSync', STORAGE_KEY, 'invalid')
     await sleep(200)
     await miniProgram.reLaunch('/packageD/pages/index/index')
     await sleep(500)

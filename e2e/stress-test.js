@@ -14,6 +14,7 @@ const { spawn } = require('child_process')
 const WebSocket = require('ws')
 const fs = require('fs')
 const path = require('path')
+const { STORAGE_KEY } = require('./support/fixtures')
 
 const CLI_PATH = 'D:\\environment\\wechat-devtools\\cli.bat'
 const PROJECT_PATH = 'D:\\project\\selfCam'
@@ -216,7 +217,7 @@ async function testAbnormalStates() {
     console.log('\nTC-STRESS-005: 数据损坏状态')
     
     // 设置损坏的数据
-    await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', 'invalid')
+    await miniProgram.callWxMethod('setStorageSync', STORAGE_KEY, 'invalid')
     await sleep(200)
     
     await miniProgram.reLaunch('/packageD/pages/index/index')
@@ -234,7 +235,7 @@ async function testAbnormalStates() {
       largeData.vehicles.push({ id: `v_${i}`, damages: [] })
     }
     
-    await miniProgram.callWxMethod('setStorageSync', 'car_damage_photos_cache', JSON.stringify(largeData))
+    await miniProgram.callWxMethod('setStorageSync', STORAGE_KEY, JSON.stringify(largeData))
     await sleep(200)
     
     await miniProgram.reLaunch('/packageD/pages/preview/preview')

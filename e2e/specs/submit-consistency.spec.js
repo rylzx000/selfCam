@@ -6,6 +6,7 @@ const {
   seedCache,
   readCache,
   installWxMediaMocks,
+  installAuxUploadMocks,
   saveRetakenDamageForE2E
 } = require('../support/automator')
 const { createPhoto } = require('../support/fixtures')
@@ -15,6 +16,7 @@ const {
   assertNoDuplicatePhotoPaths
 } = require('../support/scenario-builder')
 const cacheSelectors = require('../../packageD/utils/cache-selectors')
+const uploadState = require('../../packageD/utils/upload-state')
 
 function eventDataset(dataset) {
   return {
@@ -30,6 +32,37 @@ function buildRetakePhoto(pathKey) {
   })
 }
 
+function createUploadItem(vehicleId, photoType, maxCount = 1) {
+  return {
+    uploadItemId: `${vehicleId}_${photoType}`,
+    photoType,
+    maxCount,
+    uploadedCount: 0
+  }
+}
+
+function attachSubmitUploadRules(cache, ticket) {
+  cache.auxPhoto = {
+    ticket,
+    ticketStatus: 'OPENED'
+  }
+
+  ;(cache.vehicles || []).forEach((vehicle, index) => {
+    const vehicleId = `MOCK_LOSS_VEHICLE_${100001 + index}`
+    vehicle.vehicleId = vehicleId
+    vehicle.uploadItems = [
+      createUploadItem(vehicleId, 'LICENSE_PLATE'),
+      createUploadItem(vehicleId, 'VIN'),
+      createUploadItem(vehicleId, 'DAMAGE', 5),
+      createUploadItem(vehicleId, 'DRIVING_LICENSE_FRONT'),
+      createUploadItem(vehicleId, 'DRIVING_LICENSE_BACK'),
+      createUploadItem(vehicleId, 'DRIVING_LICENSE_ELECTRONIC')
+    ]
+  })
+
+  return cache
+}
+
 async function waitForCompletePage(miniProgram) {
   const page = await waitForCondition(async () => {
     const current = await miniProgram.currentPage()
@@ -37,6 +70,62 @@ async function waitForCompletePage(miniProgram) {
   }, 10000)
   await wait(500)
   return page
+}
+
+async function waitForUploadReady(miniProgram) {
+  const startedAt = Date.now()
+  let lastSnapshot = null
+
+  while (Date.now() - startedAt < 45000) {
+    const current = await miniProgram.currentPage()
+    if (!current.path || !current.path.includes('preview')) {
+      lastSnapshot = { page: current.path || '' }
+      await wait(300)
+      continue
+    }
+
+    const data = await current.data()
+    const cache = await readCache(miniProgram)
+    const session = cache && cache.uploadSession
+    const activeItem = session && Array.isArray(session.items)
+      ? session.items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.UPLOADING)
+        || session.items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.FAILED)
+        || session.items.find((item) => item.status === uploadState.UPLOAD_ITEM_STATUS.PENDING)
+      : null
+    lastSnapshot = {
+      page: current.path || '',
+      phase: session && session.phase,
+      uploaded: session && session.uploaded,
+      total: session && session.total,
+      overlayPrimaryVisible: data.uploadOverlayPrimaryVisible,
+      overlayPrimaryText: data.uploadOverlayPrimaryText,
+      activeItem: activeItem && {
+        id: activeItem.id,
+        status: activeItem.status,
+        attempts: activeItem.attempts,
+        lastErrorCode: activeItem.lastErrorCode,
+        lastErrorMessage: activeItem.lastErrorMessage
+      }
+    }
+
+    if (data.uploadOverlayPrimaryVisible && session && session.phase === uploadState.UPLOAD_PHASE.READY) {
+      return current
+    }
+
+    if (session && session.phase === uploadState.UPLOAD_PHASE.FAILED) {
+      throw new Error(`upload failed before ready: ${JSON.stringify(lastSnapshot)}`)
+    }
+
+    await wait(300)
+  }
+
+  throw new Error(`upload did not reach ready: ${JSON.stringify(lastSnapshot)}`)
+}
+
+async function completeReadyUpload(miniProgram) {
+  const page = await waitForUploadReady(miniProgram)
+  await page.callMethod('onUploadOverlayPrimaryTap')
+  return waitForCompletePage(miniProgram)
 }
 
 async function returnToPreview(miniProgram) {
@@ -97,6 +186,7 @@ describe('P0 提交一致性 e2e', () => {
 
   beforeAll(async () => {
     miniProgram = await launchMiniProgram()
+    await installAuxUploadMocks(miniProgram)
   })
 
   afterAll(async () => {
@@ -109,6 +199,7 @@ describe('P0 提交一致性 e2e', () => {
       damageCountPerVehicle: 5,
       documentCountPerVehicle: 2
     })
+    attachSubmitUploadRules(scenario, 'mock-2')
     await seedCache(miniProgram, scenario)
 
     const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
@@ -119,7 +210,7 @@ describe('P0 提交一致性 e2e', () => {
     await page.callMethod('onModalConfirm')
     await skipAlbumSaveIfPrompted(page)
 
-    const completePage = await waitForCompletePage(miniProgram)
+    const completePage = await completeReadyUpload(miniProgram)
     const completeData = await completePage.data()
     const cache = await readCache(miniProgram)
     const summary = cacheSelectors.getCacheSummary(cache)
@@ -143,6 +234,7 @@ describe('P0 提交一致性 e2e', () => {
     const deletedPath = scenario.vehicles[0].damages[2].compressedPath
     const oldRetakePath = scenario.vehicles[1].damages[4].compressedPath
     const newRetakePath = 'wxfile://tmp/p0-submit-retake-b-4.jpg'
+    attachSubmitUploadRules(scenario, 'mock-3')
 
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success')
@@ -155,7 +247,7 @@ describe('P0 提交一致性 e2e', () => {
 
     await page.callMethod('onSubmit')
     await skipAlbumSaveIfPrompted(page)
-    const completePage = await waitForCompletePage(miniProgram)
+    const completePage = await completeReadyUpload(miniProgram)
     const completeData = await completePage.data()
     const cache = await readCache(miniProgram)
     const summary = cacheSelectors.getCacheSummary(cache)

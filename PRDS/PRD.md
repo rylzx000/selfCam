@@ -170,7 +170,7 @@
 ### 功能11：本地缓存
 
 - 使用微信本地缓存保存拍摄进度与照片元信息
-- 缓存 Key：`car_damage_photos_cache`
+- 缓存 Key：`selfcam_car_damage_photos_cache`
 - 支持：
   - 中断恢复
   - 从预览页返回拍照页补拍
@@ -270,7 +270,7 @@
 ### 存储方式
 
 - 微信小程序本地存储：`wx.setStorageSync`
-- 存储 Key：`car_damage_photos_cache`
+- 存储 Key：`selfcam_car_damage_photos_cache`
 
 ### 当前数据结构
 

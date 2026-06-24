@@ -11,6 +11,7 @@
 
 const automator = require('miniprogram-automator')
 const config = require('./config')
+const { STORAGE_KEY } = require('./support/fixtures')
 const { testCaptureFlow, testPhotoConfirm, testDamageCapture } = require('./test-cases')
 
 // 测试结果
@@ -270,7 +271,7 @@ async function runAllTests() {
     // TC-007
     try {
       console.log('\nTC-007: 检查缓存数据')
-      const cache = await miniProgram.callWxMethod('getStorageSync', 'car_damage_photos_cache')
+      const cache = await miniProgram.callWxMethod('getStorageSync', STORAGE_KEY)
       
       if (cache) {
         const cacheData = JSON.parse(cache)

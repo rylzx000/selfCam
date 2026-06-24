@@ -172,7 +172,7 @@ pages/host/index（本地调试壳）
 缓存 Key：
 
 ```js
-const STORAGE_KEY = 'car_damage_photos_cache'
+const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
 ```
 
 `packageD/utils/storage.js` 中的初始化结构：
