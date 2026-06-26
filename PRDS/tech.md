@@ -241,7 +241,7 @@ const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
 
 ### 本地上传状态
 
-点击 `完成采集` 完成行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`，全部照片上传成功后再调用 `complete`，`complete` 成功后进入完成页。
+点击 `完成采集` 完成行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`；全部照片上传成功后短暂停顿并自动调用 `complete`，`complete` 成功后展示 `完成` 按钮，用户点击后进入完成页。
 
 ```js
 cache.uploadSession = {
@@ -293,7 +293,7 @@ cache.uploadSession = {
 
 上传队列由 `utils/upload-state.js` 从车辆照片和车辆级行驶证资料组装：车牌、VIN、车损、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
 
-恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 显示 `完成采集`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
+恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 不显示可跳转按钮并自动排队调用 `complete`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
 
 `packageD/pages/index/index.js` 在有 `ticket` 的 `onStart()` 中先调用 `auxPhotoApi.init(ticket)`，优先用 `data.ticketStatus`、兼容 `data.status`，trim 并转大写判断 `COMPLETED / EXPIRED / REVOKED`。命中拦截状态时只 toast，不申请相机权限、不读取可恢复缓存、不调用 `auxPhotoMapper.buildCacheFromInit()`、不写新缓存、不跳转；非拦截状态才继续权限检查、同 `ticket` 缓存恢复或用 init 数据建缓存。
 
@@ -782,7 +782,7 @@ onSubmit()
   -> 若有待保存候选，显示 albumSaveConfirm 弹窗
   -> startUploadFlow()
   -> uploadRunner 逐张调用 uploadPhoto()
-  -> 用户在上传遮罩点击“完成采集”后 submitCompleteToBackend()
+  -> 照片全部上传成功后短暂停顿并自动 submitCompleteToBackend()
 ```
 
 `confirm-modal` 从 `v1.3.5` 起区分三种事件：
@@ -945,7 +945,8 @@ npm run test:e2e:full
   -> 预览页内展示上传遮罩
   -> uploadRunner 逐张调用 uploadPhoto()
   -> 全部成功后 submitCompleteToBackend()
-  -> complete 成功后进入完成页
+  -> complete 成功后显示“完成”
+  -> 用户点击“完成”后进入完成页
 ```
 
 - 每张新拍、重拍、上传或替换的照片生成新的 `localPhotoId`。

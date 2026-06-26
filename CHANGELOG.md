@@ -8,6 +8,7 @@
 
 ### 调整
 
+- 预览页上传遮罩在照片全部上传成功后，改为短暂停顿并自动调用 `complete`；上传完成态不再显示可绕过提交的按钮，`complete` 成功后展示 `完成` 按钮，点击后进入完成页，失败时仍只提供 `重试完成`。
 - 辅助拍照 ticket 状态前端拦截：有 `ticket` 时先调用 `init`，优先读取 `data.ticketStatus`，兼容 `data.status`；`COMPLETED / EXPIRED / REVOKED` 直接轻提示拦截，预览页本地 blocked `ticketStatus` 也会阻断上传和 `complete`。
 - 将业务代码迁入 `packageD/` 分包，根主包只保留本地调试壳，贴近公司主体小程序挂载方式。
 - 分包内页面跳转、组件引用和资源路径统一调整为 `/packageD/...`，避免接入主体小程序后访问旧主包路径。

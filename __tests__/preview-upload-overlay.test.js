@@ -7,6 +7,11 @@ describe('preview upload overlay flow', () => {
   let pageConfig
   let memoryStorage
 
+  async function flushPromises() {
+    await Promise.resolve()
+    await Promise.resolve()
+  }
+
   function createPageInstance(config) {
     return {
       ...config,
@@ -131,6 +136,7 @@ describe('preview upload overlay flow', () => {
 
   beforeEach(() => {
     jest.resetModules()
+    jest.useFakeTimers()
     memoryStorage = {}
 
     jest.doMock('../packageD/utils/album', () => ({
@@ -207,6 +213,7 @@ describe('preview upload overlay flow', () => {
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     delete global.wx
     delete global.Page
     jest.dontMock('../packageD/utils/album')
@@ -214,7 +221,7 @@ describe('preview upload overlay flow', () => {
     jest.dontMock('../packageD/utils/aux-photo-api')
   })
 
-  test('uploads photos one by one and calls complete only after upload ready', async () => {
+  test('automatically calls complete after photos upload successfully', async () => {
     saveReadyPreviewCache('mock-2')
     const page = loadPreviewPage()
 
@@ -229,21 +236,67 @@ describe('preview upload overlay flow', () => {
       total: 12,
       uploaded: 12
     }))
-    expect(page.data.uploadOverlayPrimaryText).toBe('完成采集')
+    expect(page.data.uploadOverlayPrimaryVisible).toBe(false)
+    expect(page.data.uploadOverlayPrimaryText).toBe('')
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
       url: '/packageD/pages/complete/complete'
     })
 
-    page.onUploadOverlayPrimaryTap()
+    jest.advanceTimersByTime(1500)
+    await flushPromises()
     await page.completeFlowPromise
 
     cache = storage.loadCache()
     expect(auxPhotoApi.complete).toHaveBeenCalledTimes(1)
     expect(cache.uploadSession.phase).toBe('completed')
     expect(cache.workflowState.current).toBe('LOCAL_COMPLETED')
+    expect(page.data.showUploadOverlay).toBe(true)
+    expect(page.data.uploadOverlayTitle).toBe('采集提交完成')
+    expect(page.data.uploadOverlayPrimaryVisible).toBe(true)
+    expect(page.data.uploadOverlayPrimaryText).toBe('完成')
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
+      url: '/packageD/pages/complete/complete'
+    })
+
+    page.onUploadOverlayPrimaryTap()
+
+    expect(auxPhotoApi.complete).toHaveBeenCalledTimes(1)
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
       url: '/packageD/pages/complete/complete'
     })
+  })
+
+  test('ready overlay primary tap does not call complete before auto timer fires', async () => {
+    const cache = saveReadyPreviewCache('mock-2')
+    const session = uploadState.createUploadSession(cache)
+    session.items = session.items.map((item) => ({
+      ...item,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1
+    }))
+    session.phase = uploadState.UPLOAD_PHASE.READY
+    session.uploaded = session.items.length
+    session.failed = 0
+    cache.uploadSession = session
+    storage.saveCache(cache)
+    const page = createPreviewPage()
+
+    page.onLoad()
+    page.onUploadOverlayPrimaryTap()
+    await flushPromises()
+
+    expect(auxPhotoApi.complete).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
+      url: '/packageD/pages/complete/complete'
+    })
+
+    jest.advanceTimersByTime(1500)
+    await flushPromises()
+    await page.completeFlowPromise
+
+    expect(auxPhotoApi.complete).toHaveBeenCalledTimes(1)
+    expect(storage.loadCache().uploadSession.phase).toBe('completed')
+    expect(page.data.uploadOverlayPrimaryText).toBe('完成')
   })
 
   test.each([
@@ -286,7 +339,9 @@ describe('preview upload overlay flow', () => {
     storage.saveCache(cache)
     const page = createPreviewPage()
 
-    await page.onUploadOverlayPrimaryTap()
+    page.onLoad()
+    jest.advanceTimersByTime(1500)
+    await flushPromises()
 
     const latestCache = storage.loadCache()
     expect(auxPhotoApi.uploadPhoto).not.toHaveBeenCalled()
@@ -459,7 +514,8 @@ describe('preview upload overlay flow', () => {
 
     page.onSubmit()
     await page.uploadFlowPromise
-    page.onUploadOverlayPrimaryTap()
+    jest.advanceTimersByTime(1500)
+    await flushPromises()
     await page.completeFlowPromise
 
     let cache = storage.loadCache()
@@ -476,6 +532,14 @@ describe('preview upload overlay flow', () => {
     expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
     expect(auxPhotoApi.complete).toHaveBeenCalledTimes(2)
     expect(cache.uploadSession.phase).toBe('completed')
+    expect(page.data.uploadOverlayPrimaryText).toBe('完成')
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
+      url: '/packageD/pages/complete/complete'
+    })
+
+    page.onUploadOverlayPrimaryTap()
+
+    expect(auxPhotoApi.complete).toHaveBeenCalledTimes(2)
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
       url: '/packageD/pages/complete/complete'
     })

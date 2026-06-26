@@ -441,7 +441,8 @@
     </div>
     <div class="controls" aria-label="mock 状态">
       <button class="control active" type="button" data-case="uploading">上传中</button>
-      <button class="control" type="button" data-case="success">完成</button>
+      <button class="control" type="button" data-case="success">上传完成</button>
+      <button class="control" type="button" data-case="completed">提交完成</button>
       <button class="control" type="button" data-case="failOnce">失败可重试</button>
     </div>
   </header>
@@ -546,12 +547,25 @@
         className: '',
         mark: '✓',
         title: '照片上传完成',
-        desc: '照片已上传成功，请继续完成采集。',
+        desc: '照片已上传成功，正在准备完成提交。',
         uploaded: 10,
         total: 10,
         percent: 100,
-        current: '全部照片已上传',
-        primaryText: '完成采集',
+        current: '即将确认采集完成',
+        primaryText: '',
+        primaryClass: 'primary',
+        showPrimary: false
+      },
+      completed: {
+        className: '',
+        mark: '✓',
+        title: '采集提交完成',
+        desc: '采集已完成，请点击完成查看汇总。',
+        uploaded: 10,
+        total: 10,
+        percent: 100,
+        current: '采集已完成',
+        primaryText: '完成',
         primaryClass: 'primary',
         showPrimary: true
       },

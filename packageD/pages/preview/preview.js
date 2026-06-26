@@ -27,6 +27,7 @@ const AUX_UPLOAD_ITEM_MISSING_TIP = '当前任务未下发该证件类型'
 
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
+const AUTO_COMPLETE_DELAY_MS = 1500
 
 const TICKET_BLOCKED_MESSAGES = {
   COMPLETED: '照片已完成采集，请勿重复操作。',
@@ -428,6 +429,8 @@ Page({
   uploadRunnerSessionId: '',
   uploadFlowPromise: null,
   completeFlowPromise: null,
+  completeAutoTimerId: null,
+  completeAutoTimerSessionId: '',
 
   getBlockedTicketStatus(cache) {
     const ticketStatus = normalizeTicketStatusFromCache(cache)
@@ -610,13 +613,13 @@ Page({
       return {
         showUploadOverlay: true,
         uploadOverlayTitle: '照片上传完成',
-        uploadOverlayDesc: '照片已上传成功，请继续完成采集。',
+        uploadOverlayDesc: '照片已上传成功，正在准备完成提交。',
         uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
         uploadOverlayProgressPercent: `${percent}%`,
         uploadOverlayProgressStyle: `width: ${percent}%`,
-        uploadOverlayCurrentText: '全部照片已上传',
-        uploadOverlayPrimaryText: '完成采集',
-        uploadOverlayPrimaryVisible: true,
+        uploadOverlayCurrentText: '即将确认采集完成',
+        uploadOverlayPrimaryText: '',
+        uploadOverlayPrimaryVisible: false,
         uploadOverlayPrimaryMode: 'primary'
       }
     }
@@ -657,13 +660,13 @@ Page({
       return {
         showUploadOverlay: true,
         uploadOverlayTitle: '采集提交完成',
-        uploadOverlayDesc: '正在进入完成页。',
+        uploadOverlayDesc: '采集已完成，请点击完成查看汇总。',
         uploadOverlayProgressText: `已上传 ${uploaded}/${total}`,
         uploadOverlayProgressPercent: `${percent}%`,
         uploadOverlayProgressStyle: `width: ${percent}%`,
         uploadOverlayCurrentText: '采集已完成',
-        uploadOverlayPrimaryText: '',
-        uploadOverlayPrimaryVisible: false,
+        uploadOverlayPrimaryText: '完成',
+        uploadOverlayPrimaryVisible: true,
         uploadOverlayPrimaryMode: 'primary'
       }
     }
@@ -758,12 +761,57 @@ Page({
 
     if (uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
       this.startUploadRunner(uploadSession.sessionId)
+    } else if (uploadSession.phase === uploadState.UPLOAD_PHASE.READY) {
+      this.scheduleAutoCompleteIfReady(uploadSession)
     }
   },
 
   clearUploadMockTimer() {
     this.uploadRunnerSessionId = ''
     this.uploadFlowPromise = null
+    this.clearAutoCompleteTimer()
+  },
+
+  clearAutoCompleteTimer() {
+    if (this.completeAutoTimerId) {
+      clearTimeout(this.completeAutoTimerId)
+    }
+    this.completeAutoTimerId = null
+    this.completeAutoTimerSessionId = ''
+  },
+
+  scheduleAutoCompleteIfReady(session) {
+    if (!session || session.phase !== uploadState.UPLOAD_PHASE.READY || !session.sessionId) {
+      return
+    }
+
+    if (this.completeAutoTimerId && this.completeAutoTimerSessionId === session.sessionId) {
+      return
+    }
+
+    this.clearAutoCompleteTimer()
+    const sessionId = session.sessionId
+    this.completeAutoTimerSessionId = sessionId
+    this.completeAutoTimerId = setTimeout(() => {
+      this.completeAutoTimerId = null
+      this.completeAutoTimerSessionId = ''
+
+      const cache = storage.loadCache()
+      const latestSession = cache && cache.uploadSession
+      if (!latestSession || latestSession.sessionId !== sessionId) {
+        return
+      }
+
+      if (latestSession.phase !== uploadState.UPLOAD_PHASE.READY) {
+        return
+      }
+
+      if (this.blockIfTicketBlocked(cache)) {
+        return
+      }
+
+      this.completeFlowPromise = this.submitCompleteToBackend(sessionId)
+    }, AUTO_COMPLETE_DELAY_MS)
   },
 
   startUploadRunner(sessionId) {
@@ -1494,6 +1542,8 @@ Page({
 
     if (uploadSession.phase === uploadState.UPLOAD_PHASE.UPLOADING) {
       this.startUploadRunner(uploadSession.sessionId)
+    } else if (uploadSession.phase === uploadState.UPLOAD_PHASE.READY) {
+      this.scheduleAutoCompleteIfReady(uploadSession)
     }
   },
 
@@ -1533,6 +1583,11 @@ Page({
     storage.saveCache(cache)
     this.syncUploadWorkflowState(session, pageAction)
     this.setData(this.buildUploadOverlayData(session))
+    if (session.phase === uploadState.UPLOAD_PHASE.READY) {
+      this.scheduleAutoCompleteIfReady(session)
+    } else {
+      this.clearAutoCompleteTimer()
+    }
   },
 
   async runUploadSession(sessionId) {
@@ -1630,8 +1685,8 @@ Page({
     }
 
     if (session.phase === uploadState.UPLOAD_PHASE.READY) {
-      this.completeFlowPromise = this.submitCompleteToBackend(session.sessionId)
-      return this.completeFlowPromise
+      this.scheduleAutoCompleteIfReady(session)
+      return null
     }
 
     if (session.phase === uploadState.UPLOAD_PHASE.FAILED) {
@@ -1641,6 +1696,11 @@ Page({
     if (session.phase === uploadState.UPLOAD_PHASE.COMPLETE_FAILED) {
       this.completeFlowPromise = this.submitCompleteToBackend(session.sessionId)
       return this.completeFlowPromise
+    }
+
+    if (session.phase === uploadState.UPLOAD_PHASE.COMPLETED) {
+      this.redirectToCompletePage()
+      return null
     }
   },
 
@@ -1678,9 +1738,6 @@ Page({
         page: 'preview',
         pageAction: 'submit_complete'
       })
-      this.isLeaving = true
-      this.setData({ showUploadOverlay: false })
-      wx.redirectTo({ url: '/packageD/pages/complete/complete' })
       return completedSession
     } catch (error) {
       const latestCache = storage.loadCache()
