@@ -90,12 +90,12 @@ const BUSINESS_ENV_ENDPOINTS = {
     auxPhotoHost: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/'
   },
   pilot: {
-    modelHost: 'https://videoclaimtest.chinalife-p.com.cn/video/model',
-    auxPhotoHost: 'https://videoclaimtest.chinalife-p.com.cn/onlineclaim/rest/'
+    modelHost: 'https://onlineclaim2.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://onlineclaim2.chinalife-p.com.cn/onlineclaim/rest/'
   },
   prod: {
-    modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model',
-    auxPhotoHost: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/'
+    modelHost: 'https://videoclaimpage.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://videoclaimpage.chinalife-p.com.cn/onlineclaim/rest/'
   }
 }
 

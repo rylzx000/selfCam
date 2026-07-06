@@ -171,9 +171,9 @@ describe('env-config', () => {
       envVersion: 'release',
       appEnv: 'prod',
       allowLocalModelHost: false,
-      modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model',
-      plateModelUrl: 'https://videoclaim.chinalife-p.com.cn/video/model/plate.onnx',
-      damageModelUrl: 'https://videoclaim.chinalife-p.com.cn/video/model/damage.onnx'
+      modelHost: 'https://videoclaimpage.chinalife-p.com.cn/video/model',
+      plateModelUrl: 'https://videoclaimpage.chinalife-p.com.cn/video/model/plate.onnx',
+      damageModelUrl: 'https://videoclaimpage.chinalife-p.com.cn/video/model/damage.onnx'
     }))
 
     expect(envConfig.getQualityConfigSourcePolicy()).toEqual(expect.objectContaining({
@@ -271,6 +271,31 @@ describe('env-config', () => {
     expect(envConfig.getAiConfig().appEnv).toBe(appEnv)
   })
 
+  test('trial local override pilot resolves the pilot endpoints', () => {
+    mockWxEnv('trial', {
+      storage: {
+        SELF_CAM_APP_ENV: 'pilot'
+      }
+    })
+    const envConfig = loadEnvConfig()
+
+    expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'pilot',
+      modelHost: 'https://onlineclaim2.chinalife-p.com.cn/video/model',
+      plateModelUrl: 'https://onlineclaim2.chinalife-p.com.cn/video/model/plate.onnx',
+      damageModelUrl: 'https://onlineclaim2.chinalife-p.com.cn/video/model/damage.onnx'
+    }))
+    expect(envConfig.getAuxPhotoConfig()).toEqual(expect.objectContaining({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'pilot',
+      baseUrl: 'https://onlineclaim2.chinalife-p.com.cn/onlineclaim/rest/',
+      requestEnabled: true
+    }))
+  })
+
   test('release ignores local appEnv override', () => {
     mockWxEnv('release', {
       storage: {
@@ -283,7 +308,7 @@ describe('env-config', () => {
     expect(envConfig.getAiConfig()).toEqual(expect.objectContaining({
       wxEnvVersion: 'release',
       appEnv: 'prod',
-      modelHost: 'https://videoclaim.chinalife-p.com.cn/video/model'
+      modelHost: 'https://videoclaimpage.chinalife-p.com.cn/video/model'
     }))
   })
 
@@ -439,7 +464,7 @@ describe('env-config', () => {
       envVersion: 'release',
       appEnv: 'prod',
       requestEnabled: true,
-      baseUrl: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/',
+      baseUrl: 'https://videoclaimpage.chinalife-p.com.cn/onlineclaim/rest/',
       mockEnabled: false,
       requestTimeoutMs: 5000
     }))

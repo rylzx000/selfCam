@@ -131,16 +131,20 @@
 ```js
 {
   dev: {
-    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
+    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/'
   },
   sit: {
-    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model'
+    modelHost: 'https://onlineclaimsit.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://videoclaimsit.chinalife-p.com.cn/onlineclaim/rest/'
   },
   pilot: {
-    modelHost: ''
+    modelHost: 'https://onlineclaim2.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://onlineclaim2.chinalife-p.com.cn/onlineclaim/rest/'
   },
   prod: {
-    modelHost: ''
+    modelHost: 'https://videoclaimpage.chinalife-p.com.cn/video/model',
+    auxPhotoHost: 'https://videoclaimpage.chinalife-p.com.cn/onlineclaim/rest/'
   }
 }
 ```
