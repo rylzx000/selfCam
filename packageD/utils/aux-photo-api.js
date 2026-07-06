@@ -550,7 +550,7 @@ function uploadPhoto(item = {}, options = {}) {
   const ticket = sanitizeTicket(options.ticket)
   const config = envConfig.getAuxPhotoConfig()
 
-  if (config.mockEnabled && auxPhotoMock.isMockTicket(ticket) && (!config.requestEnabled || !config.baseUrl)) {
+  if (config.mockEnabled && auxPhotoMock.isMockTicket(ticket)) {
     return mockUploadPhoto(item, ticket)
   }
 
@@ -570,7 +570,7 @@ function complete(params = {}) {
   const ticket = sanitizeTicket(params.ticket)
   const config = envConfig.getAuxPhotoConfig()
 
-  if (config.mockEnabled && auxPhotoMock.isMockTicket(ticket) && (!config.requestEnabled || !config.baseUrl)) {
+  if (config.mockEnabled && auxPhotoMock.isMockTicket(ticket)) {
     return mockComplete({ ...params, ticket })
   }
 

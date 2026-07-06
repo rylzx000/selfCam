@@ -99,7 +99,39 @@ describe('aux-photo api', () => {
     }))
   })
 
-  test('uploads one photo as base64 json through wx.request', async () => {
+  test('uses local mock upload for mock tickets even when backend base url is configured', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'develop',
+      envVersion: 'develop',
+      appEnv: 'dev',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'http://127.0.0.1:8787',
+      requestTimeoutMs: 5000
+    })
+
+    const result = await api.uploadPhoto({
+      clientPhotoId: 'damage-local-id',
+      vehicleId: 'LOSS_VEHICLE_100001',
+      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+      photoType: 'DAMAGE',
+      sortNo: 2,
+      filePath: 'wxfile://tmp/damage-2.jpg',
+      fileSize: 2048
+    }, {
+      ticket: 'mock-2'
+    })
+
+    expect(result.data.uploadRecordId).toBe('MOCK_UPLOAD_damage-local-id')
+    expect(result.data.photoId).toBe('MOCK_PHOTO_damage-local-id')
+    expect(result.data.ticketStatus).toBe('UPLOADING')
+    expect(global.wx.request).not.toHaveBeenCalled()
+  })
+
+  test('uploads one real-ticket photo as base64 json through wx.request', async () => {
     const readFile = jest.fn(({ success }) => {
       success({ data: 'BASE64_IMAGE_DATA' })
     })
@@ -147,7 +179,7 @@ describe('aux-photo api', () => {
       filePath: 'wxfile://tmp/damage-2.jpg',
       fileSize: 2048
     }, {
-      ticket: 'mock-2'
+      ticket: 'AUX_REAL_001'
     })
 
     expect(result.data.uploadRecordId).toBe('AUP202605260001')
@@ -163,7 +195,7 @@ describe('aux-photo api', () => {
         'content-type': 'application/json'
       }),
       data: expect.objectContaining({
-        ticket: 'mock-2',
+        ticket: 'AUX_REAL_001',
         clientPhotoId: 'damage-local-id',
         vehicleId: 'LOSS_VEHICLE_100001',
         uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
@@ -173,6 +205,31 @@ describe('aux-photo api', () => {
         fileBase64: 'BASE64_IMAGE_DATA'
       })
     }))
+  })
+
+  test('uses local mock complete for mock tickets even when backend base url is configured', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'develop',
+      envVersion: 'develop',
+      appEnv: 'dev',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'http://127.0.0.1:8787',
+      requestTimeoutMs: 5000
+    })
+
+    const result = await api.complete({
+      ticket: 'mock-2',
+      clientUploadCount: 3
+    })
+
+    expect(result.data.ticket).toBe('mock-2')
+    expect(result.data.ticketStatus).toBe('COMPLETED')
+    expect(result.data.uploadedCount).toBe(3)
+    expect(global.wx.request).not.toHaveBeenCalled()
   })
 
   test('calls complete endpoint after uploads are ready', async () => {
