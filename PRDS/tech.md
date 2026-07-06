@@ -466,6 +466,8 @@ const DAMAGE_MODEL_URL = resolvedAiConfig.damageModelUrl
 - `packageD/utils/env-config.js` 维护 `BUSINESS_ENV_ENDPOINTS`，`ai-config.js` 不写死模型地址
 - 当前 `sit.modelHost` 为 `https://onlineclaimsit.chinalife-p.com.cn/video/model`
 - 当前 `dev.modelHost` 也指向同一 SIT 模型地址，便于开发环境调试复现体验版模型下载与推理问题
+- 当前 `pilot.modelHost` 为 `https://onlineclaim2.chinalife-p.com.cn/video/model`
+- 当前 `prod.modelHost` 为 `https://videoclaimpage.chinalife-p.com.cn/video/model`
 - 非 `dev` 业务环境禁止使用 `http`、`localhost`、`127.0.0.1` 和局域网 IP 模型地址
 - 拍照页不再从 `ai-config.js` 引入固化的模型 URL / path 常量；创建检测器前实时调用 `envConfig.getAiConfig()` 并通过 `options.aiConfig` 传入检测器
 - 创建检测器前打印 `wxEnvVersion`、`appEnv`、`plateModelUrl`、`damageModelUrl`，用于真机确认当前业务环境

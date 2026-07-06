@@ -1,0 +1,2251 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>预览页多模式交互 HTML 样板</title>
+  <style>
+    :root {
+      --page-bg: #edf3ef;
+      --phone-bg: #f7faf8;
+      --surface: #ffffff;
+      --surface-soft: #f6faf7;
+      --line: #dfe8e2;
+      --line-strong: #cbd8d0;
+      --text: #17231b;
+      --muted: #6e7d73;
+      --subtle: #9aa69e;
+      --green: #1f8f5f;
+      --green-strong: #13784e;
+      --green-soft: #e6f4ed;
+      --warn: #f2a93b;
+      --warn-soft: #fff7e6;
+      --danger: #c9483a;
+      --dark: #111815;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--text);
+    }
+
+    body {
+      overflow-x: auto;
+    }
+
+    button {
+      border: 0;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .toolbar {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 16px 18px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .toolbar-title {
+      min-width: 0;
+    }
+
+    .toolbar h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 26px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .toolbar p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+    .demo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .demo-note {
+      width: 100%;
+      color: var(--danger);
+      font-size: 12px;
+      line-height: 16px;
+      text-align: right;
+      font-weight: 650;
+    }
+
+    .sample-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--line-strong);
+    }
+
+    .mode-btn {
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 34px;
+      font-weight: 650;
+    }
+
+    .mode-btn.active {
+      color: #fff;
+      border-color: var(--green);
+      background: var(--green);
+    }
+
+    .sample-btn {
+      border-style: dashed;
+    }
+
+    .stage {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 10px 18px 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .device-wrap {
+      padding: 18px;
+      border-radius: 10px;
+      border: 1px solid #ccd9d0;
+      background: #dfe8e2;
+      overflow: auto;
+    }
+
+    .device {
+      position: relative;
+      width: 844px;
+      height: 390px;
+      margin: 0 auto;
+      border: 10px solid var(--dark);
+      border-radius: 26px;
+      overflow: hidden;
+      background: var(--phone-bg);
+      box-shadow: 0 20px 44px rgba(23, 35, 27, 0.18);
+    }
+
+    .page-glow {
+      position: absolute;
+      top: -48px;
+      right: -42px;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: rgba(0, 160, 96, 0.08);
+      pointer-events: none;
+    }
+
+    .mini-page {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      padding: 20px 30px 76px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      min-height: 46px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 24px;
+      line-height: 30px;
+      font-weight: 750;
+      color: #1f2933;
+      letter-spacing: 0;
+    }
+
+    .page-subtitle {
+      margin: 2px 0 0;
+      color: #667085;
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .mode-chip {
+      flex: 0 0 auto;
+      margin-top: 2px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(31, 143, 95, 0.1);
+      color: var(--green-strong);
+      font-size: 11px;
+      line-height: 16px;
+      font-weight: 750;
+    }
+
+    .content {
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .content::-webkit-scrollbar,
+    .strip::-webkit-scrollbar {
+      height: 5px;
+      width: 5px;
+    }
+
+    .content::-webkit-scrollbar-thumb,
+    .strip::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(31, 143, 95, 0.24);
+    }
+
+    .section {
+      margin-bottom: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.065);
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .section-title-wrap {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 8px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 20px;
+      color: #1f2933;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .count-chip,
+    .vehicle-chip {
+      flex: 0 0 auto;
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(31, 143, 95, 0.1);
+      color: var(--green-strong);
+      font-size: 11px;
+      line-height: 20px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .section-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 16px;
+    }
+
+    .warning {
+      margin-bottom: 9px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      background: var(--warn-soft);
+      color: #8a5a00;
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .grid,
+    .vehicle-info-grid,
+    .doc-grid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+    }
+
+    .vehicle-row {
+      margin-top: 10px;
+    }
+
+    .vehicle-row:first-of-type {
+      margin-top: 0;
+    }
+
+    .vehicle-row-title {
+      margin: 0 0 7px;
+      font-size: 13px;
+      line-height: 18px;
+      color: #1f2933;
+      font-weight: 750;
+    }
+
+    .module-one-section {
+      padding: 9px 12px;
+    }
+
+    .module-one-section .section-header {
+      margin-bottom: 7px;
+    }
+
+    .module-one-section .grid {
+      gap: 8px;
+    }
+
+    .module-one-section .photo-tile {
+      width: 98px;
+      flex-basis: 98px;
+    }
+
+    .module-one-section .thumb {
+      width: 98px;
+      height: 58px;
+    }
+
+    .module-one-vehicles {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+    }
+
+    .module-one-vehicle-card {
+      flex: 0 0 242px;
+      padding: 8px 9px 9px;
+      border-radius: 9px;
+      border: 1px solid rgba(31, 143, 95, 0.1);
+      background: var(--surface-soft);
+    }
+
+    .module-one-vehicle-id {
+      margin: 0 0 7px;
+      color: #1f2933;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .module-one-vehicle-slots {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 1px;
+    }
+
+    .module-one-vehicle-slots .photo-tile {
+      width: 88px;
+      flex-basis: 88px;
+    }
+
+    .module-one-vehicle-slots .thumb {
+      width: 88px;
+      height: 52px;
+    }
+
+    .photo-tile {
+      width: 104px;
+      flex: 0 0 104px;
+      background: transparent;
+      text-align: left;
+    }
+
+    .thumb {
+      position: relative;
+      width: 104px;
+      height: 64px;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e5ece7;
+    }
+
+    .thumb.scene {
+      background: linear-gradient(135deg, #d9efe5 0%, #7ba48d 52%, #ece7d8 100%);
+    }
+
+    .thumb.plate {
+      background: linear-gradient(135deg, #e8f2ff 0%, #4f7bb8 58%, #dde8f8 100%);
+    }
+
+    .thumb.vin {
+      background: linear-gradient(135deg, #f0f2f4 0%, #657482 55%, #d7dde3 100%);
+    }
+
+    .thumb.damage {
+      background: linear-gradient(135deg, #f9e0d7 0%, #b75b46 50%, #48515a 100%);
+    }
+
+    .thumb.license {
+      background: linear-gradient(135deg, #eefdf6 0%, #ffffff 46%, #bee6d3 100%);
+    }
+
+    .thumb.empty {
+      border: 1.5px dashed #c5cec8;
+      background: rgba(248, 251, 249, 0.96);
+    }
+
+    .thumb::before,
+    .thumb::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+
+    .thumb::before {
+      left: 11px;
+      top: 12px;
+      width: 34px;
+      height: 5px;
+    }
+
+    .thumb::after {
+      left: 11px;
+      top: 23px;
+      width: 58px;
+      height: 5px;
+      opacity: 0.74;
+    }
+
+    .thumb.empty::before,
+    .thumb.empty::after {
+      display: none;
+    }
+
+    .thumb-label {
+      position: relative;
+      z-index: 1;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(17, 24, 39, 0.44);
+      color: #fff;
+      font-size: 11px;
+      line-height: 15px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .thumb.empty .thumb-label {
+      background: rgba(31, 143, 95, 0.1);
+      color: var(--green-strong);
+    }
+
+    .check {
+      position: absolute;
+      right: 5px;
+      bottom: 5px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green);
+      color: #fff;
+      font-size: 12px;
+      line-height: 18px;
+      font-weight: 850;
+      box-shadow: 0 2px 5px rgba(0, 155, 99, 0.28);
+    }
+
+    .plus {
+      font-size: 28px;
+      line-height: 1;
+      color: var(--green-strong);
+      font-weight: 300;
+    }
+
+    .photo-label {
+      display: block;
+      margin-top: 5px;
+      text-align: center;
+      color: #4b5563;
+      font-size: 12px;
+      line-height: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .damage-group {
+      margin-bottom: 12px;
+    }
+
+    .damage-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .damage-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    .damage-group-title {
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 750;
+      color: #1f2933;
+    }
+
+    .strip {
+      display: flex;
+      gap: 9px;
+      overflow-x: auto;
+      padding-bottom: 3px;
+    }
+
+    .compact-tile {
+      width: 92px;
+      flex-basis: 92px;
+    }
+
+    .compact-tile .thumb {
+      width: 92px;
+      height: 58px;
+    }
+
+    .doc-row-label {
+      margin: 10px 0 7px;
+      color: #1f2933;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 750;
+    }
+
+    .vehicle-doc-card {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 9px;
+      background: var(--surface-soft);
+      border: 1px solid rgba(31, 143, 95, 0.1);
+    }
+
+    .vehicle-doc-card:first-child {
+      margin-top: 0;
+    }
+
+    .doc-subtitle {
+      margin: 9px 0 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 750;
+    }
+
+    .doc-subtitle:first-of-type {
+      margin-top: 0;
+    }
+
+    .doc-row-label:first-child {
+      margin-top: 0;
+    }
+
+    .doc-package-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .doc-package-card {
+      padding: 8px 10px 9px;
+      border-radius: 9px;
+      background: var(--surface-soft);
+      border: 1px solid rgba(31, 143, 95, 0.1);
+    }
+
+    .doc-package-vehicle {
+      margin: 0 0 7px;
+      color: #1f2933;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-package-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 1px;
+    }
+
+    .doc-package-btn {
+      width: 92px;
+      flex: 0 0 92px;
+      background: transparent;
+      text-align: left;
+    }
+
+    .doc-package-btn.missing {
+      color: var(--green-strong);
+    }
+
+    .doc-package-title {
+      display: block;
+      margin-top: 5px;
+      text-align: center;
+      color: #4b5563;
+      font-size: 13px;
+      line-height: 16px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-package-actions .photo-tile,
+    .doc-package-actions .doc-package-btn {
+      width: 92px;
+      flex-basis: 92px;
+    }
+
+    .doc-package-actions .thumb {
+      width: 92px;
+      height: 58px;
+    }
+
+    .doc-detail-grid {
+      display: flex;
+      gap: 10px;
+      margin: 12px 0 2px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .final-summary {
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(31, 143, 95, 0.14);
+      background: linear-gradient(135deg, rgba(230, 244, 237, 0.95), rgba(255, 255, 255, 0.96));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .final-summary-text {
+      min-width: 0;
+    }
+
+    .final-summary-title {
+      margin: 0;
+      color: #1f2933;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 800;
+    }
+
+    .final-summary-note {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .final-summary-metrics {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .final-summary-metric {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(31, 143, 95, 0.12);
+      color: var(--green-strong);
+      font-size: 11px;
+      line-height: 22px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .summary-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .summary-layout .section {
+      margin-bottom: 0;
+    }
+
+    .final-section {
+      margin-bottom: 10px;
+    }
+
+    .inline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .inline-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .inline-key {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .inline-value {
+      min-width: 0;
+      color: #1f2933;
+      font-weight: 750;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .view-all-btn {
+      height: 58px;
+      width: 92px;
+      flex: 0 0 92px;
+      border-radius: 9px;
+      border: 1px solid rgba(31, 143, 95, 0.22);
+      background: var(--green-soft);
+      color: var(--green-strong);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 750;
+    }
+
+    .missing-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .missing-item {
+      width: 100%;
+      min-height: 34px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(242, 169, 59, 0.28);
+      background: #fffaf0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #8a5a00;
+      font-size: 12px;
+      line-height: 16px;
+      text-align: left;
+      gap: 8px;
+    }
+
+    .missing-item strong {
+      color: #704900;
+    }
+
+    .bottom-bar {
+      position: absolute;
+      z-index: 2;
+      left: 30px;
+      right: 30px;
+      bottom: 18px;
+      min-height: 44px;
+      padding: 6px 12px 6px 16px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 155, 99, 0.12);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.055);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .tip {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #7a8699;
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .tip-icon {
+      flex: 0 0 20px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid #aab4c0;
+      color: #8a94a3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 750;
+    }
+
+    .tip-text {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bottom-actions {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .action-btn {
+      height: 32px;
+      min-width: 104px;
+      padding: 0 12px;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 32px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .action-btn.ghost {
+      color: #3d4a46;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.95);
+    }
+
+    .action-btn.primary {
+      color: #fff;
+      background: var(--green);
+      box-shadow: 0 7px 16px rgba(0, 155, 99, 0.18);
+    }
+
+    .side-panel {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: 0 8px 20px rgba(23, 35, 27, 0.08);
+    }
+
+    .side-panel h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      line-height: 20px;
+    }
+
+    .side-panel p,
+    .side-panel li {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .side-panel ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .status-box {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--surface-soft);
+      border: 1px dashed var(--line-strong);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 18px;
+      min-height: 56px;
+    }
+
+    .overlay {
+      position: absolute;
+      z-index: 20;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(12, 20, 16, 0.42);
+      padding: 20px;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      width: 350px;
+      max-width: calc(100% - 34px);
+      padding: 20px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+    }
+
+    .modal.wide {
+      width: 620px;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .modal-mark {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green-soft);
+      color: var(--green-strong);
+      font-size: 18px;
+      line-height: 38px;
+      font-weight: 850;
+    }
+
+    .modal-mark.warn {
+      background: var(--warn-soft);
+      color: #8a5a00;
+    }
+
+    .modal-title {
+      margin: 0;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 23px;
+      font-weight: 800;
+    }
+
+    .modal-desc {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .next-box {
+      margin: 12px 0 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green-strong);
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 750;
+    }
+
+    .modal-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      min-width: 82px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      line-height: 32px;
+      font-weight: 750;
+    }
+
+    .modal-btn.ghost {
+      background: #f3f6f4;
+      color: #3d4a46;
+    }
+
+    .modal-btn.primary {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .modal-btn.danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .preview-layer {
+      position: absolute;
+      z-index: 30;
+      inset: 0;
+      background: #030504;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-layer.hidden {
+      display: none;
+    }
+
+    .preview-head {
+      height: 48px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.82), transparent);
+    }
+
+    .preview-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 20px;
+      font-weight: 750;
+    }
+
+    .preview-close {
+      color: #fff;
+      background: transparent;
+      font-size: 14px;
+      line-height: 24px;
+      padding: 0 8px;
+    }
+
+    .preview-body {
+      min-height: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 64px;
+    }
+
+    .preview-image {
+      width: min(560px, 100%);
+      height: 220px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .preview-image.scene {
+      background: linear-gradient(135deg, #d9efe5 0%, #608871 52%, #ddd0af 100%);
+    }
+
+    .preview-image.plate {
+      background: linear-gradient(135deg, #e8f2ff 0%, #2e5d9b 58%, #bdd2ee 100%);
+    }
+
+    .preview-image.vin {
+      background: linear-gradient(135deg, #f0f2f4 0%, #465665 55%, #c6d0d9 100%);
+    }
+
+    .preview-image.damage {
+      background: linear-gradient(135deg, #f9e0d7 0%, #9e4a36 50%, #303942 100%);
+    }
+
+    .preview-image.license {
+      background: linear-gradient(135deg, #eefdf6 0%, #ffffff 46%, #a9dcc5 100%);
+    }
+
+    .preview-image span {
+      position: relative;
+      z-index: 1;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.44);
+      color: #fff;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 850;
+    }
+
+    .preview-foot {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 36px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
+    }
+
+    .preview-action {
+      min-width: 82px;
+      height: 34px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      background: transparent;
+      color: #fff;
+      font-size: 14px;
+      line-height: 32px;
+      font-weight: 750;
+    }
+
+    .preview-action.danger {
+      border-color: #ffcdd2;
+      color: #ffcdd2;
+    }
+
+    .all-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      max-height: 168px;
+      overflow: auto;
+    }
+
+    .capture-context {
+      margin-top: 9px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px dashed rgba(31, 143, 95, 0.28);
+      background: var(--surface-soft);
+      color: var(--green-strong);
+      font-size: 12px;
+      line-height: 17px;
+      font-weight: 650;
+    }
+
+    .upload-choice-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .upload-choice-grid.single {
+      grid-template-columns: 1fr;
+      max-width: 160px;
+    }
+
+    .upload-choice {
+      min-height: 58px;
+      padding: 8px;
+      border-radius: 9px;
+      border: 1px dashed rgba(31, 143, 95, 0.34);
+      background: var(--surface-soft);
+      color: var(--green-strong);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 980px) {
+      .toolbar,
+      .stage {
+        width: 918px;
+      }
+
+      .stage {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="toolbar-title">
+      <h1>预览页多模式交互 HTML 样板</h1>
+      <p>手机横屏微信小程序比例，用于先确认预览页交互和布局。</p>
+    </div>
+    <div class="demo-controls" aria-label="HTML 演示模式切换">
+      <div class="demo-note">HTML演示控件，真实小程序不开发</div>
+      <button class="mode-btn active" type="button" data-mode="moduleOne">模块一</button>
+      <button class="mode-btn" type="button" data-mode="moduleTwo">模块二</button>
+      <button class="mode-btn" type="button" data-mode="moduleThree">模块三</button>
+      <button class="mode-btn" type="button" data-mode="final">最终总预览</button>
+      <span class="sample-divider" aria-hidden="true"></span>
+      <button class="mode-btn sample-btn active" type="button" data-sample="complete">完整数据</button>
+      <button class="mode-btn sample-btn" type="button" data-sample="missing">缺失数据</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="device-wrap" aria-label="844 x 390 横屏手机画布">
+      <div class="device">
+        <div class="page-glow"></div>
+        <section class="mini-page" id="app"></section>
+
+        <section class="preview-layer hidden" id="previewLayer" aria-label="照片大图预览">
+          <div class="preview-head">
+            <h2 class="preview-title" id="previewTitle">照片预览</h2>
+            <button class="preview-close" type="button" data-close-preview>关闭</button>
+          </div>
+          <div class="preview-body">
+            <div class="preview-image scene" id="previewImage">
+              <span id="previewImageText">照片</span>
+            </div>
+          </div>
+          <div class="preview-foot">
+            <button class="preview-action danger" type="button" data-delete-photo>删除</button>
+            <button class="preview-action" type="button" data-retake-photo>重拍</button>
+            <button class="preview-action" type="button" data-close-preview>关闭</button>
+          </div>
+        </section>
+
+        <section class="overlay hidden" id="stageModal" aria-label="阶段完成弹层"></section>
+        <section class="overlay hidden" id="captureModal" aria-label="进入拍摄提示"></section>
+        <section class="overlay hidden" id="allPhotosModal" aria-label="查看全部车损照片"></section>
+        <section class="overlay hidden" id="submitModal" aria-label="最终提交前确认"></section>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <h2>样板验证点</h2>
+      <p>此 HTML 只验证布局和交互，不代表真实小程序新增模式切换控件或样例切换控件。</p>
+      <ul>
+        <li>模块页只展示本模块内容。</li>
+        <li>最终总预览汇总全部内容。</li>
+        <li>已拍照片打开大图，空槽位进入对应拍摄。</li>
+        <li>补拍完成后回到来源预览页。</li>
+        <li>本地保存提示只在最终提交前出现。</li>
+        <li>数据状态切换只用于原型验证。</li>
+      </ul>
+      <div class="status-box" id="statusBox">当前：现场环境及车辆信息。</div>
+    </aside>
+  </main>
+
+  <script>
+    const state = {
+      mode: "moduleOne",
+      currentPhoto: null,
+      expandedVehicle: null,
+      sample: "complete",
+      deletedDocPackages: [],
+      docPackageOverrides: {}
+    };
+
+    const vehicles = [
+      { role: "标的车", plate: "京A12345" },
+      { role: "三者车", plate: "京B12345" }
+    ];
+
+    const photos = {
+      scene: [
+        { id: "scene45", title: "现场照片", type: "scene", taken: true, label: "现场照片" },
+        { id: "sceneExtra1", title: "补充照片", type: "scene", taken: true, label: "补充照片" },
+        { id: "sceneExtra2", title: "补充照片", type: "scene", taken: true, label: "补充照片", missingInSample: true }
+      ],
+      vehicleInfo: [
+        { id: "targetPlate", title: "标的车车牌", type: "plate", taken: true, label: "车牌", vehicle: "标的车" },
+        { id: "targetVin", title: "标的车 VIN", type: "vin", taken: true, label: "VIN", vehicle: "标的车" },
+        { id: "thirdPlate", title: "三者车车牌", type: "plate", taken: true, label: "车牌", vehicle: "三者车" },
+        { id: "thirdVin", title: "三者车 VIN", type: "vin", taken: true, label: "VIN", vehicle: "三者车", missingInSample: true }
+      ]
+    };
+
+    const vehicleDocuments = vehicles.map((vehicle, vehicleIndex) => ({
+      ...vehicle,
+      driverLicense: [
+        { id: `driver-${vehicleIndex}-main`, title: `${vehicle.role}驾驶证-正页`, type: "license", taken: true, label: "驾驶证-正页", vehicle: vehicle.role, docGroup: "驾驶证" },
+        { id: `driver-${vehicleIndex}-sub`, title: `${vehicle.role}驾驶证-副页`, type: "license", taken: true, label: "驾驶证-副页", vehicle: vehicle.role, docGroup: "驾驶证" },
+        { id: `driver-${vehicleIndex}-electronic`, title: `${vehicle.role}驾驶证`, type: "license", taken: true, label: "驾驶证", vehicle: vehicle.role, docGroup: "驾驶证", missingInSample: vehicle.role === "三者车" }
+      ],
+      vehicleLicense: [
+        { id: `vehicle-license-${vehicleIndex}-main`, title: `${vehicle.role}行驶证-正页`, type: "license", taken: true, label: "行驶证-正页", vehicle: vehicle.role, docGroup: "行驶证" },
+        { id: `vehicle-license-${vehicleIndex}-sub`, title: `${vehicle.role}行驶证-副页`, type: "license", taken: true, label: "行驶证-副页", vehicle: vehicle.role, docGroup: "行驶证", missingInSample: vehicle.role === "三者车" },
+        { id: `vehicle-license-${vehicleIndex}-electronic`, title: `${vehicle.role}行驶证`, type: "license", taken: true, label: "行驶证", vehicle: vehicle.role, docGroup: "行驶证" }
+      ]
+    }));
+
+    const moduleThreeDocPackages = [
+      {
+        id: "target-driver-package",
+        vehicleRole: "标的车",
+        plate: "京A12345",
+        docType: "驾驶证",
+        collectType: "electronic",
+        electronic: { id: "m3-target-driver-electronic", title: "标的车驾驶证", type: "license", taken: true, label: "驾驶证", vehicle: "标的车", docGroup: "驾驶证" },
+        physical: [
+          { id: "m3-target-driver-main", title: "标的车驾驶证-正页", type: "license", taken: true, label: "驾驶证-正页", vehicle: "标的车", docGroup: "驾驶证" },
+          { id: "m3-target-driver-sub", title: "标的车驾驶证-副页", type: "license", taken: true, label: "驾驶证-副页", vehicle: "标的车", docGroup: "驾驶证" }
+        ]
+      },
+      {
+        id: "target-vehicle-license-package",
+        vehicleRole: "标的车",
+        plate: "京A12345",
+        docType: "行驶证",
+        collectType: "physical",
+        electronic: { id: "m3-target-vehicle-license-electronic", title: "标的车行驶证", type: "license", taken: true, label: "行驶证", vehicle: "标的车", docGroup: "行驶证" },
+        physical: [
+          { id: "m3-target-vehicle-license-main", title: "标的车行驶证-正页", type: "license", taken: true, label: "行驶证-正页", vehicle: "标的车", docGroup: "行驶证" },
+          { id: "m3-target-vehicle-license-sub", title: "标的车行驶证-副页", type: "license", taken: true, label: "行驶证-副页", vehicle: "标的车", docGroup: "行驶证" }
+        ]
+      },
+      {
+        id: "third-driver-package",
+        vehicleRole: "三者车",
+        plate: "京B12345",
+        docType: "驾驶证",
+        collectType: "physical",
+        electronic: { id: "m3-third-driver-electronic", title: "三者车驾驶证", type: "license", taken: true, label: "驾驶证", vehicle: "三者车", docGroup: "驾驶证" },
+        physical: [
+          { id: "m3-third-driver-main", title: "三者车驾驶证-正页", type: "license", taken: true, label: "驾驶证-正页", vehicle: "三者车", docGroup: "驾驶证" },
+          { id: "m3-third-driver-sub", title: "三者车驾驶证-副页", type: "license", taken: true, label: "驾驶证-副页", vehicle: "三者车", docGroup: "驾驶证" }
+        ]
+      },
+      {
+        id: "third-vehicle-license-package",
+        vehicleRole: "三者车",
+        plate: "京B12345",
+        docType: "行驶证",
+        collectType: "electronic",
+        missingInSample: true,
+        electronic: { id: "m3-third-vehicle-license-electronic", title: "三者车行驶证", type: "license", taken: true, label: "行驶证", vehicle: "三者车", docGroup: "行驶证" },
+        physical: [
+          { id: "m3-third-vehicle-license-main", title: "三者车行驶证-正页", type: "license", taken: true, label: "行驶证-正页", vehicle: "三者车", docGroup: "行驶证" },
+          { id: "m3-third-vehicle-license-sub", title: "三者车行驶证-副页", type: "license", taken: true, label: "行驶证-副页", vehicle: "三者车", docGroup: "行驶证" }
+        ]
+      }
+    ];
+
+    const damagePhotos = vehicles.map((vehicle, vehicleIndex) => ({
+      ...vehicle,
+      photos: Array.from({ length: 10 }, (_, index) => ({
+        id: `damage-${vehicleIndex}-${index}`,
+        title: `${vehicle.role}车损补拍 ${index + 1}`,
+        type: "damage",
+        taken: true,
+        label: `${index + 1}`,
+        missingInSample: vehicle.role === "三者车" && index >= 6,
+        vehicle: vehicle.role
+      }))
+    }));
+
+    const modeCopy = {
+      moduleOne: {
+        title: "现场环境及车辆信息",
+        subtitle: "",
+        tip: "核对现场照片、车牌号和 VIN码。",
+        primary: "进入车损拍摄",
+        secondary: "补充现场照片"
+      },
+      moduleTwo: {
+        title: "车损照片",
+        subtitle: "",
+        tip: "核对车损照片。",
+        primary: "进入证件采集",
+        secondary: "继续补拍车损"
+      },
+      moduleThree: {
+        title: "证件信息",
+        subtitle: "",
+        tip: "核对每辆车的驾驶证和行驶证。",
+        primary: "进入最终总预览",
+        secondary: "继续补拍证件"
+      },
+      final: {
+        title: "提交前总预览",
+        subtitle: "",
+        tip: "核对无误后提交。",
+        primary: "确认提交",
+        secondary: "返回补拍/修改"
+      }
+    };
+
+    function getAllPhotos() {
+      return [
+        ...photos.scene,
+        ...photos.vehicleInfo,
+        ...damagePhotos.flatMap((group) => group.photos),
+        ...vehicleDocuments.flatMap((group) => [...group.driverLicense, ...group.vehicleLicense]),
+        ...moduleThreeDocPackages.flatMap((item) => [...item.physical, item.electronic])
+      ];
+    }
+
+    function isTaken(photo) {
+      return photo.taken !== false && !(state.sample === "missing" && photo.missingInSample);
+    }
+
+    function getPhotoCount(items) {
+      return items.filter(isTaken).length;
+    }
+
+    function vehicleInfoFor(role) {
+      return photos.vehicleInfo.filter((photo) => photo.vehicle === role);
+    }
+
+    function documentCount() {
+      return vehicleDocuments.reduce((sum, group) => sum + getPhotoCount(group.driverLicense) + getPhotoCount(group.vehicleLicense), 0);
+    }
+
+    function moduleThreePackageCount() {
+      return moduleThreeDocPackages.filter(isDocPackageCollected).length;
+    }
+
+    function damagePhotoCount() {
+      return damagePhotos.reduce((sum, group) => sum + getPhotoCount(group.photos), 0);
+    }
+
+    function getDocPackage(packageId) {
+      return moduleThreeDocPackages.find((item) => item.id === packageId);
+    }
+
+    function isDocPackageCollected(item) {
+      return !state.deletedDocPackages.includes(item.id) && (!(state.sample === "missing" && item.missingInSample) || Boolean(state.docPackageOverrides[item.id]));
+    }
+
+    function getDocPackageCollectType(item) {
+      return state.docPackageOverrides[item.id] || item.collectType;
+    }
+
+    function getDocPackagePhotos(item) {
+      return getDocPackageCollectType(item) === "physical" ? item.physical : [item.electronic];
+    }
+
+    function getDocPackageByPhotoId(photoId) {
+      return moduleThreeDocPackages.find((item) => (
+        item.electronic.id === photoId || item.physical.some((photo) => photo.id === photoId)
+      ));
+    }
+
+    function setStatus(text) {
+      document.getElementById("statusBox").textContent = text;
+    }
+
+    function tile(photo, options = {}) {
+      const taken = isTaken(photo);
+      const className = taken ? photo.type : "empty";
+      const label = taken ? (options.displayLabel || photo.label) : "+";
+      const title = photo.title;
+      const displayTitle = options.hideTitle ? "" : (options.displayTitle || title);
+      const mode = options.returnMode || state.mode;
+      const captureTarget = options.captureTarget || title;
+      return `
+        <button class="photo-tile ${options.compact ? "compact-tile" : ""}" type="button"
+          data-photo-id="${photo.id}" data-taken="${taken}" data-title="${title}"
+          data-type="${photo.type}" data-capture-target="${captureTarget}" data-return-mode="${mode}">
+          <span class="thumb ${className}">
+            <span class="${taken ? "thumb-label" : "plus"}">${label}</span>
+            ${taken ? '<span class="check">✓</span>' : ""}
+          </span>
+          ${displayTitle ? `<span class="photo-label">${displayTitle}</span>` : ""}
+        </button>
+      `;
+    }
+
+    function moduleOneVehicleInfoTile(photo) {
+      const shortLabel = photo.type === "vin" ? "VIN码" : "车牌号";
+      return tile(photo, {
+        returnMode: "moduleOne",
+        captureTarget: photo.title,
+        displayLabel: shortLabel,
+        displayTitle: shortLabel
+      });
+    }
+
+    function vehicleInfoTile(photo, returnMode) {
+      const shortLabel = photo.type === "vin" ? "VIN码" : "车牌号";
+      return tile(photo, {
+        compact: returnMode === "final",
+        returnMode,
+        captureTarget: photo.title,
+        displayLabel: shortLabel,
+        displayTitle: shortLabel
+      });
+    }
+
+    function renderShell(inner) {
+      const copy = modeCopy[state.mode];
+      const app = document.getElementById("app");
+      app.innerHTML = `
+        <div class="topbar">
+          <div>
+            <h1 class="page-title">${copy.title}</h1>
+            ${copy.subtitle ? `<p class="page-subtitle">${copy.subtitle}</p>` : ""}
+          </div>
+        </div>
+        <div class="content">${inner}</div>
+        <div class="bottom-bar">
+          <div class="tip">
+            <span class="tip-icon">i</span>
+            <span class="tip-text">${copy.tip}</span>
+          </div>
+          <div class="bottom-actions">
+            <button class="action-btn ghost" type="button" data-secondary-action>${copy.secondary}</button>
+            <button class="action-btn primary" type="button" data-primary-action>${copy.primary}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModuleOne() {
+      renderShell(`
+        <section class="section module-one-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">环境照片</h2>
+            </div>
+          </div>
+          <div class="grid">
+            ${photos.scene.map((photo) => tile(photo, { returnMode: "moduleOne", captureTarget: photo.title })).join("")}
+          </div>
+        </section>
+        <section class="section module-one-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">车辆信息</h2>
+            </div>
+          </div>
+          <div class="module-one-vehicles">
+            ${vehicles.map((vehicle) => `
+              <div class="module-one-vehicle-card">
+                <p class="module-one-vehicle-id">${vehicle.role} - ${vehicle.plate}</p>
+                <div class="module-one-vehicle-slots">
+                  ${vehicleInfoFor(vehicle.role).map(moduleOneVehicleInfoTile).join("")}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `);
+    }
+
+    function getDamageRetakeItem(group) {
+      return {
+        id: `damage-retake-${group.role}`,
+        title: `${group.role}车损补拍`,
+        type: "damage",
+        taken: false,
+        label: "+",
+        vehicle: group.role
+      };
+    }
+
+    function getDamageDisplayItems(group, options = {}) {
+      const takenPhotos = group.photos.filter(isTaken);
+      const hasRoom = takenPhotos.length < group.photos.length;
+      const visiblePhotos = options.limit ? takenPhotos.slice(0, options.limit) : takenPhotos;
+      const shouldShowRetake = hasRoom && (!options.limit || takenPhotos.length < options.limit);
+      return shouldShowRetake ? [...visiblePhotos, getDamageRetakeItem(group)] : visiblePhotos;
+    }
+
+    function renderDamageGroup(group, options = {}) {
+      const items = getDamageDisplayItems(group, options);
+      return `
+        <div class="damage-group">
+          <div class="damage-group-head">
+            <div class="damage-group-title">${group.role} · ${group.plate}</div>
+          </div>
+          <div class="strip">
+            ${items.map((photo) => tile(photo, {
+              compact: true,
+              returnMode: options.returnMode || state.mode,
+              hideTitle: true,
+              captureTarget: `${group.role}车损补拍`
+            })).join("")}
+            ${options.final ? `<button class="view-all-btn" type="button" data-view-all="${group.role}">查看全部<br>10张</button>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModuleTwo() {
+      renderShell(`
+        <section class="section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">车损照片</h2>
+            </div>
+            <p class="section-note">左右滑动查看更多照片</p>
+          </div>
+          ${damagePhotos.map((group) => renderDamageGroup(group)).join("")}
+        </section>
+      `);
+    }
+
+    function renderDocumentRows(group, returnMode) {
+      return `
+        <div class="vehicle-doc-card">
+          <p class="vehicle-row-title">${group.role} · ${group.plate}</p>
+          <p class="doc-subtitle">驾驶证</p>
+          <div class="doc-grid">
+            ${group.driverLicense.map((photo) => tile(photo, { returnMode, captureTarget: photo.title })).join("")}
+            <button class="photo-tile" type="button" data-upload-doc="${group.role}|驾驶证" data-return-mode="${returnMode}">
+              <span class="thumb empty"><span class="plus">+</span></span>
+              <span class="photo-label">+ 驾驶证</span>
+            </button>
+          </div>
+          <p class="doc-subtitle">行驶证</p>
+          <div class="doc-grid">
+            ${group.vehicleLicense.map((photo) => tile(photo, { returnMode, captureTarget: photo.title })).join("")}
+            <button class="photo-tile" type="button" data-upload-doc="${group.role}|行驶证" data-return-mode="${returnMode}">
+              <span class="thumb empty"><span class="plus">+</span></span>
+              <span class="photo-label">+ 行驶证</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderVehicleInfoRows(returnMode) {
+      return vehicles.map((vehicle) => `
+        <div class="vehicle-row">
+          <p class="vehicle-row-title">${vehicle.role} · ${vehicle.plate}</p>
+          <div class="vehicle-info-grid">
+            ${vehicleInfoFor(vehicle.role).map((photo) => tile(photo, { returnMode, compact: returnMode === "final" })).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function getMissingItems(returnMode) {
+      const items = [
+        ...photos.scene,
+        ...photos.vehicleInfo,
+        ...vehicleDocuments.flatMap((group) => [...group.driverLicense, ...group.vehicleLicense])
+      ].filter((photo) => !isTaken(photo));
+
+      if (items.length === 0) {
+        return `
+          <div class="missing-item">
+            <span>当前无建议补拍项，可直接核对并提交。</span>
+            <span>可提交</span>
+          </div>
+        `;
+      }
+
+      return items.map((photo) => `
+        <button class="missing-item" type="button" data-capture-target="${photo.title}" data-return-mode="${returnMode}">
+          <span><strong>${photo.title}</strong> 未采集。</span>
+          <span>去补拍</span>
+        </button>
+      `).join("");
+    }
+
+    function renderModuleThreeMissingSlot(item, returnMode = "moduleThree") {
+      return `
+        <button class="doc-package-btn missing" type="button"
+          data-doc-package="${item.id}" data-collected="false" data-return-mode="${returnMode}">
+          <span class="thumb empty"><span class="plus">+</span></span>
+          <span class="doc-package-title">+ ${item.docType}</span>
+        </button>
+      `;
+    }
+
+    function renderModuleThreePackage(item, returnMode = "moduleThree") {
+      const collected = isDocPackageCollected(item);
+      if (!collected) return renderModuleThreeMissingSlot(item, returnMode);
+      return getDocPackagePhotos(item).map((photo) => tile(photo, {
+        compact: true,
+        returnMode,
+        captureTarget: photo.title,
+        displayLabel: photo.label,
+        displayTitle: photo.label
+      })).join("");
+    }
+
+    function renderModuleThreeVehicleDocs(vehicle, returnMode = "moduleThree") {
+      const packages = moduleThreeDocPackages.filter((item) => item.vehicleRole === vehicle.role);
+      return `
+        <div class="doc-package-card">
+          <p class="doc-package-vehicle">${vehicle.role} - ${vehicle.plate}</p>
+          <div class="doc-package-actions">
+            ${packages.map((item) => renderModuleThreePackage(item, returnMode)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModuleThree() {
+      renderShell(`
+        <section class="section module-one-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">证件信息</h2>
+            </div>
+          </div>
+          <div class="doc-package-list">
+            ${vehicles.map((vehicle) => renderModuleThreeVehicleDocs(vehicle, "moduleThree")).join("")}
+          </div>
+        </section>
+      `);
+    }
+
+    function renderFinalModuleOneSection() {
+      return `
+        <section class="section final-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">一、现场环境及车辆信息</h2>
+            </div>
+          </div>
+          <div class="subsection">
+            <p class="subsection-title">现场环境照片</p>
+            <div class="grid">
+              ${photos.scene.map((photo) => tile(photo, { compact: true, returnMode: "final", captureTarget: photo.title })).join("")}
+            </div>
+          </div>
+          <div class="subsection">
+            <p class="subsection-title">车辆识别信息</p>
+            <div class="module-one-vehicles">
+              ${vehicles.map((vehicle) => `
+                <div class="module-one-vehicle-card">
+                  <p class="module-one-vehicle-id">${vehicle.role} - ${vehicle.plate}</p>
+                  <div class="module-one-vehicle-slots">
+                    ${vehicleInfoFor(vehicle.role).map((photo) => vehicleInfoTile(photo, "final")).join("")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderFinalModuleThreeSection() {
+      return `
+        <section class="section final-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">三、证件信息</h2>
+            </div>
+          </div>
+          <div class="doc-package-list">
+            ${vehicles.map((vehicle) => renderModuleThreeVehicleDocs(vehicle, "final")).join("")}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderFinal() {
+      const complete = state.sample === "complete";
+      renderShell(`
+        <div class="final-summary">
+          <div class="final-summary-text">
+            <p class="final-summary-title">${complete ? "请核对采集内容后提交" : "仍有建议补拍项，可继续提交"}</p>
+          </div>
+        </div>
+        ${renderFinalModuleOneSection()}
+        <section class="section final-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">二、车损照片</h2>
+            </div>
+          </div>
+          ${damagePhotos.map((group) => renderDamageGroup(group, { final: true, limit: 4, returnMode: "final" })).join("")}
+        </section>
+        ${renderFinalModuleThreeSection()}
+      `);
+    }
+
+    function render() {
+      if (state.mode === "moduleOne") renderModuleOne();
+      if (state.mode === "moduleTwo") renderModuleTwo();
+      if (state.mode === "moduleThree") renderModuleThree();
+      if (state.mode === "final") renderFinal();
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.mode === state.mode);
+      });
+      document.querySelectorAll("[data-sample]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.sample === state.sample);
+      });
+      setStatus(`当前：${modeCopy[state.mode].title}。`);
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      closeAllOverlays();
+      render();
+    }
+
+    function setSample(sample) {
+      state.sample = sample;
+      state.deletedDocPackages = [];
+      state.docPackageOverrides = {};
+      closeAllOverlays();
+      render();
+    }
+
+    function closeAllOverlays() {
+      ["stageModal", "captureModal", "allPhotosModal", "submitModal"].forEach((id) => {
+        document.getElementById(id).classList.add("hidden");
+      });
+      document.getElementById("previewLayer").classList.add("hidden");
+    }
+
+    function showPreview(photoId) {
+      const photo = getAllPhotos().find((item) => item.id === photoId);
+      if (!photo) return;
+      state.currentPhoto = photo;
+      document.getElementById("previewTitle").textContent = photo.title;
+      document.getElementById("previewImageText").textContent = photo.title;
+      const previewImage = document.getElementById("previewImage");
+      previewImage.className = `preview-image ${photo.type}`;
+      document.getElementById("previewLayer").classList.remove("hidden");
+      setStatus(`打开大图预览：${photo.title}。可删除、重拍或关闭。`);
+    }
+
+    function showCaptureModal(target, returnMode) {
+      const modal = document.getElementById("captureModal");
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-mark warn">!</div>
+            <div>
+              <h2 class="modal-title">进入补拍</h2>
+              <p class="modal-desc">完成后返回当前预览页。</p>
+            </div>
+          </div>
+          <div class="next-box">${target}</div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>返回</button>
+            <button class="modal-btn primary" type="button" data-finish-capture="${returnMode}">模拟完成</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(`进入补拍：${target}。`);
+    }
+
+    function showStageModal() {
+      const copy = {
+        moduleOne: {
+          title: "现场环境及车辆信息已保存",
+          desc: "本环节照片将后台上传，可继续拍摄车损照片。",
+          next: "下一步：车损照片拍摄",
+          targetMode: "moduleTwo",
+          confirm: "进入车损拍摄"
+        },
+        moduleTwo: {
+          title: "车损照片已保存",
+          desc: "本环节照片将后台上传，可继续采集证件信息。",
+          next: "下一步：证件信息采集",
+          targetMode: "moduleThree",
+          confirm: "进入证件采集"
+        },
+        moduleThree: {
+          title: "证件信息已保存",
+          desc: "本环节照片将后台上传，可进入提交前总预览。",
+          next: "下一步：提交前总预览",
+          targetMode: "final",
+          confirm: "进入最终总预览"
+        }
+      }[state.mode];
+      if (!copy) return;
+      const modal = document.getElementById("stageModal");
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-mark">✓</div>
+            <div>
+              <h2 class="modal-title">${copy.title}</h2>
+              <p class="modal-desc">${copy.desc}</p>
+            </div>
+          </div>
+          <div class="next-box">${copy.next}</div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>返回预览</button>
+            <button class="modal-btn primary" type="button" data-go-mode="${copy.targetMode}">${copy.confirm}</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(copy.title);
+    }
+
+    function showDocumentUploadPanel(vehicleRole, docType, returnMode) {
+      const modal = document.getElementById("captureModal");
+      const isDriver = docType === "驾驶证";
+      const physicalTitle = isDriver ? "实物驾驶证" : "实物行驶证";
+      const mainTitle = isDriver ? "驾驶证-正页" : "行驶证-正页";
+      const subTitle = isDriver ? "驾驶证-副页" : "行驶证-副页";
+      const electronicTitle = isDriver ? "电子驾驶证" : "电子行驶证";
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-mark">+</div>
+            <div>
+              <h2 class="modal-title">补传${vehicleRole}${docType}</h2>
+              <p class="modal-desc">请选择证件类型。</p>
+            </div>
+          </div>
+          <p class="doc-subtitle">${physicalTitle}</p>
+          <div class="upload-choice-grid">
+            <button class="upload-choice" type="button" data-upload-choice="${vehicleRole}${mainTitle}" data-return-mode="${returnMode}">${mainTitle}</button>
+            <button class="upload-choice" type="button" data-upload-choice="${vehicleRole}${subTitle}" data-return-mode="${returnMode}">${subTitle}</button>
+          </div>
+          <p class="doc-subtitle">电子${docType}</p>
+          <div class="upload-choice-grid single">
+            <button class="upload-choice" type="button" data-upload-choice="${vehicleRole}${electronicTitle}" data-return-mode="${returnMode}">${electronicTitle}</button>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>返回预览</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(`选择${vehicleRole}${docType}补传方式。`);
+    }
+
+    function showDocPackageChoice(packageId, returnMode = "moduleThree") {
+      const item = getDocPackage(packageId);
+      if (!item) return;
+      const modal = document.getElementById("captureModal");
+      const physicalTitle = item.docType === "驾驶证" ? "实物驾驶证" : "实物行驶证";
+      const electronicTitle = item.docType === "驾驶证" ? "电子驾驶证" : "电子行驶证";
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-mark">+</div>
+            <div>
+              <h2 class="modal-title">补传${item.vehicleRole}${item.docType}</h2>
+              <p class="modal-desc">请选择证件类型。</p>
+            </div>
+          </div>
+          <div class="upload-choice-grid">
+            <button class="upload-choice" type="button" data-doc-capture="${item.id}|physical" data-return-mode="${returnMode}">${physicalTitle}</button>
+            <button class="upload-choice" type="button" data-doc-capture="${item.id}|electronic" data-return-mode="${returnMode}">${electronicTitle}</button>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>返回预览</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(`选择${item.vehicleRole}${item.docType}补传方式。`);
+    }
+
+    function showDocPackageDetail(packageId) {
+      const item = getDocPackage(packageId);
+      if (!item) return;
+      const photosToShow = getDocPackagePhotos(item);
+      const collectType = getDocPackageCollectType(item);
+      const collectLabel = collectType === "physical" ? "实物已采集" : "电子已采集";
+      const modal = document.getElementById("captureModal");
+      modal.innerHTML = `
+        <div class="modal wide">
+          <div class="modal-head">
+            <div class="modal-mark">✓</div>
+            <div>
+              <h2 class="modal-title">${item.vehicleRole}${item.docType} · ${collectLabel}</h2>
+              <p class="modal-desc">${collectType === "physical" ? "主页、副页" : "电子证件"}</p>
+            </div>
+          </div>
+          <div class="doc-detail-grid">
+            ${photosToShow.map((photo) => tile(photo, { compact: true, returnMode: "moduleThree", captureTarget: photo.title })).join("")}
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn danger" type="button" data-delete-doc-package="${item.id}">删除</button>
+            <button class="modal-btn primary" type="button" data-retake-doc-package="${item.id}">重拍</button>
+            <button class="modal-btn ghost" type="button" data-close-modal>关闭</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(`打开证件详情：${item.vehicleRole}${item.docType}，可删除、重拍或关闭。`);
+    }
+
+    function showDocPackageCapture(packageId, captureType, returnMode = "moduleThree") {
+      const item = getDocPackage(packageId);
+      if (!item) return;
+      const target = captureType === "physical"
+        ? `${item.vehicleRole}${item.docType}-正页/副页采集流程`
+        : `${item.vehicleRole}${item.docType}采集流程`;
+      state.deletedDocPackages = state.deletedDocPackages.filter((id) => id !== item.id);
+      state.docPackageOverrides[item.id] = captureType;
+      showCaptureModal(target, returnMode);
+    }
+
+    function showSubmitModal() {
+      const modal = document.getElementById("submitModal");
+      modal.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-mark warn">?</div>
+            <div>
+              <h2 class="modal-title">是否保存照片到本地</h2>
+              <p class="modal-desc">提交前可选择是否保存照片到本地。</p>
+            </div>
+          </div>
+          <div class="next-box">建议保存到手机相册，便于后续案件处理和人工核对。</div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>返回预览</button>
+            <button class="modal-btn danger" type="button" data-close-modal>不保存直接提交</button>
+            <button class="modal-btn primary" type="button" data-close-modal>保存并提交</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus("最终提交前确认：是否保存照片到本地。");
+    }
+
+    function showAllPhotos(role) {
+      const group = damagePhotos.find((item) => item.role === role);
+      if (!group) return;
+      const modal = document.getElementById("allPhotosModal");
+      modal.innerHTML = `
+        <div class="modal wide">
+          <div class="modal-head">
+            <div class="modal-mark">10</div>
+            <div>
+              <h2 class="modal-title">${group.role} · ${group.plate} · 全部车损照片</h2>
+              <p class="modal-desc">查看该车辆全部车损照片。</p>
+            </div>
+          </div>
+          <div class="all-grid">
+            ${getDamageDisplayItems(group).map((photo) => tile(photo, {
+              compact: true,
+              returnMode: "final",
+              hideTitle: true,
+              captureTarget: `${group.role}车损补拍`
+            })).join("")}
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn ghost" type="button" data-close-modal>关闭</button>
+          </div>
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      setStatus(`查看全部：${group.role}车损照片。`);
+    }
+
+    document.addEventListener("click", (event) => {
+      const modeButton = event.target.closest("[data-mode]");
+      if (modeButton) {
+        setMode(modeButton.dataset.mode);
+        return;
+      }
+
+      const sampleButton = event.target.closest("[data-sample]");
+      if (sampleButton) {
+        setSample(sampleButton.dataset.sample);
+        return;
+      }
+
+      const closePreview = event.target.closest("[data-close-preview]");
+      if (closePreview) {
+        document.getElementById("previewLayer").classList.add("hidden");
+        setStatus("已关闭大图预览。");
+        return;
+      }
+
+      const closeModal = event.target.closest("[data-close-modal]");
+      if (closeModal) {
+        closeAllOverlays();
+        setStatus("已返回预览页。");
+        return;
+      }
+
+      const goMode = event.target.closest("[data-go-mode]");
+      if (goMode) {
+        setMode(goMode.dataset.goMode);
+        setStatus("已进入下一步。");
+        return;
+      }
+
+      const finishCapture = event.target.closest("[data-finish-capture]");
+      if (finishCapture) {
+        setMode(finishCapture.dataset.finishCapture);
+        setStatus("补拍完成，已返回预览页。");
+        return;
+      }
+
+      const docCapture = event.target.closest("[data-doc-capture]");
+      if (docCapture) {
+        const [packageId, captureType] = docCapture.dataset.docCapture.split("|");
+        showDocPackageCapture(packageId, captureType, docCapture.dataset.returnMode || "moduleThree");
+        return;
+      }
+
+      const deleteDocPackage = event.target.closest("[data-delete-doc-package]");
+      if (deleteDocPackage) {
+        const packageId = deleteDocPackage.dataset.deleteDocPackage;
+        if (!state.deletedDocPackages.includes(packageId)) {
+          state.deletedDocPackages.push(packageId);
+        }
+        delete state.docPackageOverrides[packageId];
+        closeAllOverlays();
+        setMode("moduleThree");
+        setStatus("已删除证件包。");
+        return;
+      }
+
+      const retakeDocPackage = event.target.closest("[data-retake-doc-package]");
+      if (retakeDocPackage) {
+        const item = getDocPackage(retakeDocPackage.dataset.retakeDocPackage);
+        if (!item) return;
+        showCaptureModal(`${item.vehicleRole}${item.docType}证件包重拍`, "moduleThree");
+        return;
+      }
+
+      const docPackage = event.target.closest("[data-doc-package]");
+      if (docPackage) {
+        if (docPackage.dataset.collected === "true") {
+          showDocPackageDetail(docPackage.dataset.docPackage);
+        } else {
+          showDocPackageChoice(docPackage.dataset.docPackage, docPackage.dataset.returnMode || "moduleThree");
+        }
+        return;
+      }
+
+      const uploadChoice = event.target.closest("[data-upload-choice]");
+      if (uploadChoice) {
+        showCaptureModal(uploadChoice.dataset.uploadChoice, uploadChoice.dataset.returnMode);
+        return;
+      }
+
+      const uploadDoc = event.target.closest("[data-upload-doc]");
+      if (uploadDoc) {
+        const [vehicleRole, docType] = uploadDoc.dataset.uploadDoc.split("|");
+        showDocumentUploadPanel(vehicleRole, docType, uploadDoc.dataset.returnMode);
+        return;
+      }
+
+      const photoTile = event.target.closest(".photo-tile");
+      if (photoTile) {
+        if (photoTile.dataset.taken === "true") {
+          showPreview(photoTile.dataset.photoId);
+        } else {
+          showCaptureModal(photoTile.dataset.captureTarget, photoTile.dataset.returnMode);
+        }
+        return;
+      }
+
+      const missing = event.target.closest(".missing-item");
+      if (missing && missing.dataset.captureTarget) {
+        showCaptureModal(missing.dataset.captureTarget, missing.dataset.returnMode);
+        return;
+      }
+
+      const secondary = event.target.closest("[data-secondary-action]");
+      if (secondary) {
+        const target = {
+          moduleOne: "现场补充照片",
+          moduleTwo: "车损补拍",
+          moduleThree: "证件补拍",
+          final: "任意缺失项或照片"
+        }[state.mode];
+        showCaptureModal(target, state.mode);
+        return;
+      }
+
+      const primary = event.target.closest("[data-primary-action]");
+      if (primary) {
+        if (state.mode === "final") {
+          showSubmitModal();
+        } else {
+          showStageModal();
+        }
+        return;
+      }
+
+      const retake = event.target.closest("[data-retake-photo]");
+      if (retake && state.currentPhoto) {
+        document.getElementById("previewLayer").classList.add("hidden");
+        showCaptureModal(state.currentPhoto.title, state.mode);
+        return;
+      }
+
+      const deletePhoto = event.target.closest("[data-delete-photo]");
+      if (deletePhoto && state.currentPhoto) {
+        const docPackageToDelete = state.mode === "moduleThree" ? getDocPackageByPhotoId(state.currentPhoto.id) : null;
+        if (docPackageToDelete) {
+          if (!state.deletedDocPackages.includes(docPackageToDelete.id)) {
+            state.deletedDocPackages.push(docPackageToDelete.id);
+          }
+          delete state.docPackageOverrides[docPackageToDelete.id];
+          document.getElementById("previewLayer").classList.add("hidden");
+          setMode("moduleThree");
+          setStatus(`删除按钮已触发：${state.currentPhoto.title}。HTML 样板按证件包模拟删除，外层重新显示 + ${docPackageToDelete.docType}。`);
+          return;
+        }
+        setStatus(`删除按钮已触发：${state.currentPhoto.title}。HTML 样板不实际移除数据。`);
+        return;
+      }
+
+      const viewAll = event.target.closest("[data-view-all]");
+      if (viewAll) {
+        showAllPhotos(viewAll.dataset.viewAll);
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

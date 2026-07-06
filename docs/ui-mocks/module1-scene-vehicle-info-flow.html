@@ -1,0 +1,2039 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>模块一：现场环境及车辆信息</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #eef4ef;
+      color: #1f2933;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    button {
+      border: 0;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #f7faf8;
+    }
+
+    .page-glow {
+      position: absolute;
+      top: -48px;
+      right: -42px;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: rgba(0, 160, 96, 0.08);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .env-badge {
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      z-index: 8;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(31, 41, 51, 0.08);
+      color: #667085;
+      font-size: 10px;
+      line-height: 14px;
+    }
+
+    .screen {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .scenario-switch {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(0, 155, 99, 0.12);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    .scenario-label {
+      margin-left: 6px;
+      color: #7a8699;
+      font-size: 11px;
+      line-height: 16px;
+      white-space: nowrap;
+    }
+
+    .scenario-btn {
+      min-width: 62px;
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: transparent;
+      color: #667085;
+      font-size: 11px;
+      line-height: 24px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .scenario-btn.active {
+      background: #009b63;
+      color: #fff;
+    }
+
+    .home {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 24px 12px;
+    }
+
+    .brand {
+      position: absolute;
+      left: 24px;
+      top: 10px;
+      color: #009b63;
+      font-size: 18px;
+      line-height: 22px;
+      font-weight: 750;
+      letter-spacing: 0.5px;
+    }
+
+    .brand::after {
+      content: "车辆损失照片采集工具";
+      display: block;
+      margin-top: -1px;
+      color: #5f6f69;
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-size: 22px;
+      line-height: 28px;
+      font-weight: 650;
+      letter-spacing: 1px;
+      color: #1f2933;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      font-size: 12px;
+      line-height: 18px;
+      color: #667085;
+      text-align: center;
+    }
+
+    .notice-card {
+      width: min(560px, calc(100vw - 48px));
+      padding: 13px 18px;
+      margin-bottom: 12px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+    }
+
+    .notice-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px dashed rgba(0, 155, 99, 0.2);
+    }
+
+    .notice-bar {
+      width: 3px;
+      height: 14px;
+      margin-right: 6px;
+      border-radius: 999px;
+      background: #009b63;
+    }
+
+    .notice-title {
+      font-size: 16px;
+      line-height: 20px;
+      font-weight: 650;
+      color: #009b63;
+    }
+
+    .notice-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      margin-top: 6px;
+    }
+
+    .notice-item:first-child {
+      margin-top: 0;
+    }
+
+    .index-badge {
+      flex: 0 0 17px;
+      width: 17px;
+      height: 17px;
+      margin-top: 1px;
+      border-radius: 50%;
+      background: rgba(0, 155, 99, 0.1);
+      color: #008f55;
+      font-size: 10px;
+      line-height: 17px;
+      font-weight: 650;
+      text-align: center;
+    }
+
+    .notice-text {
+      flex: 1;
+      color: #263238;
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .stage-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .stage-chip {
+      min-width: 0;
+      padding: 7px 8px;
+      border-radius: 9px;
+      background: #f6faf8;
+      border: 1px solid rgba(0, 155, 99, 0.12);
+    }
+
+    .stage-chip.active {
+      background: rgba(0, 155, 99, 0.09);
+      border-color: rgba(0, 155, 99, 0.28);
+    }
+
+    .stage-name {
+      display: block;
+      color: #1f2933;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stage-meta {
+      display: block;
+      margin-top: 2px;
+      color: #7a8699;
+      font-size: 10px;
+      line-height: 13px;
+    }
+
+    .start-button {
+      width: 172px;
+      height: 38px;
+      border-radius: 8px;
+      background: #009b63;
+      color: #fff;
+      font-size: 13px;
+      line-height: 38px;
+      font-weight: 650;
+      letter-spacing: 1px;
+      box-shadow: 0 7px 16px rgba(0, 155, 99, 0.2);
+    }
+
+    .permission-note {
+      margin-top: 6px;
+      color: #8a8f98;
+      font-size: 9px;
+      line-height: 14px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .camera-page {
+      display: grid;
+      grid-template-columns: 120px 400px 120px;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 20px 32px;
+    }
+
+    .info-area,
+    .action-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .action-area {
+      align-items: center;
+      justify-content: center;
+    }
+
+    .side-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .side-label {
+      margin-bottom: 4px;
+      color: #9e9e9e;
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .side-main {
+      max-width: 100%;
+      color: #212121;
+      font-size: 18px;
+      line-height: 22px;
+      font-weight: 650;
+      word-break: break-word;
+    }
+
+    .side-step {
+      color: #4caf50;
+      font-size: 16px;
+      line-height: 20px;
+      font-weight: 550;
+    }
+
+    .vehicle-plate {
+      display: block;
+      max-width: 100%;
+      margin-top: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #e0e0e0;
+      color: #424242;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 650;
+    }
+
+    .skip-btn {
+      min-height: 34px;
+      border-radius: 8px;
+      padding: 0 10px;
+      background: #fff;
+      border: 1px solid rgba(0, 155, 99, 0.25);
+      color: #008f55;
+      font-size: 13px;
+      font-weight: 650;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .cancel-retake-btn {
+      min-height: 34px;
+      border-radius: 8px;
+      padding: 0 10px;
+      background: #fff;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      color: #4b5563;
+      font-size: 13px;
+      font-weight: 650;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .camera-wrapper {
+      position: relative;
+      width: 400px;
+      height: 300px;
+      justify-self: center;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .camera-view,
+    .photo-preview {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.06)),
+        linear-gradient(135deg, #74897f 0%, #c3d3c7 48%, #69746f 100%);
+    }
+
+    .camera-view.scene {
+      background:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.03)),
+        linear-gradient(160deg, #9fb2a4 0 44%, #d4ddcf 44% 56%, #5f6964 56% 100%);
+    }
+
+    .camera-view.scene::before {
+      content: "";
+      position: absolute;
+      left: 20%;
+      right: 18%;
+      bottom: 30%;
+      height: 18%;
+      border-radius: 40px 54px 14px 14px;
+      background: rgba(245, 248, 245, 0.88);
+      box-shadow: 0 14px 0 rgba(48, 58, 54, 0.38);
+    }
+
+    .camera-view.scene::after {
+      content: "";
+      position: absolute;
+      left: 14%;
+      right: 10%;
+      bottom: 18%;
+      height: 12%;
+      border-radius: 50%;
+      background: rgba(34, 40, 38, 0.22);
+      filter: blur(4px);
+    }
+
+    .camera-view.plate {
+      background:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.05)),
+        linear-gradient(150deg, #657771 0 40%, #cad6cf 40% 62%, #53605b 62% 100%);
+    }
+
+    .camera-view.plate::before {
+      content: "";
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      bottom: 22%;
+      height: 28%;
+      border-radius: 10px 10px 18px 18px;
+      background: rgba(238, 243, 240, 0.88);
+      box-shadow: inset 0 -18px 0 rgba(46, 56, 52, 0.35);
+    }
+
+    .camera-view.vin {
+      background:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.06)),
+        linear-gradient(145deg, #5e6c68 0 42%, #cbd5cf 42% 62%, #46524e 62% 100%);
+    }
+
+    .camera-view.vin::before {
+      content: "";
+      position: absolute;
+      left: 11%;
+      right: 11%;
+      bottom: 18%;
+      height: 34%;
+      border-radius: 14px;
+      background: rgba(228, 236, 232, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      transform: skewX(-8deg);
+    }
+
+    .guide-tip,
+    .ai-tip {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      white-space: nowrap;
+      border-radius: 14px;
+      color: #fff;
+    }
+
+    .guide-tip {
+      top: 4%;
+      padding: 6px 14px;
+      background: rgba(0, 0, 0, 0.55);
+      font-size: 16px;
+      line-height: 20px;
+    }
+
+    .ai-tip {
+      bottom: 4.7%;
+      padding: 6px 16px;
+      background: rgba(33, 33, 33, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 14px;
+      line-height: 18px;
+    }
+
+    .guide-frame {
+      position: absolute;
+      left: 50%;
+      z-index: 3;
+      border: 4px solid #4caf50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.26);
+      transform: translateX(-50%);
+    }
+
+    .guide-frame.scene-frame {
+      width: 72%;
+      height: 54%;
+      top: 24%;
+      border-radius: 12px;
+    }
+
+    .guide-frame.plate-frame {
+      width: 50%;
+      height: 22.7%;
+      bottom: 18.7%;
+      border-radius: 6px;
+      border-color: #1565c0;
+      background: rgba(21, 101, 192, 0.08);
+      box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.24);
+    }
+
+    .guide-frame.vin-frame {
+      width: 80%;
+      height: 13.3%;
+      bottom: 16.7%;
+      border-radius: 4px;
+    }
+
+    .photo-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(135deg, rgba(82, 108, 95, 0.95), rgba(207, 221, 211, 0.96)),
+        #d8e4dc;
+    }
+
+    .photo-preview::before {
+      content: "";
+      width: 78%;
+      height: 62%;
+      border-radius: 14px;
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.02)),
+        rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.32);
+    }
+
+    .preview-stamp {
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      z-index: 2;
+      min-width: 54px;
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(0, 155, 99, 0.92);
+      color: #fff;
+      font-size: 12px;
+      line-height: 22px;
+      font-weight: 650;
+      text-align: center;
+    }
+
+    .capture-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .capture-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 12px rgba(76, 175, 80, 0.4);
+    }
+
+    .capture-inner {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+    }
+
+    .capture-text {
+      margin-top: 8px;
+      color: #9e9e9e;
+      font-size: 12px;
+      line-height: 16px;
+      white-space: nowrap;
+    }
+
+    .confirm-section {
+      width: 108px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .quality-hint {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 10px;
+      background: #fff7e6;
+      border: 1px solid #f2d39b;
+      color: #8a5a00;
+      font-size: 11px;
+      line-height: 15px;
+      text-align: center;
+    }
+
+    .btn-confirm,
+    .btn-retake {
+      width: 84px;
+      min-height: 36px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 550;
+    }
+
+    .btn-confirm {
+      background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    }
+
+    .btn-retake {
+      background: transparent;
+      color: #757575;
+      border: 1px solid #eeeeee;
+    }
+
+    .preview-page,
+    .done-page {
+      display: flex;
+      flex-direction: column;
+      padding: 24px 30px 22px;
+      color: #1f2933;
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 1;
+      height: 54px;
+      min-height: 54px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .page-title {
+      margin: 0;
+      color: #1f2933;
+      font-size: 28px;
+      line-height: 32px;
+      font-weight: 700;
+    }
+
+    .page-subtitle {
+      margin-top: 4px;
+      color: #667085;
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    .preview-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-bottom: 58px;
+    }
+
+    .section-card {
+      min-height: 144px;
+      margin-bottom: 12px;
+      padding: 14px 16px 15px;
+      border-radius: 14px;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.065);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      color: #1f2933;
+      font-size: 18px;
+      line-height: 22px;
+      font-weight: 700;
+    }
+
+    .section-tag {
+      height: 22px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: rgba(0, 155, 99, 0.1);
+      color: #008f55;
+      font-size: 12px;
+      line-height: 22px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .check-grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .check-grid.scene {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .vehicle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .vehicle-block {
+      padding-top: 10px;
+      border-top: 1px dashed rgba(0, 155, 99, 0.16);
+    }
+
+    .vehicle-block:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .vehicle-block-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .vehicle-block-title {
+      color: #1f2933;
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 700;
+    }
+
+    .check-item {
+      min-width: 0;
+      min-height: 76px;
+      border-radius: 9px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      background: linear-gradient(135deg, #d8dee6, #f8fafc);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .check-item.missing {
+      border-style: dashed;
+      background: rgba(248, 251, 249, 0.96);
+    }
+
+    .check-thumb {
+      position: relative;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #008f55;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .check-item.done .check-thumb {
+      background: linear-gradient(135deg, #b7c8bd, #eef6ef);
+    }
+
+    .mock-thumb-scene,
+    .mock-thumb-plate,
+    .mock-thumb-vin {
+      position: absolute;
+      inset: 7px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.36);
+    }
+
+    .mock-thumb-scene::before {
+      content: "";
+      position: absolute;
+      left: 14%;
+      right: 12%;
+      bottom: 18%;
+      height: 32%;
+      border-radius: 18px 22px 8px 8px;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 8px 0 rgba(58, 70, 64, 0.32);
+    }
+
+    .mock-thumb-plate::before {
+      content: "";
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      bottom: 18%;
+      height: 38%;
+      border-radius: 6px 6px 10px 10px;
+      background: rgba(245, 248, 245, 0.76);
+      box-shadow: inset 0 -9px 0 rgba(48, 58, 54, 0.32);
+    }
+
+    .mock-thumb-vin::before {
+      content: "";
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 20%;
+      height: 42%;
+      border-radius: 8px;
+      background: rgba(228, 236, 232, 0.54);
+      transform: skewX(-8deg);
+    }
+
+    .check-mark {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #009b63;
+      color: #fff;
+      font-size: 12px;
+      line-height: 18px;
+      text-align: center;
+    }
+
+    .check-body {
+      padding: 6px 7px 7px;
+      background: #fff;
+    }
+
+    .check-label {
+      display: block;
+      color: #4b5563;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+
+    .check-status {
+      display: block;
+      margin-top: 2px;
+      color: #7a8699;
+      font-size: 11px;
+      line-height: 14px;
+      text-align: center;
+    }
+
+    .warn-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff7e6;
+      border: 1px solid #f2d39b;
+      color: #8a5a00;
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+    .warn-card button {
+      flex: 0 0 auto;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #f2d39b;
+      color: #8a5a00;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .bottom-bar {
+      position: absolute;
+      z-index: 2;
+      left: 30px;
+      right: 30px;
+      bottom: 20px;
+      min-height: 44px;
+      padding: 6px 12px 6px 16px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 155, 99, 0.12);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.055);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .tip {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #7a8699;
+    }
+
+    .tip-icon {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      border-radius: 50%;
+      border: 1px solid #aab4c0;
+      color: #8a94a3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 650;
+    }
+
+    .tip-text {
+      min-width: 0;
+      color: #667085;
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+    .bottom-actions {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      min-width: 108px;
+      min-height: 32px;
+      padding: 0 14px;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 16px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.95);
+      color: #3d4a46;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .btn-primary {
+      background: #009b63;
+      color: #fff;
+      box-shadow: 0 7px 16px rgba(0, 155, 99, 0.18);
+    }
+
+    .handoff-mask {
+      position: absolute;
+      inset: 0;
+      z-index: 28;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(12, 20, 16, 0.42);
+      padding: 24px;
+    }
+
+    .handoff-modal {
+      width: 340px;
+      min-height: 172px;
+      padding: 22px 22px 18px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+    }
+
+    .handoff-modal-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .handoff-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #e6f4ed;
+      color: #1f8f5f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 750;
+      flex: 0 0 auto;
+    }
+
+    .handoff-title-wrap {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .handoff-title {
+      color: #17231b;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 700;
+    }
+
+    .handoff-desc {
+      margin-top: 2px;
+      color: #6d7b72;
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .handoff-next {
+      margin-top: 16px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: #f4faf7;
+      color: #1f8f5f;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 650;
+    }
+
+    .handoff-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .handoff-primary {
+      min-width: 88px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      background: #1f8f5f;
+      color: #fff;
+      font-size: 13px;
+      line-height: 32px;
+      font-weight: 650;
+    }
+
+    .handoff-secondary {
+      min-width: 78px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      background: #f4f7f5;
+      color: #4b5a52;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+      line-height: 30px;
+      font-weight: 650;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 22px;
+      z-index: 20;
+      max-width: 80vw;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(31, 41, 51, 0.88);
+      color: #fff;
+      font-size: 13px;
+      line-height: 18px;
+      transform: translate(-50%, 18px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .confirm-mask {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.22);
+    }
+
+    #deletePhotoDialog {
+      z-index: 50;
+    }
+
+    .confirm-dialog {
+      width: min(420px, calc(100vw - 48px));
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(0, 155, 99, 0.12);
+      box-shadow: 0 14px 36px rgba(15, 23, 42, 0.18);
+    }
+
+    .confirm-title {
+      margin: 0;
+      color: #1f2933;
+      font-size: 20px;
+      line-height: 25px;
+      font-weight: 750;
+    }
+
+    .confirm-content {
+      margin: 9px 0 16px;
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 21px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .photo-viewer {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .photo-viewer-actions {
+      position: absolute;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      transition: opacity 0.18s ease;
+    }
+
+    .photo-viewer-actions.hidden-actions {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .photo-viewer-header {
+      top: 0;
+      height: 52px;
+      padding: 12px 18px 0;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.56), rgba(0, 0, 0, 0));
+    }
+
+    .photo-viewer-title {
+      position: absolute;
+      left: 50%;
+      top: 15px;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 15px;
+      line-height: 22px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .photo-viewer-footer {
+      bottom: 0;
+      height: 64px;
+      padding: 0 24px 14px;
+      justify-content: center;
+      gap: 14px;
+      background: linear-gradient(0deg, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0));
+    }
+
+    .photo-viewer-image {
+      position: relative;
+      width: min(72vw, 560px);
+      height: min(70vh, 330px);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(82, 108, 95, 0.96), rgba(207, 221, 211, 0.94)),
+        #d8e4dc;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      overflow: hidden;
+    }
+
+    .photo-viewer-image::before {
+      content: "";
+      position: absolute;
+      left: 14%;
+      right: 14%;
+      bottom: 28%;
+      height: 22%;
+      border-radius: 42px 54px 14px 14px;
+      background: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 14px 0 rgba(48, 58, 54, 0.34);
+    }
+
+    .photo-viewer-close {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.44);
+      background: rgba(0, 0, 0, 0.18);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .photo-viewer-btn {
+      min-width: 92px;
+      height: 34px;
+      padding: 0 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .photo-viewer-btn.danger {
+      border-color: rgba(255, 115, 115, 0.5);
+      color: #ffb4b4;
+    }
+
+    @media (max-width: 720px), (max-height: 360px) {
+      .camera-page {
+        grid-template-columns: 92px 320px 92px;
+        gap: 14px;
+        padding: 14px 18px;
+      }
+
+      .camera-wrapper {
+        width: 320px;
+        height: 240px;
+      }
+
+      .side-main {
+        font-size: 15px;
+        line-height: 19px;
+      }
+
+      .side-step {
+        font-size: 13px;
+        line-height: 17px;
+      }
+
+      .guide-tip {
+        font-size: 13px;
+        line-height: 17px;
+        padding: 5px 10px;
+      }
+
+      .ai-tip {
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .capture-btn {
+        width: 64px;
+        height: 64px;
+      }
+
+      .capture-inner {
+        width: 48px;
+        height: 48px;
+      }
+
+      .preview-page,
+      .done-page {
+        padding: 18px 22px;
+      }
+
+      .topbar {
+        height: 44px;
+        min-height: 44px;
+        margin-bottom: 9px;
+      }
+
+      .page-title {
+        font-size: 22px;
+        line-height: 26px;
+      }
+
+      .page-subtitle {
+        font-size: 12px;
+        line-height: 17px;
+      }
+
+      .section-card {
+        min-height: 126px;
+        padding: 12px 13px;
+      }
+
+      .check-grid,
+      .summary-grid {
+        gap: 8px;
+      }
+
+      .bottom-bar {
+        left: 22px;
+        right: 22px;
+        bottom: 14px;
+      }
+
+      .tip-text {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="page-glow"></div>
+    <div class="scenario-switch" aria-label="mock ticket 场景切换">
+      <span class="scenario-label">场景</span>
+      <button id="scenarioSingle" class="scenario-btn active" data-action="switchScenario" data-scenario="single">单车</button>
+      <button id="scenarioThird" class="scenario-btn" data-action="switchScenario" data-scenario="third">含三者</button>
+    </div>
+
+    <section id="home" class="screen home">
+      <div class="brand">selfCam</div>
+      <div class="hero">
+        <div class="title">车辆损失照片采集工具</div>
+        <div class="subtitle">请按照提示完成车辆信息、车损照片及单证资料采集</div>
+      </div>
+      <div class="notice-card">
+        <div class="notice-header">
+          <span class="notice-bar"></span>
+          <span class="notice-title">拍摄须知</span>
+        </div>
+        <div class="notice-item">
+          <span class="index-badge">1</span>
+          <span class="notice-text">拍摄前，请提前准备好所有事故车辆的行驶证（支持12123电子版）</span>
+        </div>
+        <div class="notice-item">
+          <span class="index-badge">2</span>
+          <span class="notice-text">依次拍摄您的车（标的车）、其他出险车辆（三者车）的车牌号、VIN码和车损部位</span>
+        </div>
+        <div class="notice-item">
+          <span class="index-badge">3</span>
+          <span class="notice-text">拍摄时，为了估损准确，请尽量按引导使用自动拍照</span>
+        </div>
+      </div>
+      <button class="start-button" data-action="start">开始采集</button>
+      <div class="permission-note">ⓘ 开始采集后将使用摄像头拍摄照片，确认后的照片将尝试保存至手机相册。</div>
+    </section>
+
+    <section id="camera" class="screen camera-page hidden" aria-live="polite">
+      <aside class="info-area">
+        <div class="side-card">
+          <span class="side-label">当前模块</span>
+          <span id="captureSubject" class="side-main">现场环境及车辆信息</span>
+        </div>
+        <div class="side-card">
+          <span class="side-label">拍摄步骤</span>
+          <span id="cameraStepName" class="side-step"></span>
+          <span id="vehiclePlate" class="vehicle-plate">车牌待确认</span>
+        </div>
+        <button id="skipBtn" class="skip-btn" data-action="skipScene">跳过，继续车牌</button>
+        <button id="cancelRetakeBtn" class="cancel-retake-btn hidden" data-action="backPreview">返回预览</button>
+      </aside>
+
+      <div class="camera-wrapper">
+        <div id="cameraView" class="camera-view scene"></div>
+        <div id="photoPreview" class="photo-preview hidden">
+          <span class="preview-stamp">已拍摄</span>
+        </div>
+        <div id="guideFrame" class="guide-frame scene-frame"></div>
+        <div id="guideTip" class="guide-tip">请拍摄车辆整体 45 度现场照片</div>
+        <div id="aiTip" class="ai-tip">尽量拍到整车、车牌、受损方向和现场环境</div>
+      </div>
+
+      <aside class="action-area">
+        <div id="captureSection" class="capture-section">
+          <button class="capture-btn" data-action="capture" aria-label="点击拍照">
+            <span class="capture-inner"></span>
+          </button>
+          <span id="captureText" class="capture-text">点击拍照</span>
+        </div>
+        <div id="confirmSection" class="confirm-section hidden">
+          <div id="qualityHint" class="quality-hint">请确认照片清晰完整</div>
+          <button class="btn-confirm" data-action="confirm">确认使用</button>
+          <button class="btn-retake" data-action="retake">重新拍摄</button>
+        </div>
+      </aside>
+    </section>
+
+    <section id="preview" class="screen preview-page hidden">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">现场环境及车辆信息</h1>
+          <div class="page-subtitle">这是环节预览，请确认本环节资料，可点击项目返回补拍</div>
+        </div>
+      </div>
+      <div class="preview-scroll">
+        <div id="sceneWarn" class="warn-card hidden">
+          <span>整车 45 度现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。</span>
+          <button data-route="scene45">返回补拍</button>
+        </div>
+        <div class="section-card">
+          <div class="section-head">
+            <span class="section-title">现场照片</span>
+            <span id="sceneTag" class="section-tag"></span>
+          </div>
+          <div id="sceneGrid" class="check-grid scene">
+            <div id="cardScene45" class="check-item" data-photo-key="scene45"></div>
+            <div id="cardSupplement1" class="check-item" data-photo-key="supplement:0"></div>
+            <div id="cardSupplement2" class="check-item" data-photo-key="supplement:1"></div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-head">
+            <span class="section-title">车辆信息</span>
+            <span id="vehicleTag" class="section-tag"></span>
+          </div>
+          <div id="vehicleList" class="vehicle-list"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <div class="tip">
+          <span class="tip-icon">i</span>
+          <span class="tip-text">是否还有其他现场环境照片需要补充？</span>
+        </div>
+        <div class="bottom-actions">
+          <button class="btn btn-ghost" data-action="addSupplement">补充现场照片</button>
+          <button class="btn btn-primary" data-action="finishModule">进入车损拍摄</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+    <div id="handoffOverlay" class="handoff-mask hidden" role="dialog" aria-modal="true">
+      <div class="handoff-modal">
+        <div class="handoff-modal-head">
+          <div class="handoff-mark">✓</div>
+          <div class="handoff-title-wrap">
+            <div class="handoff-title">现场环境及车辆信息已保存</div>
+            <div class="handoff-desc">本环节照片将后台上传，可继续拍摄车损照片</div>
+          </div>
+        </div>
+        <div class="handoff-next">下一步：车损照片拍摄</div>
+        <div class="handoff-actions">
+          <button class="handoff-secondary" data-action="closeHandoff">返回预览</button>
+          <button class="handoff-primary" data-action="enterDamage">进入车损拍摄</button>
+        </div>
+      </div>
+    </div>
+    <div id="photoViewer" class="photo-viewer hidden">
+      <div id="photoViewerHeader" class="photo-viewer-actions photo-viewer-header">
+        <button class="photo-viewer-close" data-action="closeViewer">关闭</button>
+        <span id="photoViewerTitle" class="photo-viewer-title">照片预览</span>
+        <span></span>
+      </div>
+      <div class="photo-viewer-image" data-action="toggleViewerActions">
+      </div>
+      <div id="photoViewerFooter" class="photo-viewer-actions photo-viewer-footer">
+        <button class="photo-viewer-btn" data-action="retakePhoto">重拍</button>
+        <button class="photo-viewer-btn danger" data-action="requestDeletePhoto">删除</button>
+      </div>
+    </div>
+    <div id="deletePhotoDialog" class="confirm-mask hidden" role="dialog" aria-modal="true">
+      <div class="confirm-dialog">
+        <h2 class="confirm-title">删除确认</h2>
+        <p class="confirm-content">确定删除该照片吗？</p>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" data-action="cancelDeletePhoto">取消</button>
+          <button class="btn btn-primary" data-action="confirmDeletePhoto">删除</button>
+        </div>
+      </div>
+    </div>
+    <div id="missingSceneDialog" class="confirm-mask hidden" role="dialog" aria-modal="true">
+      <div class="confirm-dialog">
+        <h2 class="confirm-title">整车45度现场照片未采集</h2>
+        <p class="confirm-content">建议补拍整车45度现场照片，便于记录事故现场和车辆整体状态。你也可以继续进入车损照片拍摄。</p>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" data-action="retakeSceneFromDialog">返回补拍</button>
+          <button class="btn btn-primary" data-action="continueWithoutScene">仍然进入车损拍摄</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const mockTickets = {
+      single: {
+        label: "单车事故",
+        vehicles: [
+          { id: "target", roleName: "标的车", plateHint: "车牌待确认" }
+        ]
+      },
+      third: {
+        label: "含三者车",
+        vehicles: [
+          { id: "target", roleName: "标的车", plateHint: "车牌待确认" },
+          { id: "third-1", roleName: "三者车", plateHint: "车牌待确认" }
+        ]
+      }
+    };
+
+    const state = {
+      page: "home",
+      step: "scene45",
+      confirming: false,
+      scenario: "single",
+      vehicles: [],
+      currentVehicleIndex: 0,
+      scene45Captured: false,
+      supplements: [],
+      returnToPreviewAfterConfirm: false,
+      activePhotoKey: "",
+      activeSupplementIndex: null,
+      viewerActionsVisible: true
+    };
+
+    const stepMeta = {
+      scene45: {
+        name: "1、整车 45 度",
+        view: "scene",
+        frame: "scene-frame",
+        tip: "请拍摄车辆整体 45 度现场照片",
+        ai: "尽量拍到整车、车牌、受损方向和现场环境",
+        quality: "请确认整车、车牌和现场背景清晰",
+        capture: "点击拍照",
+        skip: true,
+        subject: "案件现场",
+        thumb: "scene"
+      },
+      plate: {
+        name: "车牌号",
+        view: "plate",
+        frame: "plate-frame",
+        tip: "将车牌号放入框内",
+        ai: "请保持车牌完整、无遮挡",
+        quality: "请确认车牌号清晰完整",
+        capture: "点击拍照",
+        skip: false,
+        subject: "标的车",
+        thumb: "plate"
+      },
+      vin: {
+        name: "VIN 码",
+        view: "vin",
+        frame: "vin-frame",
+        tip: "VIN码位于驾驶舱挡风玻璃角落",
+        ai: "请对准前挡风玻璃左下角 VIN 码",
+        quality: "请确认 VIN 字符清晰完整",
+        capture: "点击拍照",
+        skip: false,
+        subject: "标的车",
+        thumb: "vin"
+      },
+      supplement: {
+        name: "补充现场照片",
+        view: "scene",
+        frame: "scene-frame",
+        tip: "请拍摄其他现场环境照片",
+        ai: "可补充道路环境、碰撞位置、周边参照物",
+        quality: "请确认现场环境信息清晰",
+        capture: "点击拍照",
+        skip: false,
+        subject: "案件现场",
+        thumb: "scene"
+      }
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function createVehicleState(vehicle) {
+      return {
+        ...vehicle,
+        plateCaptured: false,
+        vinCaptured: false
+      };
+    }
+
+    function loadScenario(scenario) {
+      state.scenario = scenario;
+      state.vehicles = mockTickets[scenario].vehicles.map(createVehicleState);
+      resetCaptureState();
+      renderScenarioSwitch();
+      showPage("home");
+    }
+
+    function resetCaptureState() {
+      state.page = "home";
+      state.step = "scene45";
+      state.confirming = false;
+      state.currentVehicleIndex = 0;
+      state.scene45Captured = false;
+      state.supplements = [];
+      state.returnToPreviewAfterConfirm = false;
+      state.activePhotoKey = "";
+      state.activeSupplementIndex = null;
+      state.viewerActionsVisible = true;
+    }
+
+    function renderScenarioSwitch() {
+      $("scenarioSingle").classList.toggle("active", state.scenario === "single");
+      $("scenarioThird").classList.toggle("active", state.scenario === "third");
+    }
+
+    function showPage(page) {
+      state.page = page;
+      ["home", "camera", "preview"].forEach((id) => {
+        $(id).classList.toggle("hidden", id !== page);
+      });
+      if (page !== "preview") showHandoffOverlay(false);
+      if (page === "camera") renderCamera();
+      if (page === "preview") renderPreview();
+      if (page === "preview") showHandoffOverlay(false);
+    }
+
+    function enterCamera(step, options = {}) {
+      state.step = step;
+      state.confirming = false;
+      state.returnToPreviewAfterConfirm = options.returnToPreviewAfterConfirm === true;
+      state.currentVehicleIndex = Number.isInteger(options.vehicleIndex)
+        ? options.vehicleIndex
+        : state.currentVehicleIndex;
+      state.activeSupplementIndex = Number.isInteger(options.supplementIndex)
+        ? options.supplementIndex
+        : null;
+      showPage("camera");
+    }
+
+    function renderCamera() {
+      const meta = stepMeta[state.step];
+      const statusText = getCaptureStatusText();
+      const vehicle = getCurrentVehicle();
+      $("captureSubject").textContent = isSceneStep() ? meta.subject : vehicle.roleName;
+      $("cameraStepName").textContent = getCameraStepName();
+      $("cameraView").className = `camera-view ${meta.view}`;
+      $("guideFrame").className = `guide-frame ${meta.frame}`;
+      $("guideTip").textContent = meta.tip;
+      $("aiTip").textContent = meta.ai;
+      $("qualityHint").textContent = meta.quality;
+      $("captureText").textContent = meta.capture;
+      $("skipBtn").classList.toggle("hidden", !meta.skip || state.confirming);
+      $("cancelRetakeBtn").classList.toggle("hidden", !state.returnToPreviewAfterConfirm || state.confirming);
+      $("captureSection").classList.toggle("hidden", state.confirming);
+      $("confirmSection").classList.toggle("hidden", !state.confirming);
+      $("cameraView").classList.toggle("hidden", state.confirming);
+      $("photoPreview").classList.toggle("hidden", !state.confirming);
+      $("guideFrame").classList.toggle("hidden", state.confirming);
+      $("guideTip").classList.toggle("hidden", state.confirming);
+      $("aiTip").classList.toggle("hidden", state.confirming);
+      $("vehiclePlate").textContent = statusText;
+      $("vehiclePlate").classList.toggle("hidden", !statusText);
+    }
+
+    function getCurrentVehicle() {
+      return state.vehicles[state.currentVehicleIndex] || state.vehicles[0];
+    }
+
+    function isSceneStep() {
+      return state.step === "scene45" || state.step === "supplement";
+    }
+
+    function getCameraStepName() {
+      if (state.step === "scene45") return "1、整车 45 度";
+      if (state.step === "supplement") return "补充现场照片";
+      const vehicle = getCurrentVehicle();
+      const prefix = `${state.currentVehicleIndex + 1}/${state.vehicles.length} ${vehicle.roleName}`;
+      return state.step === "plate" ? `${prefix} 车牌号` : `${prefix} VIN 码`;
+    }
+
+    function getCaptureStatusText() {
+      if (state.step === "scene45") return "现场照片";
+      if (state.step === "supplement") {
+        const index = Number.isInteger(state.activeSupplementIndex)
+          ? state.activeSupplementIndex
+          : state.supplements.length;
+        return `现场补充 ${Math.min(index + 1, 2)}/2`;
+      }
+      const vehicle = getCurrentVehicle();
+      if (state.step === "plate") return vehicle.plateCaptured ? "已拍车牌" : vehicle.plateHint;
+      if (state.step === "vin") return vehicle.plateCaptured ? "车牌已拍" : `${vehicle.roleName}信息`;
+      return "";
+    }
+
+    function setCard(el, label, status, done, actionText, thumbType, photoKey) {
+      if (typeof el === "string") el = $(el);
+      el.dataset.photoKey = photoKey || "";
+      el.className = `check-item ${done ? "done" : "missing"}`;
+      el.innerHTML = `
+        <div class="check-thumb">
+          ${done ? `<span class="mock-thumb-${thumbType || "scene"}"></span><span class="check-mark">✓</span>` : "+"}
+        </div>
+        <div class="check-body">
+          <span class="check-label">${label}</span>
+          <span class="check-status">${status}${actionText ? " · " + actionText : ""}</span>
+        </div>
+      `;
+    }
+
+    function renderPreview() {
+      $("sceneWarn").classList.toggle("hidden", state.scene45Captured);
+      $("sceneTag").textContent = `现场补充 ${state.supplements.length} / 2`;
+      $("vehicleTag").textContent = `${state.vehicles.length} 辆`;
+      setCard("cardScene45", "整车 45 度照片", state.scene45Captured ? "已拍" : "未拍", state.scene45Captured, "补拍", "scene", "scene45");
+      setCard("cardSupplement1", "现场补充照片 1", state.supplements[0] ? "已拍" : "未拍", !!state.supplements[0], "补充", "scene", "supplement:0");
+      setCard("cardSupplement2", "现场补充照片 2", state.supplements[1] ? "已拍" : "未拍", !!state.supplements[1], "补充", "scene", "supplement:1");
+      renderVehicleList();
+    }
+
+    function renderVehicleList() {
+      $("vehicleList").innerHTML = state.vehicles.map((vehicle, index) => `
+        <div class="vehicle-block">
+          <div class="vehicle-block-head">
+            <span class="vehicle-block-title">${vehicle.roleName}</span>
+            <span class="section-tag">${vehicle.plateCaptured && vehicle.vinCaptured ? "已完成" : "待补充"}</span>
+          </div>
+          <div class="check-grid two">
+            <div class="check-item" data-photo-key="vehicle:${index}:plate"></div>
+            <div class="check-item" data-photo-key="vehicle:${index}:vin"></div>
+          </div>
+        </div>
+      `).join("");
+
+      state.vehicles.forEach((vehicle, index) => {
+        setCard(
+          document.querySelector(`[data-photo-key="vehicle:${index}:plate"]`),
+          "车牌号",
+          vehicle.plateCaptured ? "已拍" : "未拍",
+          vehicle.plateCaptured,
+          "补拍",
+          "plate",
+          `vehicle:${index}:plate`
+        );
+        setCard(
+          document.querySelector(`[data-photo-key="vehicle:${index}:vin"]`),
+          "VIN 码",
+          vehicle.vinCaptured ? "已拍" : "未拍",
+          vehicle.vinCaptured,
+          "补拍",
+          "vin",
+          `vehicle:${index}:vin`
+        );
+      });
+    }
+
+    function nextAfterConfirm() {
+      if (state.step === "scene45") {
+        state.scene45Captured = true;
+        if (state.returnToPreviewAfterConfirm) {
+          state.returnToPreviewAfterConfirm = false;
+          showPage("preview");
+          return;
+        }
+        enterCamera("plate");
+        return;
+      }
+      if (state.step === "plate") {
+        getCurrentVehicle().plateCaptured = true;
+        if (state.returnToPreviewAfterConfirm) {
+          state.returnToPreviewAfterConfirm = false;
+          showPage("preview");
+          return;
+        }
+        enterCamera("vin");
+        return;
+      }
+      if (state.step === "vin") {
+        getCurrentVehicle().vinCaptured = true;
+        if (state.returnToPreviewAfterConfirm) {
+          state.returnToPreviewAfterConfirm = false;
+          showPage("preview");
+          return;
+        }
+        if (state.currentVehicleIndex < state.vehicles.length - 1) {
+          enterCamera("plate", { vehicleIndex: state.currentVehicleIndex + 1 });
+          return;
+        }
+        showPage("preview");
+        return;
+      }
+      if (state.step === "supplement") {
+        const index = Number.isInteger(state.activeSupplementIndex)
+          ? state.activeSupplementIndex
+          : state.supplements.length;
+        if (index < 2) state.supplements[index] = true;
+        state.returnToPreviewAfterConfirm = false;
+        showPage("preview");
+      }
+    }
+
+    function toast(message) {
+      const el = $("toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    function resetDemo() {
+      resetCaptureState();
+      showPage("home");
+    }
+
+    function showMissingSceneDialog(show) {
+      $("missingSceneDialog").classList.toggle("hidden", !show);
+    }
+
+    function showHandoffOverlay(show) {
+      $("handoffOverlay").classList.toggle("hidden", !show);
+    }
+
+    function setViewerActionsVisible(visible) {
+      state.viewerActionsVisible = visible;
+      $("photoViewerHeader").classList.toggle("hidden-actions", !visible);
+      $("photoViewerFooter").classList.toggle("hidden-actions", !visible);
+    }
+
+    function openPhotoViewer(photoKey) {
+      const info = getPhotoInfo(photoKey);
+      state.activePhotoKey = photoKey;
+      $("photoViewerTitle").textContent = info.label;
+      $("photoViewer").classList.remove("hidden");
+      setViewerActionsVisible(true);
+    }
+
+    function closePhotoViewer() {
+      $("photoViewer").classList.add("hidden");
+      $("deletePhotoDialog").classList.add("hidden");
+    }
+
+    function getPhotoInfo(photoKey) {
+      if (photoKey === "scene45") {
+        return {
+          key: photoKey,
+          label: "整车 45 度现场照片",
+          done: state.scene45Captured,
+          route: () => enterCamera("scene45", { returnToPreviewAfterConfirm: true }),
+          clear: () => { state.scene45Captured = false; }
+        };
+      }
+      if (photoKey.startsWith("supplement:")) {
+        const index = Number(photoKey.split(":")[1]);
+        return {
+          key: photoKey,
+          label: `现场补充照片 ${index + 1}`,
+          done: !!state.supplements[index],
+          route: () => enterCamera("supplement", { returnToPreviewAfterConfirm: true, supplementIndex: index }),
+          clear: () => {
+            state.supplements.splice(index, 1);
+          }
+        };
+      }
+      const [, vehicleIndexText, type] = photoKey.split(":");
+      const vehicleIndex = Number(vehicleIndexText);
+      const vehicle = state.vehicles[vehicleIndex];
+      return {
+        key: photoKey,
+        label: `${vehicle.roleName}${type === "plate" ? "车牌号" : "VIN 码"}`,
+        done: type === "plate" ? vehicle.plateCaptured : vehicle.vinCaptured,
+        route: () => enterCamera(type === "plate" ? "plate" : "vin", { returnToPreviewAfterConfirm: true, vehicleIndex }),
+        clear: () => {
+          if (type === "plate") vehicle.plateCaptured = false;
+          if (type === "vin") vehicle.vinCaptured = false;
+        }
+      };
+    }
+
+    function handlePreviewPhotoTap(photoKey) {
+      const info = getPhotoInfo(photoKey);
+      state.activePhotoKey = photoKey;
+      if (!info.done) {
+        if (photoKey === "supplement:1" && !state.supplements[0]) {
+          enterCamera("supplement", { returnToPreviewAfterConfirm: true, supplementIndex: 0 });
+          return;
+        }
+        info.route();
+        return;
+      }
+      openPhotoViewer(photoKey);
+    }
+
+    function addSupplementPhoto() {
+      if (state.supplements.length >= 2) {
+        toast("现场补充照片最多 2 张");
+        return;
+      }
+      enterCamera("supplement", {
+        returnToPreviewAfterConfirm: true,
+        supplementIndex: state.supplements.length
+      });
+    }
+
+    document.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-action],[data-route]");
+      const photoTarget = event.target.closest("[data-photo-key]");
+      if (!target && !photoTarget) return;
+
+      if (photoTarget && !target) {
+        handlePreviewPhotoTap(photoTarget.dataset.photoKey);
+        return;
+      }
+
+      const route = target.dataset.route;
+      if (route) {
+        enterCamera(route, { returnToPreviewAfterConfirm: state.page === "preview" });
+        return;
+      }
+
+      switch (target.dataset.action) {
+        case "start":
+          resetCaptureState();
+          enterCamera("scene45");
+          break;
+        case "switchScenario":
+          loadScenario(target.dataset.scenario);
+          break;
+        case "capture":
+          state.confirming = true;
+          renderCamera();
+          break;
+        case "retake":
+          state.confirming = false;
+          renderCamera();
+          break;
+        case "confirm":
+          nextAfterConfirm();
+          break;
+        case "skipScene":
+          state.scene45Captured = false;
+          enterCamera("plate");
+          break;
+        case "addSupplement":
+          addSupplementPhoto();
+          break;
+        case "closeViewer":
+          closePhotoViewer();
+          break;
+        case "toggleViewerActions":
+          setViewerActionsVisible(!state.viewerActionsVisible);
+          break;
+        case "retakePhoto": {
+          const info = getPhotoInfo(state.activePhotoKey);
+          closePhotoViewer();
+          info.route();
+          break;
+        }
+        case "requestDeletePhoto":
+          $("deletePhotoDialog").classList.remove("hidden");
+          break;
+        case "cancelDeletePhoto":
+          $("deletePhotoDialog").classList.add("hidden");
+          break;
+        case "confirmDeletePhoto": {
+          const info = getPhotoInfo(state.activePhotoKey);
+          info.clear();
+          closePhotoViewer();
+          showPage("preview");
+          renderPreview();
+          break;
+        }
+        case "finishModule":
+          if (!state.scene45Captured) {
+            showMissingSceneDialog(true);
+            return;
+          }
+          showHandoffOverlay(true);
+          break;
+        case "retakeSceneFromDialog":
+          showMissingSceneDialog(false);
+          enterCamera("scene45", { returnToPreviewAfterConfirm: true });
+          break;
+        case "continueWithoutScene":
+          showMissingSceneDialog(false);
+          showHandoffOverlay(true);
+          break;
+        case "backPreview":
+          showPage("preview");
+          break;
+        case "closeHandoff":
+          showHandoffOverlay(false);
+          break;
+        case "enterDamage":
+          showHandoffOverlay(false);
+          toast("即将进入车损照片拍摄");
+          break;
+      }
+    });
+
+    loadScenario("single");
+  </script>
+</body>
+</html>
