@@ -162,7 +162,7 @@ describe('preview page driving license flow', () => {
   })
 
   test('uploads front page into current vehicle documents from camera without saving album immediately', async () => {
-    actionSheetTapIndexes = [0]
+    actionSheetTapIndexes = [1, 0]
     const page = loadPreviewPageWithVehicles(1)
 
     page.onOpenDrivingLicensePanel({
@@ -202,8 +202,32 @@ describe('preview page driving license flow', () => {
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
+  test('opens missing document slot with electronic or physical choice first', () => {
+    actionSheetTapIndexes = [0]
+    const page = loadPreviewPageWithVehicles(1)
+
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE
+        }
+      }
+    })
+
+    const vehicle = storage.loadCache().vehicles[0]
+    expect(global.wx.showActionSheet).toHaveBeenCalledWith(expect.objectContaining({
+      itemList: ['电子驾驶证', '实物驾驶证']
+    }))
+    expect(vehicle.documentSelections.driver_license).toBe(documents.DOCUMENT_SELECTIONS.ELECTRONIC)
+    expect(page.data.showDrivingLicensePanel).toBe(true)
+    expect(page.data.drivingLicenseMode).toBe(documents.DOCUMENT_SELECTIONS.ELECTRONIC)
+    expect(page.data.activeDrivingLicenseDocType).toBe(documents.DOCUMENT_TYPES.DRIVER_LICENSE)
+    expect(page.data.activeDrivingLicenseSlots).toHaveLength(1)
+  })
+
   test('uploads from album without saving back to system album', async () => {
-    actionSheetTapIndexes = [1]
+    actionSheetTapIndexes = [1, 1]
     selectedMediaFile = {
       tempFilePath: '/tmp/album-license.jpg',
       size: 1000
@@ -248,7 +272,6 @@ describe('preview page driving license flow', () => {
         dataset: { vehicle: 0 }
       }
     })
-    page.onSwitchDrivingLicenseMode()
 
     await page.onTapDrivingLicenseSlot({
       currentTarget: {
@@ -298,7 +321,7 @@ describe('preview page driving license flow', () => {
 
   test('keeps uploaded camera document without final album save side effects', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-    actionSheetTapIndexes = [0]
+    actionSheetTapIndexes = [1, 0]
     const page = loadPreviewPageWithVehicles(1)
 
     page.onOpenDrivingLicensePanel({
@@ -336,7 +359,7 @@ describe('preview page driving license flow', () => {
 
     expect(page.data.showModal).toBe(true)
     expect(page.data.modalType).toBe('drivingLicenseRisk')
-    expect(page.data.modalContent).toBe('仍有车辆未上传行驶证，会影响定损金额准确性，建议上传。如确实无法提供，请后续联系案件处理人员补充。是否确认提交？')
+    expect(page.data.modalContent).toBe('仍有车辆证件信息未采集完整，建议补充驾驶证和行驶证。如确实无法提供，可继续提交。是否确认提交？')
     expect(page.data.modalCancelText).toBe('返回补充')
     expect(page.data.modalConfirmText).toBe('确认提交')
   })
@@ -488,5 +511,74 @@ describe('preview page driving license flow', () => {
 
     expect(storage.loadCache().vehicles[0].documents).toEqual([])
     expect(page.data.showPreview).toBe(false)
+  })
+
+  test('delete returns the document tile to matching upload entry', () => {
+    const page = loadPreviewPageWithVehicles(1)
+    storage.saveVehicleDocument(0, {
+      docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+      docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+      label: '行驶证',
+      sourceType: 'album',
+      tempFilePath: '/tmp/electronic.jpg',
+      compressedPath: '/tmp/electronic-compressed.jpg',
+      createdAt: 1000,
+      updatedAt: 1000
+    })
+    page.loadData()
+    page.setData({
+      showPreview: true,
+      currentPhoto: {
+        vehicle: 0,
+        type: 'vehicleDocument',
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC
+      }
+    })
+
+    page.onDelete()
+
+    const drivingLicenseTile = page.data.vehicles[0].vehicleDocumentPreview.displayItems
+      .find((item) => item.docType === documents.DOCUMENT_TYPES.DRIVING_LICENSE)
+    expect(drivingLicenseTile).toEqual(expect.objectContaining({
+      type: 'upload',
+      label: '行驶证',
+      uploaded: false
+    }))
+  })
+
+  test('retakes collected document through existing source sheet', () => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    vehicle.documents = [{
+      id: 'electronic-id',
+      docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+      docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+      label: '驾驶证',
+      sourceType: 'album',
+      tempFilePath: '/tmp/driver.jpg',
+      compressedPath: '/tmp/driver-compressed.jpg',
+      createdAt: 1000,
+      updatedAt: 1000
+    }]
+    cache.vehicles.push(vehicle)
+    const page = loadPreviewPageWithCache(cache)
+    page.setData({
+      currentPhoto: {
+        vehicle: 0,
+        type: 'vehicleDocument',
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC
+      }
+    })
+
+    page.onRetake()
+
+    expect(page.data.showPreview).toBe(false)
+    expect(page.data.activeDrivingLicenseVehicleIndex).toBe(0)
+    expect(page.data.activeDrivingLicenseDocType).toBe(documents.DOCUMENT_TYPES.DRIVER_LICENSE)
+    expect(global.wx.showActionSheet).toHaveBeenCalledWith(expect.objectContaining({
+      itemList: ['拍照', '从手机相册选择']
+    }))
   })
 })

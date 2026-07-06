@@ -258,6 +258,94 @@ function isRetakeMode() {
   return cache && cache.retakeMode && cache.retakeMode.enabled
 }
 
+function getScenePhotos(cache) {
+  return cache && cache.scenePhotos
+    ? cache.scenePhotos
+    : {
+        scene45: { status: 'pending' },
+        supplements: []
+      }
+}
+
+function normalizeScenePhoto(photo, sceneType) {
+  return {
+    ...normalizePhotoMeta(photo),
+    status: 'completed',
+    sceneType
+  }
+}
+
+function saveScenePhoto(sceneType, photo, supplementIndex = null) {
+  const cache = getOrInitCache()
+  cache.scenePhotos = getScenePhotos(cache)
+
+  if (sceneType === 'scene45') {
+    const normalizedPhoto = normalizeScenePhoto(photo, sceneType)
+    cache.scenePhotos.scene45 = normalizedPhoto
+    saveCache(cache)
+    return normalizedPhoto
+  }
+
+  if (sceneType === 'sceneSupplement') {
+    cache.scenePhotos.supplements = Array.isArray(cache.scenePhotos.supplements)
+      ? cache.scenePhotos.supplements
+      : []
+    const targetIndex = Number.isInteger(supplementIndex)
+      ? supplementIndex
+      : cache.scenePhotos.supplements.length
+
+    if (targetIndex < 0 || targetIndex >= 2) {
+      return null
+    }
+
+    if (targetIndex >= cache.scenePhotos.supplements.length && cache.scenePhotos.supplements.length >= 2) {
+      return null
+    }
+
+    const normalizedPhoto = normalizeScenePhoto(photo, sceneType)
+    if (targetIndex < cache.scenePhotos.supplements.length) {
+      cache.scenePhotos.supplements.splice(targetIndex, 1, normalizedPhoto)
+    } else {
+      cache.scenePhotos.supplements.push(normalizedPhoto)
+    }
+    saveCache(cache)
+    return normalizedPhoto
+  }
+
+  return null
+}
+
+function deleteScenePhoto(sceneType, supplementIndex = null) {
+  const cache = loadCache()
+  if (!cache) {
+    return false
+  }
+
+  cache.scenePhotos = getScenePhotos(cache)
+
+  if (sceneType === 'scene45') {
+    cache.scenePhotos.scene45 = { status: 'pending' }
+    saveCache(cache)
+    return true
+  }
+
+  if (sceneType === 'sceneSupplement') {
+    const supplements = Array.isArray(cache.scenePhotos.supplements)
+      ? cache.scenePhotos.supplements
+      : []
+    if (!Number.isInteger(supplementIndex) || supplementIndex < 0 || supplementIndex >= supplements.length) {
+      return false
+    }
+
+    supplements.splice(supplementIndex, 1)
+    cache.scenePhotos.supplements = supplements
+    saveCache(cache)
+    return true
+  }
+
+  return false
+}
+
 function deletePhoto(vehicleIndex, photoType, damageIndex = null) {
   const cache = loadCache()
   const vehicle = cache && cache.vehicles && cache.vehicles[vehicleIndex]
@@ -321,7 +409,7 @@ function setVehicleDocumentSelection(vehicleIndex, docType, selection) {
   vehicle.documentSelections = vehicleDocuments.normalizeDocumentSelections(vehicle.documentSelections)
 
   if (
-    docType === vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE
+    (docType === vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE || docType === vehicleDocuments.DOCUMENT_TYPES.DRIVER_LICENSE)
     && (selection === vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL || selection === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC)
   ) {
     vehicle.documentSelections[docType] = selection
@@ -453,6 +541,8 @@ module.exports = {
   checkVehicleComplete,
   getMissingPhotos,
   normalizePhotoMeta,
+  saveScenePhoto,
+  deleteScenePhoto,
   enterRetakeMode,
   saveRetakenPhoto,
   isRetakeMode,

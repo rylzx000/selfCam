@@ -26,6 +26,24 @@ describe('vehicle document cache support', () => {
     }
   }
 
+  function buildVehicleDocument(docType, docSide, overrides = {}) {
+    const labels = docType === documents.DOCUMENT_TYPES.DRIVER_LICENSE
+      ? documents.DRIVER_LICENSE_LABELS
+      : documents.DRIVING_LICENSE_LABELS
+
+    return {
+      docType,
+      docSide,
+      label: labels[docSide],
+      sourceType: 'album',
+      tempFilePath: `/tmp/${docType}-${docSide}.jpg`,
+      compressedPath: `/tmp/${docType}-${docSide}-compressed.jpg`,
+      createdAt: 1000,
+      updatedAt: 1000,
+      ...overrides
+    }
+  }
+
   beforeEach(() => {
     jest.resetModules()
     memoryStorage = {}
@@ -71,6 +89,7 @@ describe('vehicle document cache support', () => {
     expect(cache.schemaVersion).toBe(storage.CACHE_SCHEMA_VERSION)
     expect(cache.vehicles[0].documents).toEqual([])
     expect(cache.vehicles[0].documentSelections).toEqual({
+      driver_license: 'physical',
       driving_license: 'physical'
     })
     expect(storage.validateCache(cache).valid).toBe(true)
@@ -243,5 +262,73 @@ describe('vehicle document cache support', () => {
     const cache = storage.loadCache()
     expect(cache.vehicles[0].documents[0].compressedPath).toBe('/target-front.jpg')
     expect(cache.vehicles[1].documents[0].compressedPath).toBe('/third-front.jpg')
+  })
+
+  test('builds flat vehicle document display items with two upload entries when empty', () => {
+    const vehicle = storage.createVehicle(0)
+
+    const preview = documents.buildVehicleDocumentPreview(vehicle)
+
+    expect(preview.displayItems).toEqual([
+      expect.objectContaining({
+        type: 'upload',
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        label: '驾驶证',
+        uploaded: false
+      }),
+      expect.objectContaining({
+        type: 'upload',
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        label: '行驶证',
+        uploaded: false
+      })
+    ])
+  })
+
+  test('builds flat electronic document display labels without electronic prefix', () => {
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections = {
+      driver_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC,
+      driving_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    }
+    vehicle.documents = [
+      buildVehicleDocument(
+        documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        documents.DOCUMENT_SIDES.ELECTRONIC
+      ),
+      buildVehicleDocument(
+        documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        documents.DOCUMENT_SIDES.ELECTRONIC
+      )
+    ]
+
+    const preview = documents.buildVehicleDocumentPreview(vehicle)
+
+    expect(preview.displayItems.map((item) => item.label)).toEqual(['驾驶证', '行驶证'])
+    expect(preview.displayItems.every((item) => item.type === 'document')).toBe(true)
+  })
+
+  test('builds flat physical document display labels in one row order', () => {
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections = {
+      driver_license: documents.DOCUMENT_SELECTIONS.PHYSICAL,
+      driving_license: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }
+    vehicle.documents = [
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE)
+    ]
+
+    const preview = documents.buildVehicleDocumentPreview(vehicle)
+
+    expect(preview.displayItems.map((item) => item.label)).toEqual([
+      '驾驶证-正页',
+      '驾驶证-副页',
+      '行驶证-正页',
+      '行驶证-副页'
+    ])
+    expect(preview.displayItems.every((item) => item.type === 'document')).toBe(true)
   })
 })

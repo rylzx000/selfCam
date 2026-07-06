@@ -305,7 +305,7 @@ Page({
     const vehicle = storage.createVehicle(0)
     cache.vehicles.push(vehicle)
     cache.currentVehicleIndex = 0
-    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
     storage.saveCache(cache)
 
     console.log('[index] saved cache:', storage.loadCache())

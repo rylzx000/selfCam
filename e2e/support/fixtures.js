@@ -1,9 +1,12 @@
 const { STORAGE_KEY } = require('../../packageD/utils/storage')
 
 const SHOOT_STEP = {
+  SCENE_45: 'scene45',
+  SCENE_SUPPLEMENT: 'sceneSupplement',
   LICENSE_PLATE: 'licensePlate',
   VIN_CODE: 'vinCode',
   DAMAGE: 'damage',
+  MODULE_ONE_PREVIEW: 'moduleOnePreview',
   PREVIEW: 'preview'
 }
 

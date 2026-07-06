@@ -50,6 +50,18 @@ describe('cache selectors', () => {
 
   test('builds cache summary with shared counts and preview progress', () => {
     const cache = storage.initCache()
+    cache.scenePhotos.scene45 = {
+      status: 'completed',
+      compressedPath: '/scene-45.jpg',
+      localPhotoId: 'scene-45'
+    }
+    cache.scenePhotos.supplements = [
+      {
+        status: 'completed',
+        compressedPath: '/scene-supplement-1.jpg',
+        localPhotoId: 'scene-supplement-1'
+      }
+    ]
     cache.vehicles.push(createCompletedVehicle(0, constants.LIMITS.MAX_DAMAGES))
     cache.vehicles.push(createCompletedVehicle(1, 2))
     cache.documents = [
@@ -66,17 +78,29 @@ describe('cache selectors', () => {
     const summary = selectors.getCacheSummary(cache)
 
     expect(summary.vehicleCount).toBe(2)
-    expect(summary.damagePhotoCount).toBe(7)
+    expect(summary.damagePhotoCount).toBe(12)
     expect(summary.documentCount).toBe(2)
     expect(summary.documentPhotoCount).toBe(2)
     expect(summary.photoCounts).toEqual({
+      scene: 2,
       licensePlate: 2,
       vinCode: 2,
-      damage: 7,
+      damage: 12,
       document: 2,
-      total: 13
+      total: 20
     })
-    expect(summary.totalPhotos).toBe(13)
+    expect(summary.damagePhotoCount).toBe(12)
+    expect(summary.scenePhotoCount).toBe(2)
+    expect(summary.totalPhotos).toBe(20)
+    expect(summary.sceneSummary).toEqual(expect.objectContaining({
+      hasScene45: true,
+      supplementCount: 1,
+      remainingSupplementCount: 1
+    }))
+    expect(summary.allPhotos.slice(0, 2).map((photo) => photo.type)).toEqual([
+      constants.PHOTO_TYPE.SCENE_45,
+      constants.PHOTO_TYPE.SCENE_SUPPLEMENT
+    ])
     expect(summary.progress).toEqual({
       step1: 2,
       step2: 1,
@@ -85,11 +109,63 @@ describe('cache selectors', () => {
     expect(summary.canAddThirdVehicle).toBe(true)
     expect(summary.shouldSuggestBackToEdit).toBe(false)
     expect(summary.qualitySummary).toEqual(expect.objectContaining({
-      totalPhotos: 13,
+      totalPhotos: 20,
       analyzedCount: 0,
       riskCount: 0,
       suggestRetakeCount: 0,
       riskReasons: []
+    }))
+  })
+
+  test('builds module one preview summary with scene slots and vehicle identity slots', () => {
+    const cache = storage.initCache()
+    cache.scenePhotos.scene45 = {
+      status: 'completed',
+      compressedPath: '/scene-45.jpg'
+    }
+    const firstVehicle = storage.createVehicle(0)
+    firstVehicle.vehicleRoleName = '标的车'
+    firstVehicle.displayName = '标的车 京A12345'
+    firstVehicle.licensePlate = {
+      status: 'completed',
+      compressedPath: '/plate-0.jpg'
+    }
+    firstVehicle.vinCode = {
+      status: 'completed',
+      compressedPath: '/vin-0.jpg'
+    }
+    const secondVehicle = storage.createVehicle(1)
+    secondVehicle.vehicleRoleName = '三者车'
+    secondVehicle.displayName = '三者车 京B12345'
+    cache.vehicles.push(firstVehicle, secondVehicle)
+
+    const moduleOneSummary = selectors.getModuleOneSummary(cache)
+
+    expect(moduleOneSummary.sceneSlots).toEqual([
+      expect.objectContaining({
+        key: constants.SCENE_PHOTO_TYPE.SCENE_45,
+        label: '现场照片',
+        completed: true,
+        photo: expect.objectContaining({ compressedPath: '/scene-45.jpg' })
+      }),
+      expect.objectContaining({
+        key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:0`,
+        label: '补充照片',
+        completed: false
+      })
+    ])
+    expect(moduleOneSummary.vehicles).toHaveLength(2)
+    expect(moduleOneSummary.vehicles[0]).toEqual(expect.objectContaining({
+      displayName: '标的车 京A12345',
+      moduleOneTitle: '标的车 - 京A12345',
+      hasLicensePlate: true,
+      hasVinCode: true
+    }))
+    expect(moduleOneSummary.vehicles[1]).toEqual(expect.objectContaining({
+      displayName: '三者车 京B12345',
+      moduleOneTitle: '三者车 - 京B12345',
+      hasLicensePlate: false,
+      hasVinCode: false
     }))
   })
 
@@ -116,6 +192,20 @@ describe('cache selectors', () => {
     expect(summary.hasRetakeContext).toBe(true)
     expect(summary.shouldSuggestBackToEdit).toBe(true)
     expect(summary.shouldSuggestBackToEditReasons).toContain('retake_context')
+  })
+
+  test('keeps module one scene capture steps in current flow context', () => {
+    const cache = storage.initCache()
+    cache.vehicles.push(storage.createVehicle(0))
+    cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    cache.sceneSupplementIndex = 1
+    cache.fromPreview = true
+
+    const flowContext = selectors.getCurrentFlowContext(cache)
+
+    expect(flowContext.currentStep).toBe(constants.SHOOT_STEP.SCENE_SUPPLEMENT)
+    expect(flowContext.fromPreview).toBe(true)
+    expect(flowContext.guideTip).toBe(constants.GUIDE_TIPS[constants.SHOOT_STEP.SCENE_SUPPLEMENT])
   })
 
   test('uses retake vehicle for split camera display fields', () => {

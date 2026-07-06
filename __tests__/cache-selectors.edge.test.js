@@ -95,6 +95,7 @@ describe('cache selectors edge cases', () => {
     expect(summary.documentPhotoCount).toBe(0)
     expect(summary.totalPhotos).toBe(0)
     expect(summary.photoCounts).toEqual({
+      scene: 0,
       licensePlate: 0,
       vinCode: 0,
       damage: 0,

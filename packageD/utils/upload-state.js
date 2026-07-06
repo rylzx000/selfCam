@@ -187,7 +187,7 @@ function pushVehicleDocuments(result, vehicle, vehicleIndex) {
       return
     }
 
-    const uploadMeta = vehicleDocuments.buildDrivingLicenseUploadMeta(vehicle, document.docSide)
+    const uploadMeta = vehicleDocuments.buildVehicleDocumentUploadMeta(vehicle, document.docType, document.docSide)
     const photoType = sanitizeString(document.photoType, uploadMeta.photoType)
     const uploadItemId = sanitizeString(document.uploadItemId, uploadMeta.uploadItemId)
 

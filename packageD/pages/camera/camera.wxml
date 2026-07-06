@@ -12,7 +12,7 @@
 
     <view wx:if="{{currentStep !== 'damage'}}" class="step-info" style="{{cameraLayout.cardStyle}}">
       <text class="step-label" style="{{cameraLayout.labelTextStyle}}">拍摄步骤</text>
-      <text class="step-name" style="{{cameraLayout.secondaryTextStyle}}">{{currentStep === 'licensePlate' ? '1、车牌号' : '2、VIN码'}}</text>
+      <text class="step-name" style="{{cameraLayout.secondaryTextStyle}}">{{stepDisplayName}}</text>
     </view>
 
     <view wx:if="{{currentStep === 'damage'}}" class="damage-info" style="{{cameraLayout.damageCardStyle}}">
@@ -21,7 +21,7 @@
           <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
           <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
         </view>
-        <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/5 张</text>
+        <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/10 张</text>
       </view>
 
       <view wx:if="{{damageCount === 0}}" class="damage-tip">
@@ -30,10 +30,10 @@
     </view>
 
     <view class="preview-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onGoPreview">
-      <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">查看已拍</text>
+      <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">{{previewButtonText}}</text>
     </view>
 
-    <view wx:if="{{currentStep === 'damage' && damageCount > 0}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
+    <view wx:if="{{currentStep === 'damage'}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
       <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
     </view>
   </view>
@@ -118,6 +118,16 @@
           wx:if="{{currentStep === 'vinCode'}}"
           class="guide-frame guide-frame-vin"
           style="{{cameraLayout.guideFrameStyle}}"
+        ></cover-view>
+        <cover-view
+          wx:if="{{currentStep === 'scene45'}}"
+          class="guide-frame guide-frame-scene guide-frame-scene-45"
+          style="{{cameraLayout.damageFrameStyle}} {{cameraLayout.guideFrameStyle}}"
+        ></cover-view>
+        <cover-view
+          wx:if="{{currentStep === 'sceneSupplement'}}"
+          class="guide-frame guide-frame-scene guide-frame-scene-supplement"
+          style="{{cameraLayout.damageFrameStyle}} {{cameraLayout.guideFrameStyle}}"
         ></cover-view>
         <cover-view
           wx:if="{{currentStep === 'damage'}}"

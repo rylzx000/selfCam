@@ -2,6 +2,9 @@ const PHOTO_TYPES = {
   LICENSE_PLATE: 'LICENSE_PLATE',
   VIN: 'VIN',
   DAMAGE: 'DAMAGE',
+  DRIVER_LICENSE_FRONT: 'DRIVER_LICENSE_FRONT',
+  DRIVER_LICENSE_BACK: 'DRIVER_LICENSE_BACK',
+  DRIVER_LICENSE_ELECTRONIC: 'DRIVER_LICENSE_ELECTRONIC',
   DRIVING_LICENSE_FRONT: 'DRIVING_LICENSE_FRONT',
   DRIVING_LICENSE_BACK: 'DRIVING_LICENSE_BACK',
   DRIVING_LICENSE_ELECTRONIC: 'DRIVING_LICENSE_ELECTRONIC'
@@ -67,7 +70,10 @@ function buildMockVehicle(baseVehicle) {
     uploadItems: [
       buildUploadItem(vehicleId, PHOTO_TYPES.LICENSE_PLATE, '车牌', 1, false),
       buildUploadItem(vehicleId, PHOTO_TYPES.VIN, 'VIN', 1, false),
-      buildUploadItem(vehicleId, PHOTO_TYPES.DAMAGE, '车损', 5, true),
+      buildUploadItem(vehicleId, PHOTO_TYPES.DAMAGE, '车损', 10, true),
+      buildUploadItem(vehicleId, PHOTO_TYPES.DRIVER_LICENSE_FRONT, '驾驶证正页', 1, false),
+      buildUploadItem(vehicleId, PHOTO_TYPES.DRIVER_LICENSE_BACK, '驾驶证副页', 1, false),
+      buildUploadItem(vehicleId, PHOTO_TYPES.DRIVER_LICENSE_ELECTRONIC, '电子驾驶证', 1, false),
       buildUploadItem(vehicleId, PHOTO_TYPES.DRIVING_LICENSE_FRONT, '行驶证正页', 1, false),
       buildUploadItem(vehicleId, PHOTO_TYPES.DRIVING_LICENSE_BACK, '行驶证副页', 1, false),
       buildUploadItem(vehicleId, PHOTO_TYPES.DRIVING_LICENSE_ELECTRONIC, '电子行驶证', 1, false)

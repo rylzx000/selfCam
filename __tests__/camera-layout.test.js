@@ -22,7 +22,7 @@ describe('camera responsive layout', () => {
         TARGET: '标的车'
       },
       LIMITS: {
-        MAX_DAMAGES: 5,
+        MAX_DAMAGES: 10,
         MAX_TOTAL_PHOTOS: 50
       }
     }))

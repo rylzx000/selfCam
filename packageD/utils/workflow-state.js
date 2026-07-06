@@ -122,6 +122,8 @@ function hasActiveVehicle(cache) {
 
 function isShootStep(step) {
   return [
+    constants.SHOOT_STEP.SCENE_45,
+    constants.SHOOT_STEP.SCENE_SUPPLEMENT,
     constants.SHOOT_STEP.LICENSE_PLATE,
     constants.SHOOT_STEP.VIN_CODE,
     constants.SHOOT_STEP.DAMAGE

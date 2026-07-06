@@ -7,7 +7,7 @@ describe('upload state', () => {
     return [
       { uploadItemId: `${vehicleId}_PLATE`, photoType: 'LICENSE_PLATE', photoName: '车牌', maxCount: 1 },
       { uploadItemId: `${vehicleId}_VIN`, photoType: 'VIN', photoName: 'VIN', maxCount: 1 },
-      { uploadItemId: `${vehicleId}_DAMAGE`, photoType: 'DAMAGE', photoName: '车损', maxCount: 5 },
+      { uploadItemId: `${vehicleId}_DAMAGE`, photoType: 'DAMAGE', photoName: '车损', maxCount: 10 },
       { uploadItemId: `${vehicleId}_DRIVING_LICENSE_ELECTRONIC`, photoType: 'DRIVING_LICENSE_ELECTRONIC', photoName: '电子行驶证', maxCount: 1 }
     ]
   }

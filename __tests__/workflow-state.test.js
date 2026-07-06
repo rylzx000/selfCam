@@ -104,6 +104,19 @@ describe('workflow-state', () => {
     expect(workflow.inferStateFromCache(cache)).toBe(workflow.STATES.CAPTURING)
   })
 
+  test('treats module one scene photo steps as capturing state', () => {
+    const scene45Cache = createCache({
+      currentStep: constants.SHOOT_STEP.SCENE_45
+    })
+    const supplementCache = createCache({
+      currentStep: constants.SHOOT_STEP.SCENE_SUPPLEMENT,
+      fromPreview: true
+    })
+
+    expect(workflow.inferStateFromCache(scene45Cache)).toBe(workflow.STATES.CAPTURING)
+    expect(workflow.inferStateFromCache(supplementCache)).toBe(workflow.STATES.CAPTURING)
+  })
+
   test('does not restore DOCUMENTING without document facts', () => {
     const cache = createCache({
       documents: [],

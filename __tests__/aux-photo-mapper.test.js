@@ -23,7 +23,7 @@ describe('aux-photo mapper', () => {
           uploadItems: [
             { uploadItemId: 'V1_PLATE', photoType: 'LICENSE_PLATE', photoName: '车牌', maxCount: 1, uploadedCount: 0 },
             { uploadItemId: 'V1_VIN', photoType: 'VIN', photoName: 'VIN', maxCount: 1, uploadedCount: 0 },
-            { uploadItemId: 'V1_DAMAGE', photoType: 'DAMAGE', photoName: '车损', maxCount: 5, uploadedCount: 0 },
+            { uploadItemId: 'V1_DAMAGE', photoType: 'DAMAGE', photoName: '车损', maxCount: 10, uploadedCount: 0 },
             { uploadItemId: 'V1_LICENSE_FRONT', photoType: 'DRIVING_LICENSE_FRONT', photoName: '行驶证正页', maxCount: 1, uploadedCount: 0 },
             { uploadItemId: 'V1_LICENSE_BACK', photoType: 'DRIVING_LICENSE_BACK', photoName: '行驶证副页', maxCount: 1, uploadedCount: 0 },
             { uploadItemId: 'V1_LICENSE_ELECTRONIC', photoType: 'DRIVING_LICENSE_ELECTRONIC', photoName: '电子行驶证', maxCount: 1, uploadedCount: 0 }
@@ -39,7 +39,7 @@ describe('aux-photo mapper', () => {
           uploadItems: [
             { uploadItemId: 'V2_PLATE', photoType: 'LICENSE_PLATE', photoName: '车牌', maxCount: 1, uploadedCount: 0 },
             { uploadItemId: 'V2_VIN', photoType: 'VIN', photoName: 'VIN', maxCount: 1, uploadedCount: 0 },
-            { uploadItemId: 'V2_DAMAGE', photoType: 'DAMAGE', photoName: '车损', maxCount: 5, uploadedCount: 0 }
+            { uploadItemId: 'V2_DAMAGE', photoType: 'DAMAGE', photoName: '车损', maxCount: 10, uploadedCount: 0 }
           ]
         }
       ]
@@ -54,7 +54,11 @@ describe('aux-photo mapper', () => {
       registNo: 'R202605220001',
       expireTime: '2026-05-23 10:00:00'
     }))
-    expect(cache.currentStep).toBe('licensePlate')
+    expect(cache.currentStep).toBe('scene45')
+    expect(cache.scenePhotos).toEqual({
+      scene45: { status: 'pending' },
+      supplements: []
+    })
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.vehicles).toHaveLength(2)
     expect(cache.vehicles[0]).toEqual(expect.objectContaining({
@@ -77,6 +81,28 @@ describe('aux-photo mapper', () => {
       displayName: '三者车 京B12345'
     }))
     expect(storage.validateCache(cache).valid).toBe(true)
+  })
+
+  test('preserves backend case-level scene upload item metadata when provided', () => {
+    const cache = mapper.buildCacheFromInit({
+      ticket: 'AUX202605220004',
+      caseUploadItems: [
+        { uploadItemId: 'CASE_SCENE_45', photoType: 'SCENE_45', photoName: '整车45度现场照片', maxCount: 1 },
+        { uploadItemId: 'CASE_SCENE_SUPPLEMENT', photoType: 'SCENE_SUPPLEMENT', photoName: '现场补充照片', maxCount: 2 }
+      ],
+      vehicles: [
+        {
+          vehicleId: 'LOSS_VEHICLE_100001',
+          vehicleRoleName: '标的车',
+          uploadItems: []
+        }
+      ]
+    })
+
+    expect(cache.caseUploadItems).toHaveLength(2)
+    expect(cache.caseUploadItemsByPhotoType.SCENE_45.uploadItemId).toBe('CASE_SCENE_45')
+    expect(cache.caseUploadItemsByPhotoType.SCENE_SUPPLEMENT.maxCount).toBe(2)
+    expect(cache.currentStep).toBe('scene45')
   })
 
   test('uses display fallback when license number is empty', () => {

@@ -44,6 +44,16 @@ function buildUploadItemsByPhotoType(uploadItems) {
   }, {})
 }
 
+function normalizeCaseUploadItems(initData = {}) {
+  const rawCaseUploadItems = Array.isArray(initData.caseUploadItems)
+    ? initData.caseUploadItems
+    : Array.isArray(initData.uploadItems)
+      ? initData.uploadItems
+      : []
+
+  return rawCaseUploadItems.map(normalizeUploadItem).filter(Boolean)
+}
+
 function normalizeTicketStatus(initData = {}) {
   const rawStatus = typeof initData.ticketStatus === 'undefined'
     ? initData.status
@@ -103,10 +113,12 @@ function buildCacheFromInit(initData = {}) {
     registNo: sanitizeString(initData.registNo, '', 64),
     expireTime: sanitizeString(initData.expireTime, '', 64)
   }
+  cache.caseUploadItems = normalizeCaseUploadItems(initData)
+  cache.caseUploadItemsByPhotoType = buildUploadItemsByPhotoType(cache.caseUploadItems)
   cache.vehicles = vehicles.map(mapVehicle)
   cache.currentVehicleIndex = 0
   cache.currentDamageCount = 0
-  cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+  cache.currentStep = constants.SHOOT_STEP.SCENE_45
 
   return storage.sanitizeCache(cache)
 }

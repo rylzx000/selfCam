@@ -17,6 +17,14 @@ function getDocuments(cache) {
   return Array.isArray(cache && cache.documents) ? cache.documents : []
 }
 
+function getScenePhotos(cache) {
+  const scenePhotos = cache && cache.scenePhotos
+  return {
+    scene45: scenePhotos && scenePhotos.scene45 ? scenePhotos.scene45 : { status: 'pending' },
+    supplements: Array.isArray(scenePhotos && scenePhotos.supplements) ? scenePhotos.supplements : []
+  }
+}
+
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -57,6 +65,20 @@ function getVehiclePlateNo(vehicle) {
   return isNonEmptyString(vehicle && vehicle.licenseNo)
     ? vehicle.licenseNo
     : '车牌待确认'
+}
+
+function getModuleOneVehicleTitle(vehicle = {}) {
+  const roleName = isNonEmptyString(vehicle.vehicleRoleName)
+    ? vehicle.vehicleRoleName
+    : getVehicleDisplayName(vehicle)
+  const normalizedDisplayName = isNonEmptyString(vehicle.displayName) ? vehicle.displayName.trim() : ''
+  const displayPlateNo = normalizedDisplayName.indexOf(roleName) === 0
+    ? normalizedDisplayName.slice(roleName.length).replace(/^[\s-]+/, '').trim()
+    : ''
+  const plateNo = isNonEmptyString(vehicle.licenseNo)
+    ? vehicle.licenseNo
+    : displayPlateNo || getVehiclePlateNo(vehicle)
+  return `${roleName} - ${plateNo}`
 }
 
 function normalizePlateTheme(value) {
@@ -198,9 +220,14 @@ function getSafeCurrentVehicleIndex(cache, vehicles) {
 function getSafeCurrentStep(cache) {
   const currentStep = cache && cache.currentStep
   return [
+    constants.SHOOT_STEP.SCENE_45,
+    constants.SHOOT_STEP.SCENE_SUPPLEMENT,
     constants.SHOOT_STEP.LICENSE_PLATE,
     constants.SHOOT_STEP.VIN_CODE,
     constants.SHOOT_STEP.DAMAGE,
+    constants.SHOOT_STEP.MODULE_ONE_PREVIEW,
+    constants.SHOOT_STEP.MODULE_THREE,
+    constants.SHOOT_STEP.FINAL_PREVIEW,
     constants.SHOOT_STEP.PREVIEW
   ].indexOf(currentStep) >= 0
     ? currentStep
@@ -267,6 +294,123 @@ function buildVehiclePhotoEntries(vehicle, vehicleIndex) {
   })
 
   return photoEntries
+}
+
+function buildScenePhotoEntries(cache) {
+  const scenePhotos = getScenePhotos(cache)
+  const entries = []
+
+  if (isCompletedPhoto(scenePhotos.scene45)) {
+    entries.push({
+      id: 'scene-45',
+      url: scenePhotos.scene45.compressedPath,
+      vehicle: null,
+      type: constants.PHOTO_TYPE.SCENE_45,
+      damage: null,
+      sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45,
+      sceneIndex: null,
+      label: '整车45度现场照片',
+      captureMode: scenePhotos.scene45.captureMode || 'manual'
+    })
+  }
+
+  scenePhotos.supplements.forEach((photo, index) => {
+    if (!isCompletedPhoto(photo)) {
+      return
+    }
+
+    entries.push({
+      id: `scene-supplement-${index}`,
+      url: photo.compressedPath,
+      vehicle: null,
+      type: constants.PHOTO_TYPE.SCENE_SUPPLEMENT,
+      damage: null,
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
+      sceneIndex: index,
+      label: `现场补充照片${index + 1}`,
+      captureMode: photo.captureMode || 'manual'
+    })
+  })
+
+  return entries
+}
+
+function getSceneSummary(cache) {
+  const scenePhotos = getScenePhotos(cache)
+  const scenePhotoEntries = buildScenePhotoEntries(cache)
+
+  return {
+    scene45: scenePhotos.scene45,
+    supplements: scenePhotos.supplements,
+    hasScene45: isCompletedPhoto(scenePhotos.scene45),
+    supplementCount: scenePhotos.supplements.filter(isCompletedPhoto).length,
+    remainingSupplementCount: Math.max(
+      constants.LIMITS.MAX_SCENE_SUPPLEMENTS - scenePhotos.supplements.filter(isCompletedPhoto).length,
+      0
+    ),
+    photoEntries: scenePhotoEntries,
+    count: scenePhotoEntries.length
+  }
+}
+
+function getModuleOneSummary(cache) {
+  const sceneSummary = getSceneSummary(cache)
+  const vehicleSummary = getVehicleSummary(cache)
+  const sceneSlots = [
+    {
+      key: constants.SCENE_PHOTO_TYPE.SCENE_45,
+      sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45,
+      label: '现场照片',
+      completed: sceneSummary.hasScene45,
+      photo: sceneSummary.hasScene45 ? sceneSummary.scene45 : null
+    }
+  ]
+
+  sceneSummary.supplements.forEach((photo, index) => {
+    if (!isCompletedPhoto(photo)) {
+      return
+    }
+
+    sceneSlots.push({
+      key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:${index}`,
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
+      supplementIndex: index,
+      label: '补充照片',
+      completed: true,
+      photo
+    })
+  })
+
+  if (sceneSummary.supplementCount < constants.LIMITS.MAX_SCENE_SUPPLEMENTS) {
+    sceneSlots.push({
+      key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:${sceneSummary.supplements.length}`,
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
+      supplementIndex: sceneSummary.supplements.length,
+      label: '补充照片',
+      completed: false,
+      photo: null
+    })
+  }
+
+  return {
+    sceneSlots,
+    vehicles: vehicleSummary.vehicles.map((vehicle) => ({
+      index: vehicle.index,
+      id: vehicle.id,
+      displayName: vehicle.displayName,
+      moduleOneTitle: getModuleOneVehicleTitle(vehicle),
+      vehicleRoleName: vehicle.vehicleRoleName,
+      hasLicensePlate: vehicle.hasLicensePlate,
+      hasVinCode: vehicle.hasVinCode,
+      licensePlate: vehicle.licensePlate,
+      vinCode: vehicle.vinCode
+    })),
+    hasScene45: sceneSummary.hasScene45,
+    supplementCount: sceneSummary.supplementCount,
+    remainingSupplementCount: sceneSummary.remainingSupplementCount,
+    canAddSceneSupplement: sceneSummary.supplementCount < constants.LIMITS.MAX_SCENE_SUPPLEMENTS,
+    scenePhotoCount: sceneSummary.count
+  }
 }
 
 function getMainVehicleProgress(mainVehicle) {
@@ -336,6 +480,7 @@ function getVehicleSummary(cache) {
       damageCount,
       vehicleDocumentCount,
       isDrivingLicenseComplete: vehicleDocuments.isDrivingLicenseComplete(vehicle),
+      isVehicleDocumentComplete: vehicleDocuments.isAllVehicleDocumentsComplete(vehicle),
       completedPhotoCount,
       isStarted,
       isCoreComplete,
@@ -353,7 +498,7 @@ function getVehicleSummary(cache) {
   const currentVehicle = vehicles[currentVehicleIndex] || null
   const mainVehicle = vehicles[0] || null
   const thirdVehicles = vehicles.slice(1)
-  const hasNextVehicle = auxPhotoEnabled && currentVehicleIndex < vehicles.length - 1
+  const hasNextVehicle = currentVehicleIndex < vehicles.length - 1
 
   const photoCounts = vehicles.reduce((result, vehicle) => {
     if (vehicle.hasLicensePlate) {
@@ -389,12 +534,10 @@ function getVehicleSummary(cache) {
     currentVehicleRoleName: currentVehicle ? currentVehicle.vehicleRoleName : constants.VEHICLE_TYPE.TARGET,
     currentVehiclePlateNo: currentVehicle ? currentVehicle.vehiclePlateNo : '',
     currentVehiclePlateTheme: currentVehicle ? currentVehicle.vehiclePlateTheme : 'unknown',
-    currentVehicleProgressText: auxPhotoEnabled && vehicles.length > 0
+    currentVehicleProgressText: vehicles.length > 1
       ? `${currentVehicleIndex + 1}/${vehicles.length} 辆`
       : '',
-    finishDamageText: auxPhotoEnabled
-      ? (hasNextVehicle ? '下一辆车' : '去预览')
-      : '完成拍摄',
+    finishDamageText: hasNextVehicle ? '下一辆车' : '去预览',
     photoCounts,
     photoEntries: vehicles.flatMap((vehicle) => vehicle.photoEntries),
     completedVehicleCount: vehicles.filter((vehicle) => vehicle.isCoreComplete).length,
@@ -471,6 +614,27 @@ function collectQualityPhotoRecords(cache) {
   const records = []
   let seqNo = 0
 
+  buildScenePhotoEntries(cache).forEach((entry) => {
+    const scenePhotos = getScenePhotos(cache)
+    const photo = entry.sceneType === constants.SCENE_PHOTO_TYPE.SCENE_45
+      ? scenePhotos.scene45
+      : scenePhotos.supplements[entry.sceneIndex]
+
+    if (!hasStoredAttachment(photo)) {
+      return
+    }
+
+    seqNo += 1
+    records.push({
+      seqNo,
+      vehicleIndex: null,
+      photoType: entry.type,
+      photoIndex: entry.sceneIndex,
+      label: entry.label,
+      photo
+    })
+  })
+
   getVehicles(cache).forEach((vehicle, vehicleIndex) => {
     const vehicleType = getVehicleDisplayName(vehicle)
 
@@ -542,6 +706,29 @@ function getAlbumSaveCandidates(cache) {
   const seenPaths = {}
   const records = getAlbumSaveRecords(cache)
   const savedPaths = getSavedAlbumPathMap(records)
+
+  const scenePhotos = getScenePhotos(cache)
+  if (isCompletedPhoto(scenePhotos.scene45)) {
+    pushAlbumCandidate(candidates, seenPaths, scenePhotos.scene45, {
+      vehicleIndex: null,
+      photoType: constants.PHOTO_TYPE.SCENE_45,
+      photoIndex: null,
+      label: '整车45度现场照片'
+    }, records, savedPaths)
+  }
+
+  scenePhotos.supplements.forEach((photo, index) => {
+    if (!hasStoredAttachment(photo)) {
+      return
+    }
+
+    pushAlbumCandidate(candidates, seenPaths, photo, {
+      vehicleIndex: null,
+      photoType: constants.PHOTO_TYPE.SCENE_SUPPLEMENT,
+      photoIndex: index,
+      label: `现场补充照片${index + 1}`
+    }, records, savedPaths)
+  })
 
   getVehicles(cache).forEach((vehicle, vehicleIndex) => {
     const vehicleType = getVehicleDisplayName(vehicle)
@@ -741,7 +928,7 @@ function getCurrentFlowContext(cache) {
       ? cache.workflowState.current
       : 'IDLE'
   const auxPhotoEnabled = vehicleSummary.auxPhotoEnabled
-  const hasNextVehicle = auxPhotoEnabled && currentVehicleIndex < vehicleSummary.count - 1
+  const hasNextVehicle = currentVehicleIndex < vehicleSummary.count - 1
 
   return {
     hasCache: !!cache,
@@ -754,14 +941,12 @@ function getCurrentFlowContext(cache) {
     currentVehicleRoleName: currentVehicle ? currentVehicle.vehicleRoleName : constants.VEHICLE_TYPE.TARGET,
     currentVehiclePlateNo: currentVehicle ? currentVehicle.vehiclePlateNo : '',
     currentVehiclePlateTheme: currentVehicle ? currentVehicle.vehiclePlateTheme : 'unknown',
-    currentVehicleProgressText: auxPhotoEnabled && vehicleSummary.count > 0
+    currentVehicleProgressText: vehicleSummary.count > 1
       ? `${currentVehicleIndex + 1}/${vehicleSummary.count} 辆`
       : '',
     hasNextVehicle,
     nextVehicleIndex: hasNextVehicle ? currentVehicleIndex + 1 : null,
-    finishDamageText: auxPhotoEnabled
-      ? (hasNextVehicle ? '下一辆车' : '去预览')
-      : '完成拍摄',
+    finishDamageText: hasNextVehicle ? '下一辆车' : '去预览',
     damageCount: currentVehicle ? currentVehicle.damageCount : 0,
     fromPreview: !!(cache && cache.fromPreview),
     workflowState,
@@ -773,6 +958,7 @@ function getCurrentFlowContext(cache) {
 
 function getCacheSummary(cache) {
   const vehicleSummary = getVehicleSummary(cache)
+  const sceneSummary = getSceneSummary(cache)
   const documentSummary = getDocumentSummary(cache)
   const flowContext = getCurrentFlowContext(cache)
   const qualitySummary = getQualitySummary(cache)
@@ -791,22 +977,26 @@ function getCacheSummary(cache) {
   }
 
   const photoCounts = {
+    scene: sceneSummary.count,
     ...vehicleSummary.photoCounts,
     document: (vehicleSummary.photoCounts.document || 0) + documentSummary.count
   }
-  photoCounts.total = photoCounts.licensePlate + photoCounts.vinCode + photoCounts.damage + photoCounts.document
+  photoCounts.total = photoCounts.scene + photoCounts.licensePlate + photoCounts.vinCode + photoCounts.damage + photoCounts.document
 
   return {
     hasCache: !!cache,
     vehicles: vehicleSummary.vehicles,
     documents: documentSummary.documents,
     vehicleCount: vehicleSummary.count,
+    scenePhotoCount: photoCounts.scene,
     damagePhotoCount: photoCounts.damage,
     documentCount: documentSummary.count,
     documentPhotoCount: photoCounts.document,
     photoCounts,
     totalPhotos: photoCounts.total,
-    allPhotos: vehicleSummary.photoEntries.concat(documentSummary.photoEntries),
+    sceneSummary,
+    moduleOneSummary: getModuleOneSummary(cache),
+    allPhotos: sceneSummary.photoEntries.concat(vehicleSummary.photoEntries, documentSummary.photoEntries),
     albumSaveSummary: isPlainObject(cache && cache.albumSaveSummary)
       ? cache.albumSaveSummary
       : null,
@@ -829,6 +1019,8 @@ module.exports = {
   getCacheSummary,
   getVehicleSummary,
   getDocumentSummary,
+  getSceneSummary,
+  getModuleOneSummary,
   getQualitySummary,
   getAlbumSaveCandidates,
   getCurrentFlowContext,

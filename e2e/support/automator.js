@@ -115,6 +115,17 @@ async function corruptCache(miniProgram) {
   })
 }
 
+async function clearE2EState(miniProgram) {
+  await miniProgram.evaluate(function (payload) {
+    wx.removeStorageSync(payload.key)
+    delete wx.__e2eMedia
+    delete wx.__e2eAuxUpload
+    delete wx.__e2eCamera
+  }, {
+    key: STORAGE_KEY
+  })
+}
+
 async function textOf(page, selector) {
   const element = await page.$(selector)
   if (!element) return ''
@@ -670,6 +681,7 @@ module.exports = {
   seedCache,
   readCache,
   corruptCache,
+  clearE2EState,
   textOf,
   allText,
   waitForCondition,

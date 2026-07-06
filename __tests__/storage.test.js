@@ -57,9 +57,61 @@ describe('storage cache governance', () => {
     const savedCache = storage.loadCache()
 
     expect(savedCache.schemaVersion).toBe(storage.CACHE_SCHEMA_VERSION)
-    expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
+    expect(savedCache.scenePhotos).toEqual({
+      scene45: { status: 'pending' },
+      supplements: []
+    })
     expect(savedCache.workflowState.current).toBe('IDLE')
     expect(savedCache.uploadSession).toBeNull()
+  })
+
+  test('saves and deletes case-level scene photos independently from vehicle damage photos', () => {
+    const cache = storage.initCache()
+    cache.vehicles.push(createCompletedVehicle(0, 1))
+    storage.saveCache(cache)
+
+    const scene45 = storage.saveScenePhoto(constants.SCENE_PHOTO_TYPE.SCENE_45, {
+      compressedPath: '/scene-45.jpg',
+      localPhotoId: 'scene-45'
+    })
+    const supplement1 = storage.saveScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, {
+      compressedPath: '/scene-supplement-1.jpg',
+      localPhotoId: 'scene-supplement-1'
+    })
+    const supplement2 = storage.saveScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, {
+      compressedPath: '/scene-supplement-2.jpg',
+      localPhotoId: 'scene-supplement-2'
+    })
+    const supplement3 = storage.saveScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, {
+      compressedPath: '/scene-supplement-3.jpg',
+      localPhotoId: 'scene-supplement-3'
+    })
+
+    let savedCache = storage.loadCache()
+    expect(scene45).toEqual(expect.objectContaining({
+      status: 'completed',
+      compressedPath: '/scene-45.jpg',
+      sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45
+    }))
+    expect(supplement1).toEqual(expect.objectContaining({
+      compressedPath: '/scene-supplement-1.jpg',
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
+    }))
+    expect(supplement2).toEqual(expect.objectContaining({
+      compressedPath: '/scene-supplement-2.jpg',
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
+    }))
+    expect(supplement3).toBeNull()
+    expect(savedCache.scenePhotos.scene45.compressedPath).toBe('/scene-45.jpg')
+    expect(savedCache.scenePhotos.supplements).toHaveLength(constants.LIMITS.MAX_SCENE_SUPPLEMENTS)
+    expect(savedCache.vehicles[0].damages).toHaveLength(1)
+
+    expect(storage.deleteScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, 0)).toBe(true)
+    savedCache = storage.loadCache()
+    expect(savedCache.scenePhotos.supplements).toHaveLength(1)
+    expect(savedCache.scenePhotos.supplements[0].compressedPath).toBe('/scene-supplement-2.jpg')
+    expect(savedCache.vehicles[0].damages).toHaveLength(1)
   })
 
   test('persists and repairs upload session state', () => {
@@ -302,7 +354,7 @@ describe('storage cache governance', () => {
     expect(cache.vehicles).toEqual([])
     expect(cache.documents).toEqual([])
     expect(cache.currentVehicleIndex).toBe(0)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
   })
 
   test('clears stale retake context during safe resume and falls back to preview', () => {

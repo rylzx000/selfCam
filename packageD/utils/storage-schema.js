@@ -1,7 +1,7 @@
 const constants = require('./constants')
 const vehicleDocuments = require('./documents')
 
-const CACHE_SCHEMA_VERSION = 4
+const CACHE_SCHEMA_VERSION = 5
 
 const WORKFLOW_STATES = [
   'IDLE',
@@ -67,6 +67,13 @@ function buildVehicleId(index) {
 function buildPendingPhotoSlot() {
   return {
     status: 'pending'
+  }
+}
+
+function buildDefaultScenePhotos() {
+  return {
+    scene45: buildPendingPhotoSlot(),
+    supplements: []
   }
 }
 
@@ -177,9 +184,10 @@ function createCache() {
   return {
     schemaVersion: CACHE_SCHEMA_VERSION,
     vehicles: [],
+    scenePhotos: buildDefaultScenePhotos(),
     // 兼容旧根级单证缓存；新的车辆行驶证资料以 vehicle.documents 为准，后续上传按车辆组装 documents。
     documents: [],
-    currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+    currentStep: constants.SHOOT_STEP.SCENE_45,
     currentVehicleIndex: 0,
     currentDamageCount: 0,
     retakeMode: buildRetakeMode(),
@@ -272,6 +280,8 @@ function sanitizeTimestamp(value, fallbackValue, tracker, issueCode) {
 
 function sanitizePhotoStep(step) {
   return [
+    constants.PHOTO_TYPE.SCENE_45,
+    constants.PHOTO_TYPE.SCENE_SUPPLEMENT,
     constants.PHOTO_TYPE.LICENSE_PLATE,
     constants.PHOTO_TYPE.VIN_CODE,
     constants.PHOTO_TYPE.DAMAGE
@@ -280,9 +290,14 @@ function sanitizePhotoStep(step) {
 
 function isValidCurrentStep(step) {
   return [
+    constants.SHOOT_STEP.SCENE_45,
+    constants.SHOOT_STEP.SCENE_SUPPLEMENT,
     constants.SHOOT_STEP.LICENSE_PLATE,
     constants.SHOOT_STEP.VIN_CODE,
     constants.SHOOT_STEP.DAMAGE,
+    constants.SHOOT_STEP.MODULE_ONE_PREVIEW,
+    constants.SHOOT_STEP.MODULE_THREE,
+    constants.SHOOT_STEP.FINAL_PREVIEW,
     constants.SHOOT_STEP.PREVIEW
   ].indexOf(step) >= 0
 }
@@ -345,6 +360,8 @@ function getWorkflowStateValue(cache) {
 
 function isShootStep(step) {
   return [
+    constants.SHOOT_STEP.SCENE_45,
+    constants.SHOOT_STEP.SCENE_SUPPLEMENT,
     constants.SHOOT_STEP.LICENSE_PLATE,
     constants.SHOOT_STEP.VIN_CODE,
     constants.SHOOT_STEP.DAMAGE
@@ -414,7 +431,7 @@ function moveToIdleState(cache) {
   clearPreviewFlagsInPlace(cache)
   cache.currentVehicleIndex = 0
   cache.currentDamageCount = 0
-  cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+  cache.currentStep = constants.SHOOT_STEP.SCENE_45
   setWorkflowState(cache, 'IDLE')
   return cache
 }
@@ -428,15 +445,17 @@ function moveToPreviewState(cache, workflowState = 'PREVIEWING') {
   return cache
 }
 
-function moveToCapturingState(cache) {
+function moveToCapturingState(cache, options = {}) {
   clearRetakeContextInPlace(cache)
-  clearPreviewFlagsInPlace(cache)
+  if (!options.preservePreviewFlag) {
+    clearPreviewFlagsInPlace(cache)
+  }
   alignMidContext(cache)
 
   const currentVehicle = cache.vehicles[cache.currentVehicleIndex] || null
   cache.currentStep = isShootStep(cache.currentStep)
     ? cache.currentStep
-    : inferStepFromVehicle(currentVehicle)
+    : inferVehicleStep(currentVehicle)
   setWorkflowState(cache, 'CAPTURING')
   return cache
 }
@@ -548,6 +567,10 @@ function sanitizeVehicle(vehicle, index, tracker) {
 }
 
 function inferStepFromVehicle(vehicle) {
+  return constants.SHOOT_STEP.SCENE_45
+}
+
+function inferVehicleStep(vehicle) {
   if (!vehicle || vehicle.licensePlate.status !== 'completed') {
     return constants.SHOOT_STEP.LICENSE_PLATE
   }
@@ -557,6 +580,52 @@ function inferStepFromVehicle(vehicle) {
   }
 
   return constants.SHOOT_STEP.DAMAGE
+}
+
+function sanitizeScenePhotoRecord(record, sceneType, tracker, issueCode) {
+  const sanitized = sanitizeCaptureSlot(record, tracker, issueCode)
+  if (sanitized.status !== 'completed') {
+    return sanitized
+  }
+
+  return {
+    ...sanitized,
+    sceneType
+  }
+}
+
+function sanitizeScenePhotos(scenePhotos, tracker) {
+  if (!isPlainObject(scenePhotos)) {
+    markIssue(tracker, 'scene_photos_invalid')
+    return buildDefaultScenePhotos()
+  }
+
+  const scene45 = sanitizeScenePhotoRecord(
+    scenePhotos.scene45,
+    constants.SCENE_PHOTO_TYPE.SCENE_45,
+    tracker,
+    'scene_45_invalid'
+  )
+  const supplements = Array.isArray(scenePhotos.supplements)
+    ? scenePhotos.supplements
+      .map((item) => sanitizeScenePhotoRecord(
+        item,
+        constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
+        tracker,
+        'scene_supplement_invalid'
+      ))
+      .filter((item) => item.status === 'completed')
+      .slice(0, constants.LIMITS.MAX_SCENE_SUPPLEMENTS)
+    : []
+
+  if (!Array.isArray(scenePhotos.supplements)) {
+    markIssue(tracker, 'scene_supplements_invalid')
+  }
+
+  return {
+    scene45,
+    supplements
+  }
 }
 
 function sanitizeWorkflowState(workflowState, updatedAt, tracker) {
@@ -683,7 +752,7 @@ function sanitizeCurrentStep(currentStep, currentVehicle, retakeMode, tracker) {
   }
 
   markIssue(tracker, 'current_step_invalid')
-  return inferStepFromVehicle(currentVehicle)
+  return inferVehicleStep(currentVehicle)
 }
 
 function sanitizeCurrentDamageCount(currentDamageCount, currentVehicle, tracker) {
@@ -794,7 +863,7 @@ function resolveSafeResumeCache(cache) {
     nextCache.currentStep = nextCache.retakeMode.photoType
     setWorkflowState(nextCache, 'RETAKING', nextCache.workflowState && nextCache.workflowState.updatedAt)
   } else if (nextCache.fromPreview && isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
-    moveToCapturingState(nextCache)
+    moveToCapturingState(nextCache, { preservePreviewFlag: freshContext })
     reasons.push('preview_to_capture')
   } else if (nextCache.fromPreview && !freshContext) {
     moveToPreviewState(nextCache)
@@ -1095,6 +1164,14 @@ function validateCache(cache) {
     issues.push('vehicles_invalid')
   }
 
+  if (
+    !isPlainObject(cache.scenePhotos)
+    || !isPlainObject(cache.scenePhotos.scene45)
+    || !Array.isArray(cache.scenePhotos.supplements)
+  ) {
+    issues.push('scene_photos_invalid')
+  }
+
   if (Array.isArray(cache.vehicles) && cache.vehicles.some((vehicle) => !isPlainObject(vehicle))) {
     issues.push('vehicles_invalid')
   }
@@ -1251,6 +1328,8 @@ function repairCache(cache) {
     markIssue(tracker, 'vehicles_invalid')
   }
 
+  const scenePhotos = sanitizeScenePhotos(migrated.scenePhotos, tracker)
+
   const documents = Array.isArray(migrated.documents)
     ? migrated.documents
       .map((item) => sanitizeAttachment(item, tracker, 'document_invalid'))
@@ -1286,6 +1365,7 @@ function repairCache(cache) {
     ...migrated,
     schemaVersion: CACHE_SCHEMA_VERSION,
     vehicles,
+    scenePhotos,
     documents,
     currentStep,
     currentVehicleIndex,

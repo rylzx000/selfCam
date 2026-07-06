@@ -23,9 +23,12 @@ describe('index start permission flow', () => {
 
     constants = {
       SHOOT_STEP: {
+        SCENE_45: 'scene45',
+        SCENE_SUPPLEMENT: 'sceneSupplement',
         LICENSE_PLATE: 'licensePlate',
         VIN_CODE: 'vinCode',
         DAMAGE: 'damage',
+        MODULE_ONE_PREVIEW: 'moduleOnePreview',
         PREVIEW: 'preview'
       }
     }
@@ -165,7 +168,7 @@ describe('index start permission flow', () => {
     expect(storage.createVehicle).toHaveBeenCalledWith(0)
     expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
       currentVehicleIndex: 0,
-      currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+      currentStep: constants.SHOOT_STEP.SCENE_45,
       vehicles: [expect.objectContaining({ type: 'target' })]
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({

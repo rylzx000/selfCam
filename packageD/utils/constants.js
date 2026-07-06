@@ -3,22 +3,35 @@
  */
 
 const SHOOT_STEP = {
+  SCENE_45: 'scene45',
+  SCENE_SUPPLEMENT: 'sceneSupplement',
   LICENSE_PLATE: 'licensePlate',
   VIN_CODE: 'vinCode',
   DAMAGE: 'damage',
+  MODULE_ONE_PREVIEW: 'moduleOnePreview',
+  MODULE_THREE: 'moduleThree',
+  FINAL_PREVIEW: 'finalPreview',
   PREVIEW: 'preview'
 }
 
 const SHOOT_SEQUENCE = [
+  SHOOT_STEP.SCENE_45,
   SHOOT_STEP.LICENSE_PLATE,
   SHOOT_STEP.VIN_CODE,
   SHOOT_STEP.DAMAGE
 ]
 
 const PHOTO_TYPE = {
+  SCENE_45: 'scene45',
+  SCENE_SUPPLEMENT: 'sceneSupplement',
   LICENSE_PLATE: 'licensePlate',
   VIN_CODE: 'vinCode',
   DAMAGE: 'damage'
+}
+
+const SCENE_PHOTO_TYPE = {
+  SCENE_45: 'scene45',
+  SUPPLEMENT: 'sceneSupplement'
 }
 
 const VEHICLE_TYPE = {
@@ -28,13 +41,17 @@ const VEHICLE_TYPE = {
 }
 
 const LIMITS = {
-  MAX_DAMAGES: 5,
+  MAX_SCENE_45: 1,
+  MAX_SCENE_SUPPLEMENTS: 2,
+  MAX_DAMAGES: 10,
   MAX_THIRD_VEHICLES: 2,
   MAX_DOCUMENTS: 10,
   MAX_TOTAL_PHOTOS: 50
 }
 
 const GUIDE_TIPS = {
+  [SHOOT_STEP.SCENE_45]: '请拍摄车辆整体45度现场照片',
+  [SHOOT_STEP.SCENE_SUPPLEMENT]: '请拍摄其他现场环境照片',
   [SHOOT_STEP.LICENSE_PLATE]: '将车牌号放入框内',
   [SHOOT_STEP.VIN_CODE]: 'VIN码位于驾驶舱挡风玻璃角落',
   [SHOOT_STEP.DAMAGE]: '请对准车损处'
@@ -74,6 +91,7 @@ module.exports = {
   SHOOT_STEP,
   SHOOT_SEQUENCE,
   PHOTO_TYPE,
+  SCENE_PHOTO_TYPE,
   VEHICLE_TYPE,
   LIMITS,
   GUIDE_TIPS,

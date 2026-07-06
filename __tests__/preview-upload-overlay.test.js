@@ -36,7 +36,8 @@ describe('preview upload overlay flow', () => {
     vehicle.uploadItems = [
       { uploadItemId: `V${index}_PLATE`, photoType: 'LICENSE_PLATE', photoName: '车牌', maxCount: 1 },
       { uploadItemId: `V${index}_VIN`, photoType: 'VIN', photoName: 'VIN', maxCount: 1 },
-      { uploadItemId: `V${index}_DAMAGE`, photoType: 'DAMAGE', photoName: '车损', maxCount: 5 },
+      { uploadItemId: `V${index}_DAMAGE`, photoType: 'DAMAGE', photoName: '车损', maxCount: 10 },
+      { uploadItemId: `V${index}_DRIVER_LICENSE_ELECTRONIC`, photoType: 'DRIVER_LICENSE_ELECTRONIC', photoName: '电子驾驶证', maxCount: 1 },
       { uploadItemId: `V${index}_LICENSE_ELECTRONIC`, photoType: 'DRIVING_LICENSE_ELECTRONIC', photoName: '电子行驶证', maxCount: 1 }
     ]
     vehicle.uploadItemsByPhotoType = vehicle.uploadItems.reduce((result, item) => {
@@ -62,8 +63,20 @@ describe('preview upload overlay flow', () => {
         localPhotoId: `damage-${index}`
       }
     ]
+    vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVER_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
     vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVING_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
     vehicle.documents = [
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DRIVER_LICENSE_SIDES.ELECTRONIC,
+        label: '电子驾驶证',
+        sourceType: 'album',
+        compressedPath: `/driver-license-${index}.jpg`,
+        localPhotoId: `driver-license-${index}`,
+        vehicleId: vehicle.vehicleId,
+        uploadItemId: `V${index}_DRIVER_LICENSE_ELECTRONIC`,
+        photoType: 'DRIVER_LICENSE_ELECTRONIC'
+      },
       {
         docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
         docSide: documents.DRIVING_LICENSE_SIDES.ELECTRONIC,
@@ -229,12 +242,12 @@ describe('preview upload overlay flow', () => {
     await page.uploadFlowPromise
 
     let cache = storage.loadCache()
-    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(15)
     expect(auxPhotoApi.complete).not.toHaveBeenCalled()
     expect(cache.uploadSession).toEqual(expect.objectContaining({
       phase: 'ready',
-      total: 12,
-      uploaded: 12
+      total: 15,
+      uploaded: 15
     }))
     expect(page.data.uploadOverlayPrimaryVisible).toBe(false)
     expect(page.data.uploadOverlayPrimaryText).toBe('')
@@ -506,7 +519,7 @@ describe('preview upload overlay flow', () => {
         data: {
           ticket: 'mock-2',
           ticketStatus: 'COMPLETED',
-          uploadedCount: 12,
+          uploadedCount: 15,
           completeTime: '2026-05-26 10:30:00'
         }
       })
@@ -520,16 +533,16 @@ describe('preview upload overlay flow', () => {
 
     let cache = storage.loadCache()
     expect(cache.uploadSession.phase).toBe('complete_failed')
-    expect(cache.uploadSession.uploaded).toBe(12)
+    expect(cache.uploadSession.uploaded).toBe(15)
     expect(page.data.uploadOverlayTitle).toBe('完成提交失败')
     expect(page.data.uploadOverlayPrimaryText).toBe('重试完成')
-    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(15)
 
     page.onUploadOverlayPrimaryTap()
     await page.completeFlowPromise
 
     cache = storage.loadCache()
-    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(12)
+    expect(auxPhotoApi.uploadPhoto).toHaveBeenCalledTimes(15)
     expect(auxPhotoApi.complete).toHaveBeenCalledTimes(2)
     expect(cache.uploadSession.phase).toBe('completed')
     expect(page.data.uploadOverlayPrimaryText).toBe('完成')

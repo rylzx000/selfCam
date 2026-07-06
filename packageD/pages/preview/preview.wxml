@@ -4,14 +4,142 @@
 
   <view class="topbar" style="{{previewLayout.topbarStyle}}">
     <view class="title-wrap">
-      <text class="page-title" style="{{previewLayout.titleStyle}}">照片预览</text>
-      <text class="page-subtitle" style="{{previewLayout.subtitleStyle}}">请确认照片清晰，并按车辆补充行驶证资料</text>
+      <text class="page-title" style="{{previewLayout.titleStyle}}">{{pageTitle}}</text>
+      <text class="page-subtitle" style="{{previewLayout.subtitleStyle}}">{{pageSubtitle}}</text>
     </view>
   </view>
 
   <!-- 主界面：车辆照片列表 -->
   <scroll-view scroll-y class="grid-view" style="{{previewLayout.gridViewStyle}}" scroll-into-view="{{scrollToView}}" scroll-with-animation="{{true}}">
-    <view class="vehicle-section" style="{{previewLayout.vehicleSectionStyle}}" wx:for="{{vehicles}}" wx:key="id">
+    <view wx:if="{{isModuleOnePreview}}" class="module-one-section" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">环境照片</text>
+        </view>
+      </view>
+      <view wx:if="{{!moduleOneSummary.hasScene45}}" class="module-one-warning">
+        现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。
+      </view>
+      <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">
+        <view wx:for="{{moduleOneSummary.sceneSlots}}"
+              wx:key="key"
+              class="photo-item"
+              style="{{previewLayout.photoItemStyle}}"
+              bindtap="onTapModuleOneSceneSlot"
+              data-scene-type="{{item.sceneType}}"
+              data-supplement-index="{{item.supplementIndex}}"
+              data-completed="{{item.completed}}">
+          <view class="thumb {{item.completed ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+            <image wx:if="{{item.completed}}" src="{{item.photo.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+            <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+            <view wx:if="{{item.completed}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
+          </view>
+          <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{isModuleOnePreview}}" class="module-one-section" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">车辆识别信息</text>
+        </view>
+      </view>
+      <scroll-view scroll-x class="module-one-vehicles-scroll" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="module-one-vehicles-row">
+          <view wx:for="{{moduleOneSummary.vehicles}}" wx:for-item="vehicleInfo" wx:for-index="vehicleIndex" wx:key="id" class="module-one-vehicle-card">
+            <view class="module-one-vehicle-title">{{vehicleInfo.moduleOneTitle}}</view>
+            <view class="module-one-vehicle-slots">
+              <view class="photo-item module-one-slot" bindtap="onTapModuleOneVehicleSlot" data-vehicle="{{vehicleIndex}}" data-type="licensePlate" data-completed="{{vehicleInfo.hasLicensePlate}}">
+                <view class="thumb {{vehicleInfo.hasLicensePlate ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+                  <image wx:if="{{vehicleInfo.hasLicensePlate}}" src="{{vehicleInfo.licensePlate.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+                  <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+                  <view wx:if="{{vehicleInfo.hasLicensePlate}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
+                </view>
+                <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">车牌号</text>
+              </view>
+              <view class="photo-item module-one-slot" bindtap="onTapModuleOneVehicleSlot" data-vehicle="{{vehicleIndex}}" data-type="vinCode" data-completed="{{vehicleInfo.hasVinCode}}">
+                <view class="thumb {{vehicleInfo.hasVinCode ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+                  <image wx:if="{{vehicleInfo.hasVinCode}}" src="{{vehicleInfo.vinCode.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+                  <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+                  <view wx:if="{{vehicleInfo.hasVinCode}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
+                </view>
+                <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">VIN码</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">一、现场环境及车辆信息</text>
+          <text class="vehicle-tag" style="{{previewLayout.vehicleTagStyle}}">现场补充 {{moduleOneSummary.supplementCount}} / 2</text>
+        </view>
+      </view>
+      <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">
+        <block wx:for="{{moduleOneSummary.sceneSlots}}" wx:key="key">
+          <view wx:if="{{item.completed}}"
+                class="photo-item"
+                style="{{previewLayout.photoItemStyle}}"
+                bindtap="onTapModuleOneSceneSlot"
+                data-scene-type="{{item.sceneType}}"
+                data-supplement-index="{{item.supplementIndex}}"
+                data-completed="{{item.completed}}">
+            <view class="thumb" style="{{previewLayout.thumbStyle}}">
+              <image src="{{item.photo.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+              <view class="check" style="{{previewLayout.checkStyle}}">✓</view>
+            </view>
+            <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{item.label}}</text>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <view wx:if="{{isFinalPreview}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">车辆信息</text>
+        </view>
+      </view>
+      <scroll-view scroll-x class="module-one-vehicles-scroll" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="module-one-vehicles-row">
+          <view wx:for="{{moduleOneSummary.vehicles}}" wx:for-item="vehicleInfo" wx:for-index="vehicleIndex" wx:key="id" class="module-one-vehicle-card">
+            <view class="module-one-vehicle-title">{{vehicleInfo.moduleOneTitle}}</view>
+            <view class="module-one-vehicle-slots">
+              <view class="photo-item module-one-slot" bindtap="onTapModuleOneVehicleSlot" data-vehicle="{{vehicleIndex}}" data-type="licensePlate" data-completed="{{vehicleInfo.hasLicensePlate}}">
+                <view class="thumb {{vehicleInfo.hasLicensePlate ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+                  <image wx:if="{{vehicleInfo.hasLicensePlate}}" src="{{vehicleInfo.licensePlate.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+                  <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+                  <view wx:if="{{vehicleInfo.hasLicensePlate}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
+                </view>
+                <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">车牌号</text>
+              </view>
+              <view class="photo-item module-one-slot" bindtap="onTapModuleOneVehicleSlot" data-vehicle="{{vehicleIndex}}" data-type="vinCode" data-completed="{{vehicleInfo.hasVinCode}}">
+                <view class="thumb {{vehicleInfo.hasVinCode ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+                  <image wx:if="{{vehicleInfo.hasVinCode}}" src="{{vehicleInfo.vinCode.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+                  <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+                  <view wx:if="{{vehicleInfo.hasVinCode}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
+                </view>
+                <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">VIN码</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{isFinalPreview}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">二、车损照片</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!isModuleOnePreview && !isModuleThreePreview}}" class="vehicle-section" style="{{previewLayout.vehicleSectionStyle}}" wx:for="{{vehicles}}" wx:key="id">
       <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
         <view class="vehicle-title-wrap">
           <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">{{item.previewName}}</text>
@@ -22,7 +150,7 @@
 
       <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">
         <!-- 车牌 -->
-        <view wx:if="{{item.licensePlate.status === 'completed'}}"
+        <view wx:if="{{!isModuleTwoPreview && !isFinalPreview && item.licensePlate.status === 'completed'}}"
               class="photo-item"
               style="{{previewLayout.photoItemStyle}}"
               bindtap="onPreview"
@@ -35,7 +163,7 @@
           </view>
           <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">车牌</text>
         </view>
-        <view wx:else class="photo-item" style="{{previewLayout.photoItemStyle}}" bindtap="onSupplement" data-vehicle="{{index}}" data-type="licensePlate">
+        <view wx:elif="{{!isModuleTwoPreview && !isFinalPreview}}" class="photo-item" style="{{previewLayout.photoItemStyle}}" bindtap="onSupplement" data-vehicle="{{index}}" data-type="licensePlate">
           <view class="thumb empty-thumb" style="{{previewLayout.thumbStyle}}">
             <text class="plus" style="{{previewLayout.plusStyle}}">+</text>
           </view>
@@ -43,7 +171,7 @@
         </view>
 
         <!-- VIN码 -->
-        <view wx:if="{{item.vinCode.status === 'completed'}}"
+        <view wx:if="{{!isModuleTwoPreview && !isFinalPreview && item.vinCode.status === 'completed'}}"
               class="photo-item"
               style="{{previewLayout.photoItemStyle}}"
               bindtap="onPreview"
@@ -56,7 +184,7 @@
           </view>
           <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">VIN</text>
         </view>
-        <view wx:else class="photo-item" style="{{previewLayout.photoItemStyle}}" bindtap="onSupplement" data-vehicle="{{index}}" data-type="vinCode">
+        <view wx:elif="{{!isModuleTwoPreview && !isFinalPreview}}" class="photo-item" style="{{previewLayout.photoItemStyle}}" bindtap="onSupplement" data-vehicle="{{index}}" data-type="vinCode">
           <view class="thumb empty-thumb" style="{{previewLayout.thumbStyle}}">
             <text class="plus" style="{{previewLayout.plusStyle}}">+</text>
           </view>
@@ -80,8 +208,8 @@
           </view>
         </block>
 
-        <!-- 添加车损：保留原补拍入口，行驶证仍保持列表最后 -->
-        <view wx:if="{{item.licensePlate.status === 'completed' && item.vinCode.status === 'completed' && (!item.damages || item.damages.length < 5)}}"
+        <!-- 添加车损 -->
+        <view wx:if="{{(isModuleTwoPreview || (item.licensePlate.status === 'completed' && item.vinCode.status === 'completed')) && (!item.damages || item.damages.length < 10)}}"
               class="photo-item"
               style="{{previewLayout.photoItemStyle}}"
               bindtap="onAddDamage"
@@ -92,52 +220,70 @@
           <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{item.damages && item.damages.length > 0 ? '添加车损' : '拍摄车损'}}</text>
         </view>
 
-        <!-- 行驶证资料 -->
-        <block wx:if="{{item.drivingLicensePreview.items.length > 0}}">
-          <block wx:for="{{item.drivingLicensePreview.items}}" wx:for-item="license" wx:for-index="licenseIndex" wx:key="label">
-            <view class="photo-item"
-                  style="{{previewLayout.photoItemStyle}}"
-                  bindtap="onPreview"
-                  data-vehicle="{{index}}"
-                  data-type="vehicleDocument"
-                  data-doc-type="{{license.docType}}"
-                  data-doc-side="{{license.docSide}}">
-              <view class="thumb" style="{{previewLayout.thumbStyle}}">
-                <image src="{{license.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
-                <view class="check" style="{{previewLayout.checkStyle}}">✓</view>
-              </view>
-              <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{license.label}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{isModuleThreePreview || isFinalPreview}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
+      <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
+        <view class="vehicle-title-wrap">
+          <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">{{isFinalPreview ? '三、证件信息' : '证件信息'}}</text>
+        </view>
+      </view>
+      <view class="doc-package-list">
+        <view wx:for="{{vehicles}}" wx:for-item="vehicleItem" wx:for-index="vehicleIndex" wx:key="id" class="doc-package-card">
+          <view class="doc-package-vehicle">{{vehicleItem.previewTag}} - {{vehicleItem.licenseNo || vehicleItem.previewName}}</view>
+          <scroll-view scroll-x class="doc-package-scroll" enhanced="{{true}}" show-scrollbar="{{false}}">
+            <view class="doc-package-actions">
+              <block wx:for="{{vehicleItem.vehicleDocumentPreview.displayItems}}" wx:for-item="documentItem" wx:for-index="documentIndex" wx:key="label">
+                <view wx:if="{{documentItem.type === 'document'}}"
+                      class="photo-item doc-package-tile"
+                      style="{{previewLayout.photoItemStyle}}"
+                      bindtap="onPreview"
+                      data-vehicle="{{vehicleIndex}}"
+                      data-type="vehicleDocument"
+                      data-doc-type="{{documentItem.docType}}"
+                      data-doc-side="{{documentItem.docSide}}">
+                  <view class="thumb" style="{{previewLayout.thumbStyle}}">
+                    <image src="{{documentItem.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+                    <view class="check" style="{{previewLayout.checkStyle}}">✓</view>
+                  </view>
+                  <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{documentItem.label}}</text>
+                </view>
+                <view wx:else
+                      class="photo-item doc-package-tile"
+                      style="{{previewLayout.photoItemStyle}}"
+                      bindtap="onOpenDrivingLicensePanel"
+                      data-vehicle="{{vehicleIndex}}"
+                      data-doc-type="{{documentItem.docType}}">
+                  <view class="thumb upload-license-thumb" style="{{previewLayout.thumbStyle}}">
+                    <view class="plus-circle" style="{{previewLayout.plusCircleStyle}}">+</view>
+                  </view>
+                  <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{documentItem.label}}</text>
+                </view>
+              </block>
             </view>
-          </block>
-        </block>
-        <view wx:if="{{item.drivingLicensePreview.showUploadEntry}}" class="photo-item" style="{{previewLayout.photoItemStyle}}" bindtap="onOpenDrivingLicensePanel" data-vehicle="{{index}}">
-          <view class="thumb upload-license-thumb" style="{{previewLayout.thumbStyle}}">
-            <view class="plus-circle" style="{{previewLayout.plusCircleStyle}}">+</view>
-            <text class="upload-license-text" style="{{previewLayout.uploadLicenseTextStyle}}">上传行驶证</text>
-          </view>
-          <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">行驶证资料</text>
+          </scroll-view>
         </view>
       </view>
     </view>
   </scroll-view>
 
   <!-- 底部提示栏 -->
-  <view class="bottom-bar" style="{{previewLayout.bottomBarStyle}}">
+  <view wx:if="{{isFinalPreview}}" class="bottom-bar" style="{{previewLayout.bottomBarStyle}}">
     <view class="tip">
       <view class="tip-icon" style="{{previewLayout.tipIconStyle}}">i</view>
-      <text class="tip-text" style="{{previewLayout.tipTextStyle}}">行驶证资料未完成上传，可能影响后续智能定损和理赔处理。</text>
+      <text class="tip-text" style="{{previewLayout.tipTextStyle}}">提交前将提示保存照片到本地。</text>
     </view>
     <view class="bottom-actions" style="{{previewLayout.bottomActionsStyle}}">
-      <view wx:if="{{canAddThirdVehicle}}" class="btn btn-ghost" style="{{previewLayout.primaryButtonStyle}}" bindtap="onAddThirdVehicle">添加三者车</view>
-      <view class="btn btn-primary" style="{{previewLayout.primaryButtonStyle}}" bindtap="onSubmit">完成采集</view>
+      <view class="btn btn-primary" style="{{previewLayout.primaryButtonStyle}}" bindtap="onSubmit">提交</view>
     </view>
   </view>
 
-  <!-- 行驶证资料弹层 -->
+  <!-- 证件信息弹层 -->
   <view wx:if="{{showDrivingLicensePanel}}" class="license-panel-mask" bindtap="onCloseDrivingLicensePanel">
     <view class="license-panel" style="{{previewLayout.licensePanelStyle}}" catchtap="stopPropagation">
       <view class="license-panel-header" style="{{previewLayout.licensePanelHeaderStyle}}">
-        <text class="license-panel-title" style="{{previewLayout.licensePanelTitleStyle}}">{{drivingLicenseMode === 'electronic' ? '电子行驶证' : '行驶证资料'}}</text>
+        <text class="license-panel-title" style="{{previewLayout.licensePanelTitleStyle}}">{{drivingLicenseMode === 'electronic' ? '电子' + activeDrivingLicenseTitle : '实物' + activeDrivingLicenseTitle}}</text>
         <view class="license-panel-close" style="{{previewLayout.licensePanelCloseStyle}}" bindtap="onCloseDrivingLicensePanel">×</view>
       </view>
 
@@ -148,6 +294,7 @@
               style="{{previewLayout.licenseUploadSlotStyle}}"
               bindtap="onTapDrivingLicenseSlot"
               data-side="{{item.docSide}}"
+              data-doc-type="{{item.docType}}"
               data-uploaded="{{item.uploaded}}"
               data-uploadable="{{item.uploadable}}">
           <block wx:if="{{item.uploaded}}">
@@ -163,7 +310,7 @@
       </view>
 
       <view class="license-switch" style="{{previewLayout.licenseSwitchStyle}}" bindtap="onSwitchDrivingLicenseMode">
-        {{drivingLicenseMode === 'electronic' ? '改传实体行驶证' : '改传电子行驶证'}}
+        {{drivingLicenseMode === 'electronic' ? '改传实物' + activeDrivingLicenseTitle : '改传电子' + activeDrivingLicenseTitle}}
       </view>
     </view>
   </view>
@@ -196,6 +343,37 @@
     </view>
   </view>
 
+  <view wx:if="{{isModuleTwoPreview}}" class="bottom-bar" style="{{previewLayout.bottomBarStyle}}">
+    <view class="tip">
+      <view class="tip-icon" style="{{previewLayout.tipIconStyle}}">i</view>
+      <text class="tip-text" style="{{previewLayout.tipTextStyle}}">请确认各车辆车损照片，可继续补拍。</text>
+    </view>
+    <view class="bottom-actions" style="{{previewLayout.bottomActionsStyle}}">
+      <view class="btn btn-primary" style="{{previewLayout.primaryButtonStyle}}" bindtap="onEnterDocumentsFromModuleTwo">进入证件信息</view>
+    </view>
+  </view>
+
+  <view wx:if="{{isModuleThreePreview}}" class="bottom-bar" style="{{previewLayout.bottomBarStyle}}">
+    <view class="tip">
+      <view class="tip-icon" style="{{previewLayout.tipIconStyle}}">i</view>
+      <text class="tip-text" style="{{previewLayout.tipTextStyle}}">证件缺失可继续，最终提交前仍会提示。</text>
+    </view>
+    <view class="bottom-actions" style="{{previewLayout.bottomActionsStyle}}">
+      <view class="btn btn-primary" style="{{previewLayout.primaryButtonStyle}}" bindtap="onEnterFinalFromModuleThree">进入最终总预览</view>
+    </view>
+  </view>
+
+  <view wx:if="{{isModuleOnePreview}}" class="bottom-bar" style="{{previewLayout.bottomBarStyle}}">
+    <view class="tip">
+      <view class="tip-icon" style="{{previewLayout.tipIconStyle}}">i</view>
+      <text class="tip-text" style="{{previewLayout.tipTextStyle}}">本环节照片将后台上传，可继续拍摄车损照片。</text>
+    </view>
+    <view class="bottom-actions" style="{{previewLayout.bottomActionsStyle}}">
+      <view wx:if="{{moduleOneSummary.canAddSceneSupplement}}" class="btn btn-ghost" style="{{previewLayout.primaryButtonStyle}}" bindtap="onTapModuleOneSceneSlot" data-scene-type="sceneSupplement" data-supplement-index="{{moduleOneSummary.supplementCount}}">补充现场照片</view>
+      <view class="btn btn-primary" style="{{previewLayout.primaryButtonStyle}}" bindtap="onEnterDamageFromModuleOne">进入车损拍摄</view>
+    </view>
+  </view>
+
   <view wx:if="{{showUploadOverlay}}" class="upload-mask">
     <view class="upload-modal">
       <view class="upload-modal-head">
@@ -222,6 +400,23 @@
         <view class="upload-primary {{uploadOverlayPrimaryMode === 'danger' ? 'danger' : ''}}" bindtap="onUploadOverlayPrimaryTap">
           {{uploadOverlayPrimaryText}}
         </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showModuleOneHandoff}}" class="upload-mask">
+    <view class="upload-modal module-one-handoff">
+      <view class="upload-modal-head">
+        <view class="upload-mark">✓</view>
+        <view class="upload-title-wrap">
+          <text class="upload-title">{{moduleOneHandoffTitle}}</text>
+          <text class="upload-desc">{{moduleOneHandoffDesc}}</text>
+        </view>
+      </view>
+      <view class="module-one-next">{{moduleOneHandoffNext}}</view>
+      <view class="upload-actions">
+        <view class="upload-primary module-one-secondary" bindtap="onCloseModuleOneHandoff">返回预览</view>
+        <view class="upload-primary" bindtap="onConfirmModuleOneHandoff">{{moduleHandoffConfirmText}}</view>
       </view>
     </view>
   </view>

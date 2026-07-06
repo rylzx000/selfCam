@@ -145,7 +145,7 @@ describe('storage safe resume and fault injection', () => {
   test('clearCompletionContext resets empty shell to idle baseline', () => {
     const cleared = storage.clearCompletionContext(storage.initCache())
 
-    expect(cleared.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cleared.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
     expect(cleared.currentVehicleIndex).toBe(0)
     expect(cleared.workflowState.current).toBe('IDLE')
     expect(cleared.fromPreview).toBe(false)
@@ -176,7 +176,7 @@ describe('storage safe resume and fault injection', () => {
     expect(persisted.workflowState.current).toBe('CAPTURING')
   })
 
-  test('preserves fresh preview-to-damage navigation as capturing', () => {
+  test('preserves fresh preview-to-damage navigation with preview return flag', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-24T12:00:00.000Z'))
 
     const cache = storage.initCache()
@@ -196,9 +196,9 @@ describe('storage safe resume and fault injection', () => {
 
     expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(safeCache.workflowState.current).toBe('CAPTURING')
-    expect(safeCache.fromPreview).toBe(false)
+    expect(safeCache.fromPreview).toBe(true)
     expect(persisted.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(persisted.workflowState.current).toBe('CAPTURING')
-    expect(persisted.fromPreview).toBe(false)
+    expect(persisted.fromPreview).toBe(true)
   })
 })

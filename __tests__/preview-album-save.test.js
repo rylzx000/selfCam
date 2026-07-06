@@ -44,8 +44,17 @@ describe('preview final album save flow', () => {
     ]
 
     if (options.drivingLicenseComplete) {
+      vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVER_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
       vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVING_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
       vehicle.documents = [
+        {
+          docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+          docSide: documents.DRIVER_LICENSE_SIDES.ELECTRONIC,
+          label: '?????',
+          sourceType: options.drivingLicenseSourceType || 'album',
+          compressedPath: `/driver-license-${index}.jpg`,
+          localPhotoId: `driver-license-${index}`
+        },
         {
           docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
           docSide: documents.DRIVING_LICENSE_SIDES.ELECTRONIC,
@@ -253,7 +262,7 @@ describe('preview final album save flow', () => {
       saved: 0,
       failed: 0
     }))
-    expectUploadOverlayStarted(page, 12)
+    expectUploadOverlayStarted(page, 15)
   })
 
   test('saves current candidates after permission is granted and records saved photos', async () => {
@@ -269,19 +278,19 @@ describe('preview final album save flow', () => {
     const cache = storage.loadCache()
     expect(permission.ensureAlbumSavePermission).toHaveBeenCalledTimes(1)
     expect(album.savePhotosToAlbumBatch).toHaveBeenCalledTimes(1)
-    expect(album.savePhotosToAlbumBatch.mock.calls[0][0]).toHaveLength(12)
-    expect(Object.keys(cache.albumSaveRecords)).toHaveLength(12)
+    expect(album.savePhotosToAlbumBatch.mock.calls[0][0]).toHaveLength(15)
+    expect(Object.keys(cache.albumSaveRecords)).toHaveLength(15)
     expect(cache.albumSaveRecords['plate-0']).toEqual(expect.objectContaining({
       status: 'saved',
       filePath: '/plate-0.jpg'
     }))
     expect(cache.albumSaveSummary).toEqual(expect.objectContaining({
       decision: 'saved',
-      total: 12,
-      saved: 12,
+      total: 15,
+      saved: 15,
       failed: 0
     }))
-    expectUploadOverlayStarted(page, 12)
+    expectUploadOverlayStarted(page, 15)
   })
 
   test('completes without saving when final album permission is denied', async () => {
@@ -301,7 +310,7 @@ describe('preview final album save flow', () => {
       failed: 9,
       permissionDenied: 9
     }))
-    expectUploadOverlayStarted(page, 12)
+    expectUploadOverlayStarted(page, 15)
   })
 
   test('does not prompt when all current photos were already saved', () => {
@@ -327,7 +336,7 @@ describe('preview final album save flow', () => {
 
     expect(page.data.showModal).toBe(false)
     expect(album.savePhotosToAlbumBatch).not.toHaveBeenCalled()
-    expectUploadOverlayStarted(page, 12)
+    expectUploadOverlayStarted(page, 15)
   })
 
   test('after returning to edit, saves only replaced photos with new identity', async () => {

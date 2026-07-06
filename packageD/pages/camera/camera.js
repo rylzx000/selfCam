@@ -378,6 +378,70 @@ function buildCameraVehicleFields(flowContext = {}) {
   }
 }
 
+function getStepDisplayName(step) {
+  if (step === constants.SHOOT_STEP.SCENE_45) {
+    return '1、整车45度现场照'
+  }
+  if (step === constants.SHOOT_STEP.SCENE_SUPPLEMENT) {
+    return '现场补充照片'
+  }
+  if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
+    return '2、车牌号'
+  }
+  if (step === constants.SHOOT_STEP.VIN_CODE) {
+    return '3、VIN码'
+  }
+  return '车损照片'
+}
+
+function getPreviewButtonText(cache = {}) {
+  const step = cache.currentStep
+  return cache.fromPreview && (
+    step === constants.SHOOT_STEP.SCENE_45
+    || step === constants.SHOOT_STEP.SCENE_SUPPLEMENT
+  )
+    ? '返回预览'
+    : '查看已拍'
+}
+
+function shouldOpenModuleOnePreview(cache = {}, flowContext = null) {
+  const step = flowContext?.currentStep || cache.currentStep
+  return step === constants.SHOOT_STEP.SCENE_45
+    || step === constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    || step === constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+}
+
+function getPreviewPageUrl(cache = {}, flowContext = null) {
+  if (cache.previewReturnMode === 'final') {
+    return '/packageD/pages/preview/preview?mode=final'
+  }
+
+  if (cache.previewReturnMode === 'moduleThree') {
+    return '/packageD/pages/preview/preview?mode=moduleThree'
+  }
+
+  if (cache.previewReturnMode === 'moduleTwo') {
+    return '/packageD/pages/preview/preview?mode=moduleTwo'
+  }
+
+  if (cache.previewReturnMode === 'moduleOne') {
+    return '/packageD/pages/preview/preview?mode=moduleOne'
+  }
+
+  if (shouldOpenModuleOnePreview(cache, flowContext)) {
+    return '/packageD/pages/preview/preview?mode=moduleOne'
+  }
+
+  const step = flowContext?.currentStep || cache.currentStep
+  return step === constants.SHOOT_STEP.DAMAGE
+    ? '/packageD/pages/preview/preview?mode=moduleTwo'
+    : '/packageD/pages/preview/preview'
+}
+
+function hasExplicitPreviewReturnMode(cache = {}) {
+  return ['final', 'moduleThree', 'moduleTwo', 'moduleOne'].indexOf(cache.previewReturnMode) >= 0
+}
+
 function getSystemInfoSnapshot() {
   try {
     if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') {
@@ -418,6 +482,8 @@ Page({
     vehiclePlateTheme: 'unknown',
     vehicleProgressText: '',
     finishDamageText: '完成拍摄',
+    stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.LICENSE_PLATE),
+    previewButtonText: '查看已拍',
     damageCount: 0,
     showConfirmModal: false,
     showDamageCompleteModal: false,
@@ -1881,6 +1947,8 @@ Page({
         ...vehicleFields,
         currentStep,
         guideTip: flowContext.guideTip,
+        stepDisplayName: getStepDisplayName(currentStep),
+        previewButtonText: getPreviewButtonText(cache),
         vehicleType: vehicleType || vehicleFields.vehicleType,
         damageCount,
         damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
@@ -1907,6 +1975,8 @@ Page({
         ...buildCameraVehicleFields(flowContext),
         currentStep: flowContext.currentStep,
         guideTip: flowContext.guideTip,
+        stepDisplayName: getStepDisplayName(flowContext.currentStep),
+        previewButtonText: getPreviewButtonText(cache),
         damageCount,
         damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
@@ -2113,17 +2183,35 @@ Page({
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     wx.navigateTo({
-      url: '/packageD/pages/preview/preview',
+      url: getPreviewPageUrl(cache, cacheSelectors.getCurrentFlowContext(cache)),
       fail: (err) => {
         runtimeLogger.warn('camera', 'navigate_preview_failed', {
           message: err?.errMsg || ''
         })
         wx.redirectTo({
-          url: '/packageD/pages/preview/preview',
+          url: getPreviewPageUrl(cache, cacheSelectors.getCurrentFlowContext(cache)),
           fail: () => {
-            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+            wx.reLaunch({ url: getPreviewPageUrl(cache, cacheSelectors.getCurrentFlowContext(cache)) })
           }
         })
+      }
+    })
+  },
+
+  navigateToModuleOnePreviewPage(cache) {
+    this.clearCameraRestartTimer()
+    this.pendingCameraInitResumeReason = ''
+    this.pendingCameraRemountReason = ''
+    if (cache) {
+      storage.saveCache(storage.clearPreviewFlags(cache))
+    }
+
+    this.isLeaving = true
+    this.closeDamageCompleteModal({ isNavigating: true })
+    wx.navigateTo({
+      url: '/packageD/pages/preview/preview?mode=moduleOne',
+      fail: () => {
+        wx.redirectTo({ url: '/packageD/pages/preview/preview?mode=moduleOne' })
       }
     })
   },
@@ -2138,17 +2226,43 @@ Page({
 
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    const previewUrl = getPreviewPageUrl(cache, flowContext)
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
     const hasPreviewInStack = pages.some((page) => page.route === 'packageD/pages/preview/preview')
+
+    if (hasExplicitPreviewReturnMode(cache) && hasPreviewInStack) {
+      wx.navigateBack({
+        fail: () => {
+          wx.redirectTo({
+            url: previewUrl,
+            fail: () => {
+              wx.reLaunch({ url: previewUrl })
+            }
+          })
+        }
+      })
+      return
+    }
+
+    if (hasExplicitPreviewReturnMode(cache)) {
+      wx.redirectTo({
+        url: previewUrl,
+        fail: () => {
+          wx.reLaunch({ url: previewUrl })
+        }
+      })
+      return
+    }
 
     if (hasPreviewInStack) {
       wx.navigateBack({
         fail: () => {
           runtimeLogger.warn('camera', 'navigate_back_preview_failed')
           wx.redirectTo({
-            url: '/packageD/pages/preview/preview',
+            url: previewUrl,
             fail: () => {
-              wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+              wx.reLaunch({ url: previewUrl })
             }
           })
         }
@@ -2157,9 +2271,9 @@ Page({
     }
 
     wx.redirectTo({
-      url: '/packageD/pages/preview/preview',
+      url: previewUrl,
       fail: () => {
-        wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+        wx.reLaunch({ url: previewUrl })
       }
     })
   },
@@ -2175,6 +2289,55 @@ Page({
     this.navigateToPreviewPage(cache)
   },
 
+  prepareModuleTwoDamageCache(cache) {
+    if (!cache || !Array.isArray(cache.vehicles) || !cache.vehicles[0]) {
+      return cache
+    }
+
+    delete cache.sceneSupplementIndex
+    cache.fromPreview = false
+    cache.retakeMode = {
+      enabled: false,
+      vehicleIndex: null,
+      photoType: null,
+      damageIndex: null
+    }
+    cache.currentVehicleIndex = 0
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentDamageCount = getVehicleDamageCount(cache.vehicles[0])
+    return cache
+  },
+
+  startModuleTwoDamageCapture(cache, reason = 'module_two_damage_start') {
+    const nextCache = this.prepareModuleTwoDamageCache(cache)
+    storage.saveCache(nextCache)
+    const nextFlowContext = cacheSelectors.getCurrentFlowContext(nextCache)
+
+    this.isLeaving = false
+    this.resetAIState()
+    this.setData({
+      ...buildCameraVehicleFields(nextFlowContext),
+      isNavigating: false,
+      showConfirmModal: false,
+      pendingPhoto: null,
+      qualityHintText: '',
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      guideTip: constants.GUIDE_TIPS[constants.SHOOT_STEP.DAMAGE],
+      damageCount: nextCache.currentDamageCount,
+      stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.DAMAGE),
+      previewButtonText: getPreviewButtonText(nextCache),
+      damageFrameState: 'normal',
+      damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
+      damageAreaRatioText: ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: constants.SHOOT_STEP.DAMAGE
+      })
+      this.resumeAIDetectionAfterStepReady(reason)
+    })
+  },
+
   advanceToNextAuxVehicle(cache, flowContext) {
     if (
       !cache
@@ -2187,7 +2350,9 @@ Page({
     }
 
     cache.currentVehicleIndex = flowContext.nextVehicleIndex
-    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    cache.currentStep = flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
+      ? constants.SHOOT_STEP.DAMAGE
+      : constants.SHOOT_STEP.LICENSE_PLATE
     cache.currentDamageCount = 0
     const nextCache = storage.clearPreviewFlags(cache)
     storage.saveCache(nextCache)
@@ -2273,11 +2438,7 @@ Page({
     }
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
-    if (
-      flowContext.auxPhotoEnabled
-      && flowContext.hasNextVehicle
-      && Number.isInteger(flowContext.nextVehicleIndex)
-    ) {
+    if (flowContext.hasNextVehicle && Number.isInteger(flowContext.nextVehicleIndex)) {
       this.advanceToNextAuxVehicle(cache, flowContext)
       return
     }
@@ -2330,7 +2491,7 @@ Page({
       return
     }
 
-    if (flowContext.auxPhotoEnabled) {
+    if (flowContext.currentStep === constants.SHOOT_STEP.DAMAGE && flowContext.hasNextVehicle) {
       this.showAuxDamageCompleteModal(cache, flowContext)
       return
     }
@@ -2356,6 +2517,70 @@ Page({
     }
 
     const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
+
+    if (flowContext.currentStep === constants.SHOOT_STEP.SCENE_45) {
+      cache.scenePhotos = cache.scenePhotos || {
+        scene45: { status: 'pending' },
+        supplements: []
+      }
+      cache.scenePhotos.scene45 = {
+        ...pendingPhoto,
+        status: 'completed',
+        sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45
+      }
+      cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+      storage.saveCache(cache)
+      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+
+      this.setData({
+        ...buildCameraVehicleFields(nextFlowContext),
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: '',
+        currentStep: cache.currentStep,
+        guideTip: constants.GUIDE_TIPS[cache.currentStep],
+        damagePhaseLabel: ''
+      }, () => {
+        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+          page: 'camera',
+          step: cache.currentStep
+        })
+        this.resetAIState()
+        this.resumeAIDetectionAfterStepReady('confirm_scene_45')
+      })
+      return
+    }
+
+    if (flowContext.currentStep === constants.SHOOT_STEP.SCENE_SUPPLEMENT) {
+      cache.scenePhotos = cache.scenePhotos || {
+        scene45: { status: 'pending' },
+        supplements: []
+      }
+      cache.scenePhotos.supplements = Array.isArray(cache.scenePhotos.supplements)
+        ? cache.scenePhotos.supplements
+        : []
+      const targetIndex = Number.isInteger(cache.sceneSupplementIndex)
+        ? cache.sceneSupplementIndex
+        : cache.scenePhotos.supplements.length
+      if (targetIndex < constants.LIMITS.MAX_SCENE_SUPPLEMENTS) {
+        const scenePhoto = {
+          ...pendingPhoto,
+          status: 'completed',
+          sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
+        }
+        if (targetIndex < cache.scenePhotos.supplements.length) {
+          cache.scenePhotos.supplements.splice(targetIndex, 1, scenePhoto)
+        } else {
+          cache.scenePhotos.supplements.push(scenePhoto)
+        }
+      }
+      delete cache.sceneSupplementIndex
+      cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+      storage.saveCache(cache)
+      this.navigateToModuleOnePreviewPage(cache)
+      return
+    }
+
     if (!currentVehicle) return
 
     if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
@@ -2366,6 +2591,14 @@ Page({
         isManualInput: true,
         isNewEnergy: false
       }
+      if (flowContext.fromPreview) {
+        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+        cache.currentDamageCount = 0
+        storage.saveCache(cache)
+        this.navigateToModuleOnePreviewPage(cache)
+        return
+      }
+
       cache.currentStep = constants.SHOOT_STEP.VIN_CODE
       storage.saveCache(cache)
       const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -2396,29 +2629,44 @@ Page({
         recognizedText: '',
         isManualInput: true
       }
-      cache.currentStep = constants.SHOOT_STEP.DAMAGE
-      cache.currentDamageCount = 0
-      const damageCount = currentVehicle.damages?.length || 0
-      storage.saveCache(cache)
-      const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+      if (flowContext.fromPreview) {
+        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+        cache.currentDamageCount = 0
+        storage.saveCache(cache)
+        this.navigateToModuleOnePreviewPage(cache)
+        return
+      }
 
-      this.setData({
-        ...buildCameraVehicleFields(nextFlowContext),
-        showConfirmModal: false,
-        pendingPhoto: null,
-        qualityHintText: '',
-        currentStep: cache.currentStep,
-        guideTip: constants.GUIDE_TIPS[cache.currentStep],
-        damageCount,
-        damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' })
-      }, () => {
-        workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
-          page: 'camera',
-          step: cache.currentStep
+      if (flowContext.hasNextVehicle && Number.isInteger(flowContext.nextVehicleIndex)) {
+        cache.currentVehicleIndex = flowContext.nextVehicleIndex
+        cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+        cache.currentDamageCount = 0
+        storage.saveCache(cache)
+        const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+
+        this.setData({
+          ...buildCameraVehicleFields(nextFlowContext),
+          showConfirmModal: false,
+          pendingPhoto: null,
+          qualityHintText: '',
+          currentStep: cache.currentStep,
+          guideTip: constants.GUIDE_TIPS[cache.currentStep],
+          damagePhaseLabel: ''
+        }, () => {
+          workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+            page: 'camera',
+            step: cache.currentStep
+          })
+          this.resetAIState()
+          this.resumeAIDetectionAfterStepReady('confirm_vin_to_next_vehicle_plate')
         })
-        this.resetAIState()
-        this.resumeAIDetectionAfterStepReady('confirm_vin_to_damage')
-      })
+        return
+      }
+
+      cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+      cache.currentDamageCount = 0
+      storage.saveCache(cache)
+      this.navigateToModuleOnePreviewPage(cache)
       return
     }
 
@@ -2435,7 +2683,18 @@ Page({
       return
     }
 
-    currentVehicle.damages.push(pendingPhoto)
+    const damageRetakeIndex = flowContext.hasRetakeContext
+      && flowContext.retakeContext
+      && flowContext.retakeContext.photoType === constants.PHOTO_TYPE.DAMAGE
+      && Number.isInteger(flowContext.retakeContext.damageIndex)
+      ? flowContext.retakeContext.damageIndex
+      : null
+
+    if (Number.isInteger(damageRetakeIndex) && currentVehicle.damages[damageRetakeIndex]) {
+      currentVehicle.damages.splice(damageRetakeIndex, 1, pendingPhoto)
+    } else {
+      currentVehicle.damages.push(pendingPhoto)
+    }
     cache.currentDamageCount = currentVehicle.damages.length
     storage.saveCache(cache)
     const updatedFlowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -2444,6 +2703,11 @@ Page({
       captureMode: pendingPhoto.captureMode,
       captureTrigger: pendingPhoto.captureTrigger
     })
+
+    if (updatedFlowContext.fromPreview) {
+      this.handleDamageCompletedFlow(cache, updatedFlowContext)
+      return
+    }
 
     if (currentVehicle.damages.length >= MAX_DAMAGES) {
       this.handleDamageCompletedFlow(cache, updatedFlowContext)
@@ -2526,10 +2790,9 @@ Page({
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
-    const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
-    if (!currentVehicle) return false
-
     if (flowContext.currentStep === constants.SHOOT_STEP.LICENSE_PLATE) {
+      const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
+      if (!currentVehicle) return false
       currentVehicle.licensePlate = {
         ...this.data.pendingPhoto,
         status: 'completed',
@@ -2537,17 +2800,31 @@ Page({
         isManualInput: true,
         isNewEnergy: false
       }
-      cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+      cache.currentStep = flowContext.fromPreview
+        ? constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+        : constants.SHOOT_STEP.VIN_CODE
     } else if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
+      const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
+      if (!currentVehicle) return false
       currentVehicle.vinCode = {
         ...this.data.pendingPhoto,
         status: 'completed',
         recognizedText: '',
         isManualInput: true
       }
-      cache.currentStep = constants.SHOOT_STEP.DAMAGE
-      cache.currentDamageCount = 0
+      if (flowContext.fromPreview) {
+        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+        cache.currentDamageCount = 0
+      } else if (flowContext.hasNextVehicle && Number.isInteger(flowContext.nextVehicleIndex)) {
+        cache.currentVehicleIndex = flowContext.nextVehicleIndex
+        cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+      } else {
+        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+        cache.currentDamageCount = 0
+      }
     } else if (flowContext.currentStep === constants.SHOOT_STEP.DAMAGE) {
+      const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
+      if (!currentVehicle) return false
       if (!currentVehicle.damages) {
         currentVehicle.damages = []
       }
@@ -2564,6 +2841,36 @@ Page({
       }
       currentVehicle.damages.push(this.data.pendingPhoto)
       cache.currentDamageCount = currentVehicle.damages.length
+    } else if (flowContext.currentStep === constants.SHOOT_STEP.SCENE_45 || flowContext.currentStep === constants.SHOOT_STEP.SCENE_SUPPLEMENT) {
+      const savedPhoto = storage.normalizePhotoMeta(this.data.pendingPhoto, {
+        captureMode: this.data.pendingPhoto.captureMode || 'manual',
+        captureTrigger: this.data.pendingPhoto.captureTrigger || 'manual_button',
+        aiDetection: this.data.pendingPhoto.aiDetection || null
+      })
+      cache.scenePhotos = cache.scenePhotos || {
+        scene45: { status: 'pending' },
+        supplements: []
+      }
+
+      if (flowContext.currentStep === constants.SHOOT_STEP.SCENE_45) {
+        cache.scenePhotos.scene45 = {
+          ...savedPhoto,
+          status: 'completed',
+          sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45
+        }
+      } else {
+        cache.scenePhotos.supplements = Array.isArray(cache.scenePhotos.supplements)
+          ? cache.scenePhotos.supplements
+          : []
+        const targetIndex = Number.isInteger(cache.sceneSupplementIndex)
+          ? cache.sceneSupplementIndex
+          : cache.scenePhotos.supplements.length
+        cache.scenePhotos.supplements.splice(targetIndex, targetIndex < cache.scenePhotos.supplements.length ? 1 : 0, {
+          ...savedPhoto,
+          status: 'completed',
+          sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
+        })
+      }
     }
 
     storage.saveCache(cache)
@@ -2639,6 +2946,7 @@ Page({
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
     if (cache && flowContext.fromPreview) {
       storage.saveCache(storage.clearPreviewFlags(cache))
+      const previewUrl = getPreviewPageUrl(cache, flowContext)
       const pages = getCurrentPages()
       const hasPreviewInStack = pages.some((page) => page.route === 'packageD/pages/preview/preview')
 
@@ -2646,31 +2954,32 @@ Page({
         wx.navigateBack({
           fail: () => {
             wx.redirectTo({
-              url: '/packageD/pages/preview/preview',
+              url: previewUrl,
               fail: () => {
-                wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+                wx.reLaunch({ url: previewUrl })
               }
             })
           }
         })
       } else {
         wx.redirectTo({
-          url: '/packageD/pages/preview/preview',
+          url: previewUrl,
           fail: () => {
-            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+            wx.reLaunch({ url: previewUrl })
           }
         })
       }
       return
     }
 
+    const previewUrl = getPreviewPageUrl(cache, flowContext)
     wx.navigateTo({
-      url: '/packageD/pages/preview/preview',
+      url: previewUrl,
       fail: () => {
         wx.redirectTo({
-          url: '/packageD/pages/preview/preview',
+          url: previewUrl,
           fail: () => {
-            wx.reLaunch({ url: '/packageD/pages/preview/preview' })
+            wx.reLaunch({ url: previewUrl })
           }
         })
       }

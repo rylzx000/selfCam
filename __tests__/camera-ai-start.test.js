@@ -17,12 +17,28 @@ describe('camera AI detection start timing', () => {
 
     constants = {
       SHOOT_STEP: {
+        SCENE_45: 'scene45',
+        SCENE_SUPPLEMENT: 'sceneSupplement',
         LICENSE_PLATE: 'licensePlate',
         VIN_CODE: 'vinCode',
         DAMAGE: 'damage',
+        MODULE_ONE_PREVIEW: 'moduleOnePreview',
         PREVIEW: 'preview'
       },
+      PHOTO_TYPE: {
+        SCENE_45: 'scene45',
+        SCENE_SUPPLEMENT: 'sceneSupplement',
+        LICENSE_PLATE: 'licensePlate',
+        VIN_CODE: 'vinCode',
+        DAMAGE: 'damage'
+      },
+      SCENE_PHOTO_TYPE: {
+        SCENE_45: 'scene45',
+        SUPPLEMENT: 'sceneSupplement'
+      },
       GUIDE_TIPS: {
+        scene45: 'scene tip',
+        sceneSupplement: 'scene supplement tip',
         licensePlate: 'plate tip',
         vinCode: 'vin tip',
         damage: 'damage tip'
@@ -31,7 +47,7 @@ describe('camera AI detection start timing', () => {
         TARGET: 'target'
       },
       LIMITS: {
-        MAX_DAMAGES: 5
+        MAX_DAMAGES: 10
       }
     }
 
@@ -73,12 +89,13 @@ describe('camera AI detection start timing', () => {
         currentVehicleRoleName: targetCache.vehicles[targetCache.currentVehicleIndex].vehicleRoleName || targetCache.vehicles[targetCache.currentVehicleIndex].type,
         currentVehiclePlateNo: targetCache.vehicles[targetCache.currentVehicleIndex].licenseNo || '',
         currentVehiclePlateTheme: targetCache.vehicles[targetCache.currentVehicleIndex].vehiclePlateTheme || 'oil',
-        currentVehicleProgressText: targetCache.auxPhoto && targetCache.auxPhoto.enabled
+        currentVehicleProgressText: targetCache.vehicles.length > 1
           ? `${targetCache.currentVehicleIndex + 1}/${targetCache.vehicles.length} 辆`
           : '',
-        hasNextVehicle: !!(targetCache.auxPhoto && targetCache.auxPhoto.enabled && targetCache.currentVehicleIndex < targetCache.vehicles.length - 1),
+        fromPreview: !!targetCache.fromPreview,
+        hasNextVehicle: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1,
         nextVehicleIndex: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1 ? targetCache.currentVehicleIndex + 1 : null,
-        finishDamageText: targetCache.auxPhoto && targetCache.auxPhoto.enabled && targetCache.currentVehicleIndex < targetCache.vehicles.length - 1
+        finishDamageText: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1
           ? '下一辆车'
           : '去预览',
         guideTip: constants.GUIDE_TIPS[targetCache.currentStep],
@@ -289,8 +306,11 @@ describe('camera AI detection start timing', () => {
       logAiModelConfig: pageConfig.logAiModelConfig,
       reportAiUnavailable: pageConfig.reportAiUnavailable,
       navigateToPreviewPage: pageConfig.navigateToPreviewPage,
+      navigateToModuleOnePreviewPage: pageConfig.navigateToModuleOnePreviewPage,
       navigateBackToPreviewPage: pageConfig.navigateBackToPreviewPage,
       goToPreviewPage: pageConfig.goToPreviewPage,
+      prepareModuleTwoDamageCache: pageConfig.prepareModuleTwoDamageCache,
+      startModuleTwoDamageCapture: pageConfig.startModuleTwoDamageCapture,
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
       pauseCaptureForDamageCompleteModal: pageConfig.pauseCaptureForDamageCompleteModal,
@@ -796,8 +816,14 @@ describe('camera AI detection start timing', () => {
     }))
   })
 
-  test('retries AI detection after VIN confirmation switches to damage step', () => {
+  test('single vehicle module one natural VIN completion opens module one preview', () => {
     cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.currentVehicleIndex = 0
+    cache.fromPreview = false
+    cache.vehicles[0].licensePlate = {
+      status: 'completed',
+      compressedPath: '/tmp/plate.jpg'
+    }
     const instance = createPageInstance({
       data: {
         currentStep: constants.SHOOT_STEP.VIN_CODE,
@@ -812,14 +838,85 @@ describe('camera AI detection start timing', () => {
 
     pageConfig.onConfirmPhoto.call(instance)
 
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.vehicles[0].vinCode).toEqual(expect.objectContaining({
       compressedPath: '/tmp/vin.jpg',
       status: 'completed'
     }))
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cache.currentDamageCount).toBe(0)
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
-    expect(instance.resetAIState).toHaveBeenCalled()
-    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_vin_to_damage')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+    expect(instance.data.currentStep).not.toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalledWith('module_two_damage_start')
+  })
+
+  test('scene 45 confirmation advances into target vehicle license plate capture', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/scene-45.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.scenePhotos.scene45).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/scene-45.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_scene_45')
+  })
+
+  test('module two entry starts damage capture without returning to license plate or VIN', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = 0
+    cache.scenePhotos = {
+      scene45: {
+        status: 'completed',
+        compressedPath: '/tmp/scene-45.jpg'
+      },
+      supplements: []
+    }
+    cache.vehicles[0].licensePlate = {
+      status: 'completed',
+      compressedPath: '/tmp/plate.jpg'
+    }
+    cache.vehicles[0].vinCode = {
+      status: 'completed',
+      compressedPath: '/tmp/vin.jpg'
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.loadCacheData.call(instance, 'module_two_entry')
+
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.damageCount).toBe(0)
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/index/index'
+    }))
   })
 
   test('aux photo finish damage asks before advancing to next vehicle', () => {
@@ -868,7 +965,7 @@ describe('camera AI detection start timing', () => {
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
     expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 1 \u5f20')
-    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
+    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 10 \u5f20')
     expect(instance.data.damageCompleteConfirmText).toBe('\u4e0b\u4e00\u8f86\u8f66')
     expect(instance.data.damageCompleteCancelText).toBe('\u67e5\u770b\u5df2\u62cd')
     expect(instance.data.damageCompleteShowCancel).toBe(true)
@@ -879,14 +976,14 @@ describe('camera AI detection start timing', () => {
     pageConfig.onDamageCompleteModalConfirm.call(instance)
 
     expect(cache.currentVehicleIndex).toBe(1)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.currentDamageCount).toBe(0)
     expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
       currentVehicleIndex: 1,
-      currentStep: constants.SHOOT_STEP.LICENSE_PLATE
+      currentStep: constants.SHOOT_STEP.DAMAGE
     }))
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
-    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(instance.data.vehicleRoleName).toBe('三者车')
     expect(instance.data.vehiclePlateNo).toBe('京B12345')
     expect(instance.data.vehicleProgressText).toBe('2/2 辆')
@@ -948,7 +1045,7 @@ describe('camera AI detection start timing', () => {
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
     expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 1 \u5f20')
-    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
+    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 10 \u5f20')
 
     pageConfig.onDamageCompleteModalCancel.call(instance)
 
@@ -960,7 +1057,7 @@ describe('camera AI detection start timing', () => {
       fromPreview: false
     }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/packageD/pages/preview/preview'
+      url: '/packageD/pages/preview/preview?mode=moduleTwo'
     }))
     expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
@@ -975,19 +1072,15 @@ describe('camera AI detection start timing', () => {
       },
       currentVehicleIndex: 0,
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      currentDamageCount: 5,
+      currentDamageCount: 10,
       vehicles: [
         {
           type: 'target',
           vehicleRoleName: 'target',
           licenseNo: 'A12345',
-          damages: [
-            { compressedPath: '/tmp/damage-1.jpg' },
-            { compressedPath: '/tmp/damage-2.jpg' },
-            { compressedPath: '/tmp/damage-3.jpg' },
-            { compressedPath: '/tmp/damage-4.jpg' },
-            { compressedPath: '/tmp/damage-5.jpg' }
-          ]
+          damages: Array.from({ length: constants.LIMITS.MAX_DAMAGES }, (_, index) => ({
+            compressedPath: `/tmp/damage-${index + 1}.jpg`
+          }))
         }
       ]
     }
@@ -996,7 +1089,7 @@ describe('camera AI detection start timing', () => {
         currentStep: constants.SHOOT_STEP.DAMAGE,
         showConfirmModal: false,
         pendingPhoto: null,
-        damageCount: 5,
+        damageCount: 10,
         isNavigating: false,
         aiEnabled: true,
         aiAvailable: true
@@ -1005,18 +1098,13 @@ describe('camera AI detection start timing', () => {
 
     pageConfig.onFinishDamage.call(instance)
 
-    expect(instance.data.showDamageCompleteModal).toBe(true)
-    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
-    expect(instance.data.damageCompleteConfirmText).toBe('\u53bb\u9884\u89c8')
-    expect(instance.data.damageCompleteShowCancel).toBe(false)
+    expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
-
-    pageConfig.onDamageCompleteModalConfirm.call(instance)
 
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/packageD/pages/preview/preview'
+      url: '/packageD/pages/preview/preview?mode=moduleTwo'
     }))
     expect(instance.data.cameraMounted).toBe(false)
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
@@ -1058,11 +1146,11 @@ describe('camera AI detection start timing', () => {
 
     pageConfig.onFinishDamage.call(instance)
 
-    expect(instance.data.showDamageCompleteModal).toBe(true)
-    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 2 \u5f20')
-    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
-    expect(instance.data.damageCompleteConfirmText).toBe('\u53bb\u9884\u89c8')
-    expect(instance.data.damageCompleteShowCancel).toBe(false)
+    expect(instance.data.showDamageCompleteModal).toBe(false)
+    expect(instance.data.cameraMounted).toBe(false)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleTwo'
+    }))
   })
 
   test('aux photo max damage asks before advancing to next vehicle', () => {
@@ -1073,18 +1161,15 @@ describe('camera AI detection start timing', () => {
       },
       currentVehicleIndex: 0,
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      currentDamageCount: 4,
+      currentDamageCount: 9,
       vehicles: [
         {
           type: '标的车',
           vehicleRoleName: '标的车',
           licenseNo: '京A12345',
-          damages: [
-            { compressedPath: '/tmp/damage-1.jpg' },
-            { compressedPath: '/tmp/damage-2.jpg' },
-            { compressedPath: '/tmp/damage-3.jpg' },
-            { compressedPath: '/tmp/damage-4.jpg' }
-          ]
+          damages: Array.from({ length: constants.LIMITS.MAX_DAMAGES - 1 }, (_, index) => ({
+            compressedPath: `/tmp/damage-${index + 1}.jpg`
+          }))
         },
         {
           type: '三者车',
@@ -1099,9 +1184,9 @@ describe('camera AI detection start timing', () => {
         currentStep: constants.SHOOT_STEP.DAMAGE,
         showConfirmModal: true,
         pendingPhoto: {
-          compressedPath: '/tmp/damage-5.jpg'
+          compressedPath: '/tmp/damage-10.jpg'
         },
-        damageCount: 4,
+        damageCount: 9,
         aiEnabled: true,
         aiAvailable: true
       }
@@ -1111,17 +1196,17 @@ describe('camera AI detection start timing', () => {
 
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
-    expect(cache.vehicles[0].damages).toHaveLength(5)
+    expect(cache.vehicles[0].damages).toHaveLength(10)
     expect(instance.data.showConfirmModal).toBe(false)
     expect(instance.data.pendingPhoto).toBeNull()
-    expect(instance.data.damageCount).toBe(5)
+    expect(instance.data.damageCount).toBe(10)
     expect(instance.data.finishDamageText).toBe('下一辆车')
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
 
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
-    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
+    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6ee1 10 \u5f20')
     expect(instance.data.damageCompleteConfirmText).toBe('\u4e0b\u4e00\u8f86\u8f66')
     expect(instance.data.damageCompleteCancelText).toBe('\u67e5\u770b\u5df2\u62cd')
     expect(instance.data.damageCompleteShowCancel).toBe(true)
@@ -1130,13 +1215,13 @@ describe('camera AI detection start timing', () => {
     pageConfig.onDamageCompleteModalConfirm.call(instance)
 
     expect(cache.currentVehicleIndex).toBe(1)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.currentDamageCount).toBe(0)
     expect(storage.saveCache).toHaveBeenLastCalledWith(expect.objectContaining({
       currentVehicleIndex: 1,
-      currentStep: constants.SHOOT_STEP.LICENSE_PLATE
+      currentStep: constants.SHOOT_STEP.DAMAGE
     }))
-    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
     expect(instance.pendingCameraInitResumeReason).toBe('finish_damage_next_vehicle')
@@ -1161,19 +1246,15 @@ describe('camera AI detection start timing', () => {
       },
       currentVehicleIndex: 0,
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      currentDamageCount: 5,
+      currentDamageCount: 10,
       vehicles: [
         {
           type: '标的车',
           vehicleRoleName: '标的车',
           licenseNo: '京A12345',
-          damages: [
-            { compressedPath: '/tmp/damage-1.jpg' },
-            { compressedPath: '/tmp/damage-2.jpg' },
-            { compressedPath: '/tmp/damage-3.jpg' },
-            { compressedPath: '/tmp/damage-4.jpg' },
-            { compressedPath: '/tmp/damage-5.jpg' }
-          ]
+          damages: Array.from({ length: constants.LIMITS.MAX_DAMAGES }, (_, index) => ({
+            compressedPath: `/tmp/damage-${index + 1}.jpg`
+          }))
         },
         {
           type: '三者车',
@@ -1188,9 +1269,9 @@ describe('camera AI detection start timing', () => {
         currentStep: constants.SHOOT_STEP.DAMAGE,
         showConfirmModal: true,
         pendingPhoto: {
-          compressedPath: '/tmp/damage-6.jpg'
+          compressedPath: '/tmp/damage-11.jpg'
         },
-        damageCount: 5,
+        damageCount: 10,
         aiEnabled: true,
         aiAvailable: true
       }
@@ -1198,12 +1279,12 @@ describe('camera AI detection start timing', () => {
 
     pageConfig.onConfirmPhoto.call(instance)
 
-    expect(cache.vehicles[0].damages).toHaveLength(5)
-    expect(cache.vehicles[0].damages.map((photo) => photo.compressedPath)).not.toContain('/tmp/damage-6.jpg')
-    expect(cache.currentDamageCount).toBe(5)
+    expect(cache.vehicles[0].damages).toHaveLength(10)
+    expect(cache.vehicles[0].damages.map((photo) => photo.compressedPath)).not.toContain('/tmp/damage-11.jpg')
+    expect(cache.currentDamageCount).toBe(10)
     expect(instance.data.showConfirmModal).toBe(false)
     expect(instance.data.pendingPhoto).toBeNull()
-    expect(instance.data.damageCount).toBe(5)
+    expect(instance.data.damageCount).toBe(10)
     expect(global.wx.showToast).toHaveBeenCalledWith(expect.objectContaining({
       icon: 'none'
     }))
@@ -1212,7 +1293,7 @@ describe('camera AI detection start timing', () => {
 
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
-    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6ee1 5 \u5f20')
+    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6ee1 10 \u5f20')
     expect(instance.data.damageCompleteConfirmText).toBe('\u4e0b\u4e00\u8f86\u8f66')
     expect(instance.data.damageCompleteCancelText).toBe('\u67e5\u770b\u5df2\u62cd')
     expect(instance.data.damageCompleteShowCancel).toBe(true)
@@ -1221,10 +1302,10 @@ describe('camera AI detection start timing', () => {
     pageConfig.onDamageCompleteModalConfirm.call(instance)
 
     expect(cache.currentVehicleIndex).toBe(1)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.currentDamageCount).toBe(0)
-    expect(cache.vehicles[0].damages).toHaveLength(5)
-    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.vehicles[0].damages).toHaveLength(10)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
     expect(instance.pendingCameraInitResumeReason).toBe('finish_damage_next_vehicle')
@@ -1243,22 +1324,18 @@ describe('camera AI detection start timing', () => {
 
   test('leaving with pending damage does not exceed max damage count', () => {
     cache.currentStep = constants.SHOOT_STEP.DAMAGE
-    cache.currentDamageCount = 5
-    cache.vehicles[0].damages = [
-      { compressedPath: '/tmp/damage-1.jpg' },
-      { compressedPath: '/tmp/damage-2.jpg' },
-      { compressedPath: '/tmp/damage-3.jpg' },
-      { compressedPath: '/tmp/damage-4.jpg' },
-      { compressedPath: '/tmp/damage-5.jpg' }
-    ]
+    cache.currentDamageCount = 10
+    cache.vehicles[0].damages = Array.from({ length: constants.LIMITS.MAX_DAMAGES }, (_, index) => ({
+      compressedPath: `/tmp/damage-${index + 1}.jpg`
+    }))
     const instance = createPageInstance({
       data: {
         currentStep: constants.SHOOT_STEP.DAMAGE,
         showConfirmModal: true,
         pendingPhoto: {
-          compressedPath: '/tmp/damage-6.jpg'
+          compressedPath: '/tmp/damage-11.jpg'
         },
-        damageCount: 5,
+        damageCount: 10,
         aiEnabled: true,
         aiAvailable: true
       }
@@ -1267,12 +1344,293 @@ describe('camera AI detection start timing', () => {
     const saved = pageConfig.savePendingPhotoBeforeLeave.call(instance)
 
     expect(saved).toBe(false)
-    expect(cache.vehicles[0].damages).toHaveLength(5)
-    expect(cache.vehicles[0].damages.map((photo) => photo.compressedPath)).not.toContain('/tmp/damage-6.jpg')
-    expect(cache.currentDamageCount).toBe(5)
+    expect(cache.vehicles[0].damages).toHaveLength(10)
+    expect(cache.vehicles[0].damages.map((photo) => photo.compressedPath)).not.toContain('/tmp/damage-11.jpg')
+    expect(cache.currentDamageCount).toBe(10)
     expect(instance.data.showConfirmModal).toBe(false)
     expect(instance.data.pendingPhoto).toBeNull()
-    expect(instance.data.damageCount).toBe(5)
+    expect(instance.data.damageCount).toBe(10)
+  })
+
+  test('leaving with pending scene supplement saves it before returning to preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    cache.sceneSupplementIndex = 0
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_SUPPLEMENT,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/scene-supplement.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    const saved = pageConfig.savePendingPhotoBeforeLeave.call(instance)
+
+    expect(saved).toBe(true)
+    expect(cache.scenePhotos.supplements[0]).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/scene-supplement.jpg',
+      status: 'completed'
+    }))
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      currentStep: constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    }))
+  })
+
+  test('module one preview fallback keeps module one mode when returning from scene supplement', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    cache.fromPreview = true
+    global.getCurrentPages = jest.fn(() => [])
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_SUPPLEMENT,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        isNavigating: false,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onGoPreview.call(instance)
+
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+    expect(global.wx.reLaunch).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview'
+    }))
+  })
+
+  test('leaving with pending natural module one VIN starts module two damage capture state', () => {
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.auxPhoto = { enabled: false }
+    cache.fromPreview = false
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.VIN_CODE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/pending-vin.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    const saved = pageConfig.savePendingPhotoBeforeLeave.call(instance)
+
+    expect(saved).toBe(true)
+    expect(cache.vehicles[0].vinCode).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/pending-vin.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(cache.currentDamageCount).toBe(0)
+  })
+
+  test('leaving with pending preview VIN still routes back to module one preview state', () => {
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.auxPhoto = { enabled: false }
+    cache.fromPreview = true
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.VIN_CODE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/pending-preview-vin.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    const saved = pageConfig.savePendingPhotoBeforeLeave.call(instance)
+
+    expect(saved).toBe(true)
+    expect(cache.vehicles[0].vinCode).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/pending-preview-vin.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cache.currentDamageCount).toBe(0)
+  })
+
+  test('multi vehicle module one flow captures all VINs before module one preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.auxPhoto = { enabled: true }
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    cache.vehicles = [
+      { type: 'target', damages: [] },
+      { type: 'thirdParty', damages: [] }
+    ]
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: true,
+        pendingPhoto: { compressedPath: '/tmp/scene-45.jpg' },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+
+    instance.setData({
+      currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/target-plate.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+
+    instance.setData({
+      currentStep: constants.SHOOT_STEP.VIN_CODE,
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/target-vin.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+
+    instance.setData({
+      currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/third-plate.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+
+    instance.setData({
+      currentStep: constants.SHOOT_STEP.VIN_CODE,
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/third-vin.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.vehicles[0].vinCode.compressedPath).toBe('/tmp/target-vin.jpg')
+    expect(cache.vehicles[1].vinCode.compressedPath).toBe('/tmp/third-vin.jpg')
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cache.currentDamageCount).toBe(0)
+    expect(global.wx.navigateTo).toHaveBeenLastCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+    expect(instance.data.currentStep).not.toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenLastCalledWith('module_two_damage_start')
+  })
+
+  test('preview VIN retake confirmation still returns to module one preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.fromPreview = true
+    cache.vehicles[0].licensePlate = {
+      status: 'completed',
+      compressedPath: '/tmp/plate.jpg'
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.VIN_CODE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/preview-vin.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.vehicles[0].vinCode).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/preview-vin.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+    expect(instance.data.currentStep).not.toBe(constants.SHOOT_STEP.DAMAGE)
+  })
+
+  test('module two next vehicle stays in damage when module one vehicle info is complete', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = 0
+    cache.currentDamageCount = 10
+    cache.auxPhoto = { enabled: false }
+    cache.vehicles = [
+      {
+        type: 'target',
+        licensePlate: { status: 'completed', compressedPath: '/tmp/target-plate.jpg' },
+        vinCode: { status: 'completed', compressedPath: '/tmp/target-vin.jpg' },
+        damages: Array.from({ length: constants.LIMITS.MAX_DAMAGES }, (_, index) => ({ compressedPath: `/tmp/damage-${index}.jpg` }))
+      },
+      {
+        type: 'thirdParty',
+        licensePlate: { status: 'completed', compressedPath: '/tmp/third-plate.jpg' },
+        vinCode: { status: 'completed', compressedPath: '/tmp/third-vin.jpg' },
+        damages: []
+      }
+    ]
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        damageCount: 10,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.advanceToNextAuxVehicle.call(instance, cache, cacheSelectors.getCurrentFlowContext(cache))
+
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cache.currentDamageCount).toBe(0)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalledWith('finish_damage_next_vehicle')
+  })
+
+  test('preview return mode keeps final preview after damage supplement', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.previewReturnMode = 'final'
+    const instance = createPageInstance()
+
+    pageConfig.navigateToPreviewPage.call(instance, cache)
+
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+  })
+
+  test('camera view exposes scene step labels and preview return affordance', () => {
+    const wxml = require('fs').readFileSync('packageD/pages/camera/camera.wxml', 'utf8')
+
+    expect(wxml).toContain('<camera')
+    expect(wxml).toContain('bindtap="onCapture"')
+    expect(wxml).toContain('bindtap="onConfirmPhoto"')
+    expect(wxml).toContain('<confirm-modal')
+    expect(wxml).toContain('{{damageCount}}/10 张</text>')
+    expect(wxml).toContain('当前车辆')
+    expect(wxml).toContain('车损照片')
+    expect(wxml).not.toContain('?/text>')
+    expect(wxml).not.toMatch(/[\u938B\u93B7\u9413\u891D\u8930]/u)
+    expect(wxml).toContain('{{stepDisplayName}}')
+    expect(wxml).toContain('{{previewButtonText}}')
+    expect(wxml).toContain("currentStep === 'scene45'")
+    expect(wxml).toContain("currentStep === 'sceneSupplement'")
   })
 
   test('continues confirmation without saving confirmed photo to album', async () => {
