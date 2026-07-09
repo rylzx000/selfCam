@@ -237,11 +237,11 @@ const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
 }
 ```
 
-辅助拍照模式下，预览页行驶证槽位由当前车辆 `uploadItems` 对齐后端上传项：实物行驶证正页映射 `DRIVING_LICENSE_FRONT`，副页映射 `DRIVING_LICENSE_BACK`，电子行驶证映射 `DRIVING_LICENSE_ELECTRONIC`。提交时按缓存中的 `vehicleId/uploadItemId/photoType` 逐张调用真实 `uploadPhotoBase64`。
+辅助拍照模式下，证件信息页的驾驶证、行驶证槽位由当前车辆 `uploadItems` 对齐后端上传项：实物驾驶证正页映射 `DRIVER_LICENSE_FRONT`，副页映射 `DRIVER_LICENSE_BACK`，电子驾驶证映射 `DRIVER_LICENSE_ELECTRONIC`；实物行驶证正页映射 `DRIVING_LICENSE_FRONT`，副页映射 `DRIVING_LICENSE_BACK`，电子行驶证映射 `DRIVING_LICENSE_ELECTRONIC`。提交时按缓存中的 `vehicleId/uploadItemId/photoType` 逐张调用真实 `uploadPhotoBase64`。
 
 ### 本地上传状态
 
-点击 `完成采集` 完成行驶证风险确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`；全部照片上传成功后短暂停顿并自动调用 `complete`，`complete` 成功后展示 `完成` 按钮，用户点击后进入完成页。
+点击 `完成采集` 完成驾驶证/行驶证缺失提示确认和相册保存确认后，不再直接进入完成页，而是在预览页内展示上传遮罩，并把待上传队列写入小程序缓存 `uploadSession`。前端按队列逐张读取图片 Base64，并调用 `uploadPhotoBase64`；全部照片上传成功后短暂停顿并自动调用 `complete`，`complete` 成功后展示 `完成` 按钮，用户点击后进入完成页。
 
 ```js
 cache.uploadSession = {
@@ -291,7 +291,7 @@ cache.uploadSession = {
 }
 ```
 
-上传队列由 `utils/upload-state.js` 从车辆照片和车辆级行驶证资料组装：车牌、VIN、车损、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
+上传队列由 `utils/upload-state.js` 从案件级现场照片、车辆照片和车辆级证件资料组装：现场照片、现场补充照片、车牌、VIN、车损、驾驶证正页、驾驶证副页、电子驾驶证、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。案件级现场照片不绑定车辆 `vehicleId`，旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
 
 恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 不显示可跳转按钮并自动排队调用 `complete`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
 
@@ -411,9 +411,12 @@ licensePlate -> vinCode -> damage -> preview
 
 车损步骤下的特殊逻辑：
 
-- 达到 5 张时显示车损完成确认弹窗；辅助拍照有下一辆车时可继续下一辆车或查看已拍，最后一辆才进入预览页
-- 未达到 5 张时留在拍照页继续拍
-- 用户也可以点击 `完成拍摄` 主动进入预览页
+- 模块二从第一辆车车损拍摄直接开始，不再重复拍摄车牌号和 VIN。
+- 每辆车车损照片最多 10 张；达到 10 张时提示 `最多10张车损，请先删除`，不再继续写入第 11 张。
+- 辅助拍照有下一辆车时可继续下一辆车或查看已拍，最后一辆进入模块二预览页。
+- 未达到 10 张时留在拍照页继续拍，用户也可以点击 `完成拍摄` 主动进入模块二预览页。
+- 进入车损拍摄前展示远/中/近拍摄指引弹窗；左侧 `远 / 中 / 近` 可再次唤起同样弹窗。
+- 拍摄指引弹窗展示期间暂停 AI 检测并隐藏/禁用拍摄动作，但不卸载 `camera` 组件，避免相机重复挂载导致加载失败。
 
 ---
 
@@ -903,9 +906,21 @@ npm run test:e2e:full
 - `startCaptureFlow()` 保留原缓存初始化和 `/packageD/pages/camera/camera` 跳转目标，只把 `wx.navigateTo` 包装为 Promise 以便异常兜底。
 - `packageD/pages/camera/camera.js` 在 `onConfirmPhoto()` 中只写入采集缓存并推进步骤，不再调用相册保存工具。
 - `onRetakePhoto()` 不调用相册保存工具，重拍照片不保存到系统相册。
-- `packageD/pages/preview/preview.js` 在 `完成采集` 的行驶证风险确认之后，统一计算相册保存候选并弹出最终保存确认。
+- `packageD/pages/preview/preview.js` 在 `完成采集` 的驾驶证/行驶证缺失提示确认之后，统一计算相册保存候选并弹出最终保存确认。
 - `packageD/utils/cache-selectors.js` 提供 `getAlbumSaveCandidates(cache)`，只返回当前缓存中未保存过、非相册来源且路径去重后的候选图片。
 - `packageD/utils/album.js` 提供 `savePhotosToAlbumBatch(candidates)`，顺序保存候选图片并返回批量汇总，不逐张弹失败提示。
+
+---
+
+## v1.5.x 三阶段采集流程技术补充
+
+- 流程按 `moduleOne / moduleTwo / moduleThree / final` 分段推进：模块一采集现场照片、车辆车牌号和 VIN；模块二只采集车损照片；模块三展示车辆级驾驶证和行驶证入口；最终预览统一提交。
+- 模块一最后一个 VIN 确认后必须进入模块一预览页，不能直接进入模块二；模块一预览页确认后再进入第一辆车车损拍摄。
+- 模块二从当前车辆的车损拍摄开始，复用现有车损拍摄、下一辆车、查看已拍和预览能力，不再进入旧的车牌号/VIN 前置流程。
+- 模块三不再单独做线性证件采集页，直接展示车辆分组的证件信息页；每辆车包含驾驶证、行驶证，均支持实物正页/副页和电子证件。
+- 最终预览按三阶段内容叠加展示；车损照片数量较多时沿用点击展开查看模式，未满 10 张只展示一个补拍 `+` 入口。
+- 45 度现场照片和车损拍摄支持拍摄指引弹窗。首次进入步骤自动弹出，左侧小图标可再次唤起；弹窗大小、文案和布局应与 HTML 原型保持一致。
+- 拍摄指引弹窗只能暂停 AI 检测和拍照动作，不应通过 `wx:if` 卸载 `camera` 组件。
 
 ---
 

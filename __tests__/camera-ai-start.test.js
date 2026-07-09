@@ -311,6 +311,11 @@ describe('camera AI detection start timing', () => {
       goToPreviewPage: pageConfig.goToPreviewPage,
       prepareModuleTwoDamageCache: pageConfig.prepareModuleTwoDamageCache,
       startModuleTwoDamageCapture: pageConfig.startModuleTwoDamageCapture,
+      maybeShowCaptureGuide: pageConfig.maybeShowCaptureGuide,
+      showCaptureGuide: pageConfig.showCaptureGuide,
+      onCaptureGuideConfirm: pageConfig.onCaptureGuideConfirm,
+      onCloseCaptureGuide: pageConfig.onCloseCaptureGuide,
+      onOpenCaptureGuide: pageConfig.onOpenCaptureGuide,
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
       pauseCaptureForDamageCompleteModal: pageConfig.pauseCaptureForDamageCompleteModal,
@@ -404,12 +409,165 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('<text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>')
   })
 
-  test('camera component closes camera and hides capture during damage completion decision', () => {
+  test('camera component renders capture guide modal and side review entry', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).toContain('wx:if="{{showCaptureGuideModal}}"')
+    expect(cameraWxml).toContain('class="guide-modal-card"')
+    expect(cameraWxml).toContain('wx:if="{{captureGuideDescription}}"')
+    expect(cameraWxml).toContain('bindtap="onCaptureGuideConfirm"')
+    expect(cameraWxml).toContain('bindtap="onOpenCaptureGuide"')
+    expect(cameraWxml).toContain("currentStep === 'scene45' || currentStep === 'damage'")
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/scene-45deg.png')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-far.png')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-mid.png')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-close.png')
+  })
+
+  test('scene45 first entry shows intro capture guide and confirm marks it seen', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.captureGuideSeen = {}
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.loadCacheData.call(instance, 'scene45_entry')
+
+    expect(instance.data.showCaptureGuideModal).toBe(true)
+    expect(instance.data.captureGuideType).toBe('scene45')
+    expect(instance.data.captureGuideIntro).toBe(true)
+    expect(instance.data.captureGuideTitle).toBe('拍摄指引：整车照，45度角拍一张，包含现场环境')
+    expect(instance.data.captureGuideDescription).toBe('')
+    expect(instance.data.captureGuideButtonText).toBe('知道了，开始拍摄')
+
+    pageConfig.onCaptureGuideConfirm.call(instance)
+
+    expect(instance.data.showCaptureGuideModal).toBe(false)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
+    expect(cache.captureGuideSeen.scene45).toBe(true)
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      captureGuideSeen: expect.objectContaining({
+        scene45: true
+      })
+    }))
+  })
+
+  test('scene45 seen state prevents automatic guide on later entry', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.captureGuideSeen = {
+      scene45: true
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.loadCacheData.call(instance, 'scene45_reentry')
+
+    expect(instance.data.showCaptureGuideModal).toBe(false)
+    expect(instance.data.captureGuideType).toBe('')
+  })
+
+  test('damage first entry shows intro capture guide and confirm marks it seen', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.captureGuideSeen = {
+      scene45: true
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.loadCacheData.call(instance, 'damage_entry')
+
+    expect(instance.data.showCaptureGuideModal).toBe(true)
+    expect(instance.data.captureGuideType).toBe('damage')
+    expect(instance.data.captureGuideIntro).toBe(true)
+    expect(instance.data.captureGuideTitle).toBe('拍摄指引：车损处远、中、近拍摄')
+    expect(instance.data.captureGuideDescription).toBe('')
+    expect(instance.data.captureGuideButtonText).toBe('知道了，开始拍摄')
+
+    pageConfig.onCaptureGuideConfirm.call(instance)
+
+    expect(instance.data.showCaptureGuideModal).toBe(false)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cache.captureGuideSeen.damage).toBe(true)
+  })
+
+  test('camera step display names stay short for scene plate and vin pages', () => {
+    const instance = createPageInstance()
+
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    pageConfig.loadCacheData.call(instance, 'scene45_step_name')
+    expect(instance.data.stepDisplayName).toBe('整车45度')
+
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    pageConfig.loadCacheData.call(instance, 'plate_step_name')
+    expect(instance.data.stepDisplayName).toBe('拍摄车牌号')
+
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    pageConfig.loadCacheData.call(instance, 'vin_step_name')
+    expect(instance.data.stepDisplayName).toBe('拍摄vin码')
+  })
+
+  test('step display name updates during scene plate vin confirmation flow', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        stepDisplayName: '整车45度',
+        showConfirmModal: true,
+        pendingPhoto: { compressedPath: '/tmp/scene-45.jpg' },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.data.stepDisplayName).toBe('拍摄车牌号')
+
+    instance.setData({
+      currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/plate.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+    expect(instance.data.stepDisplayName).toBe('拍摄vin码')
+  })
+
+  test('capture guide keeps camera mounted but hides capture action', () => {
     const fs = require('fs')
     const path = require('path')
     const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
     const cameraJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.json'), 'utf8'))
     const cameraTag = cameraWxml.match(/<camera[\s\S]*?>/)[0]
+    const captureSectionTag = cameraWxml.match(/<view wx:if="\{\{cameraMounted[\s\S]*?class="capture-section"/)[0]
 
     expect(cameraWxml).not.toContain('vehicleSwitching')
     expect(cameraWxml).not.toContain('vehicle-switch-mask')
@@ -418,8 +576,46 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('show-cancel="{{damageCompleteShowCancel}}"')
     expect(cameraWxml).toContain('bind:masktap="onDamageCompleteModalMaskTap"')
     expect(cameraTag).toContain('wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"')
-    expect(cameraWxml).toContain('wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}"')
+    expect(cameraTag).not.toContain('showCaptureGuideModal')
+    expect(cameraWxml).toContain('wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal && !showCaptureGuideModal}}"')
+    expect(captureSectionTag).toContain('showCaptureGuideModal')
     expect(cameraJson.usingComponents['confirm-modal']).toBe('/packageD/components/confirm-modal/confirm-modal')
+  })
+
+  test('capture guide open and close does not request camera remount', () => {
+    const requestCameraRemountAfterStop = jest.fn()
+    const resumeAIDetectionAfterStepReady = jest.fn()
+    const instance = createPageInstance({
+      requestCameraRemountAfterStop,
+      resumeAIDetectionAfterStepReady,
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        cameraMounted: true,
+        showConfirmModal: false,
+        showDamageCompleteModal: false,
+        showCaptureGuideModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.showCaptureGuide.call(instance, 'scene45', true)
+
+    expect(instance.data.showCaptureGuideModal).toBe(true)
+    expect(instance.data.cameraMounted).toBe(true)
+    expect(instance.pendingCameraInitResumeReason).toBe('')
+    expect(instance.pendingCameraRemountReason).toBe('')
+    expect(requestCameraRemountAfterStop).not.toHaveBeenCalled()
+
+    pageConfig.onCloseCaptureGuide.call(instance)
+
+    expect(instance.data.showCaptureGuideModal).toBe(false)
+    expect(instance.data.cameraMounted).toBe(true)
+    expect(instance.pendingCameraInitResumeReason).toBe('')
+    expect(instance.pendingCameraRemountReason).toBe('')
+    expect(requestCameraRemountAfterStop).not.toHaveBeenCalled()
+    expect(resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('capture_guide_closed')
   })
 
   test('manual capture is ignored while damage completion modal is open', () => {
@@ -1601,6 +1797,66 @@ describe('camera AI detection start timing', () => {
     expect(cache.currentDamageCount).toBe(0)
     expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalledWith('finish_damage_next_vehicle')
+    expect(instance.data.showCaptureGuideModal).toBe(false)
+  })
+
+  test('left side review entry opens scene and damage guides without changing step', () => {
+    const sceneInstance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onOpenCaptureGuide.call(sceneInstance)
+
+    expect(sceneInstance.data.showCaptureGuideModal).toBe(true)
+    expect(sceneInstance.data.captureGuideType).toBe('scene45')
+    expect(sceneInstance.data.captureGuideIntro).toBe(false)
+    expect(sceneInstance.data.captureGuideButtonText).toBe('关闭')
+    expect(sceneInstance.data.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
+
+    const damageInstance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onOpenCaptureGuide.call(damageInstance)
+
+    expect(damageInstance.data.showCaptureGuideModal).toBe(true)
+    expect(damageInstance.data.captureGuideType).toBe('damage')
+    expect(damageInstance.data.captureGuideIntro).toBe(false)
+    expect(damageInstance.data.captureGuideButtonText).toBe('关闭')
+    expect(damageInstance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+  })
+
+  test('plate and vin do not open capture guide from side entry', () => {
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onOpenCaptureGuide.call(instance)
+
+    expect(instance.data.showCaptureGuideModal).toBeFalsy()
+
+    instance.setData({ currentStep: constants.SHOOT_STEP.VIN_CODE })
+    pageConfig.onOpenCaptureGuide.call(instance)
+
+    expect(instance.data.showCaptureGuideModal).toBeFalsy()
   })
 
   test('preview return mode keeps final preview after damage supplement', () => {

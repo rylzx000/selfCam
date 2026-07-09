@@ -46,6 +46,13 @@ page {
   width: 120rpx;
 }
 
+.side-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
 .vehicle-info,
 .step-info {
   background-color: #FFFFFF;
@@ -241,6 +248,116 @@ page {
 .finish-btn:active {
   background-color: #E8F5E9;
   transform: scale(0.98);
+}
+
+.side-guide-entry {
+  width: 76px;
+  height: 46px;
+  border: 1px solid rgba(31, 143, 95, 0.16);
+  border-radius: 8px;
+  padding: 5px 6px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #1f2b24;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.side-guide-entry:active {
+  border-color: rgba(31, 143, 95, 0.34);
+  background: #FFFFFF;
+  transform: scale(0.98);
+}
+
+.side-guide-icon {
+  width: 28px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(31, 143, 95, 0.1);
+  overflow: hidden;
+}
+
+.mini-scene-car,
+.mini-damage-steps {
+  width: 24px;
+  height: 17px;
+}
+
+.mini-scene-car {
+  position: relative;
+}
+
+.mini-scene-car::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 7px;
+  height: 8px;
+  border: 1.5px solid rgba(31, 143, 95, 0.9);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.mini-scene-car::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(31, 143, 95, 0.9);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.mini-damage-steps {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+
+.mini-damage-steps view {
+  width: 5px;
+  border: 1px solid rgba(31, 143, 95, 0.75);
+  border-radius: 3px;
+  background: rgba(255, 214, 116, 0.52);
+  box-sizing: border-box;
+}
+
+.mini-damage-steps view:nth-child(1) {
+  height: 10px;
+}
+
+.mini-damage-steps view:nth-child(2) {
+  height: 14px;
+}
+
+.mini-damage-steps view:nth-child(3) {
+  height: 18px;
+}
+
+.side-guide-copy {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.side-guide-title {
+  color: #1f2b24;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 /* 鎷嶇収鍖哄煙 */
@@ -661,4 +778,137 @@ page {
 .preview-image {
   width: 100%;
   height: 100%;
+}
+
+.guide-modal-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.guide-modal-card {
+  width: 640px;
+  max-width: calc(100vw - 20px);
+  height: 300px;
+  max-height: calc(100vh - 20px);
+  border-radius: 12px;
+  background: #FFFFFF;
+  padding: 12px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-modal-title {
+  color: #1f2b24;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 850;
+}
+
+.guide-modal-desc {
+  margin-top: 8px;
+  color: #607064;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.guide-hero,
+.guide-triptych {
+  margin-top: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.guide-hero {
+  border-radius: 12px;
+  overflow: hidden;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-triptych {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.guide-shot {
+  min-height: 0;
+  border-radius: 10px;
+  padding: 5px;
+  background: #f5f8f6;
+  border: 1px solid #dce8e0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-shot-visual {
+  flex: 1;
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef4f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-photo {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.guide-photo-scene {
+  background: transparent;
+}
+
+.guide-shot text {
+  display: block;
+  margin-top: 2px;
+  color: #607064;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.guide-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.guide-primary-btn {
+  min-height: 32px;
+  border-radius: 7px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  background: #1f8f5f;
+  font-size: 12px;
+  font-weight: 650;
+  box-sizing: border-box;
+}
+
+.guide-primary-btn:active {
+  opacity: 0.9;
+  transform: scale(0.98);
 }

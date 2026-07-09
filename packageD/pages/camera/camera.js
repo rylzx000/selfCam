@@ -46,6 +46,20 @@ const DAMAGE_PARTIAL_PREVIEW_CONTENT = (count) => `\u672c\u8f66\u5df2\u62cd\u644
 const NEXT_VEHICLE_TEXT = '\u4e0b\u4e00\u8f86\u8f66'
 const VIEW_CAPTURED_TEXT = '\u67e5\u770b\u5df2\u62cd'
 const GO_PREVIEW_TEXT = '\u53bb\u9884\u89c8'
+const CAPTURE_GUIDE_TYPE = {
+  SCENE_45: 'scene45',
+  DAMAGE: 'damage'
+}
+const CAPTURE_GUIDE_CONFIG = {
+  [CAPTURE_GUIDE_TYPE.SCENE_45]: {
+    title: '拍摄指引：整车照，45度角拍一张，包含现场环境',
+    description: ''
+  },
+  [CAPTURE_GUIDE_TYPE.DAMAGE]: {
+    title: '拍摄指引：车损处远、中、近拍摄',
+    description: ''
+  }
+}
 const CAMERA_VIRTUAL_WIDTH = 400
 const CAMERA_VIRTUAL_HEIGHT = 300
 const CAMERA_ASPECT_RATIO = CAMERA_VIRTUAL_WIDTH / CAMERA_VIRTUAL_HEIGHT
@@ -380,16 +394,16 @@ function buildCameraVehicleFields(flowContext = {}) {
 
 function getStepDisplayName(step) {
   if (step === constants.SHOOT_STEP.SCENE_45) {
-    return '1、整车45度现场照'
+    return '整车45度'
   }
   if (step === constants.SHOOT_STEP.SCENE_SUPPLEMENT) {
     return '现场补充照片'
   }
   if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
-    return '2、车牌号'
+    return '拍摄车牌号'
   }
   if (step === constants.SHOOT_STEP.VIN_CODE) {
-    return '3、VIN码'
+    return '拍摄vin码'
   }
   return '车损照片'
 }
@@ -402,6 +416,33 @@ function getPreviewButtonText(cache = {}) {
   )
     ? '返回预览'
     : '查看已拍'
+}
+
+function normalizeCaptureGuideType(type) {
+  if (type === 'scene') {
+    return CAPTURE_GUIDE_TYPE.SCENE_45
+  }
+  return type === CAPTURE_GUIDE_TYPE.SCENE_45 || type === CAPTURE_GUIDE_TYPE.DAMAGE
+    ? type
+    : ''
+}
+
+function getCaptureGuideTypeForStep(step) {
+  if (step === constants.SHOOT_STEP.SCENE_45) {
+    return CAPTURE_GUIDE_TYPE.SCENE_45
+  }
+  if (step === constants.SHOOT_STEP.DAMAGE) {
+    return CAPTURE_GUIDE_TYPE.DAMAGE
+  }
+  return ''
+}
+
+function getCaptureGuideSeen(cache = {}) {
+  const seen = cache.captureGuideSeen || {}
+  return {
+    scene45: !!(seen.scene45 || cache.sceneGuideSeen),
+    damage: !!(seen.damage || cache.damageGuideSeen)
+  }
 }
 
 function shouldOpenModuleOnePreview(cache = {}, flowContext = null) {
@@ -487,6 +528,14 @@ Page({
     damageCount: 0,
     showConfirmModal: false,
     showDamageCompleteModal: false,
+    showCaptureGuideModal: false,
+    captureGuideType: '',
+    captureGuideIntro: false,
+    captureGuideTitle: '',
+    captureGuideDescription: '',
+    captureGuideButtonText: '关闭',
+    sceneGuideSeen: false,
+    damageGuideSeen: false,
     cameraMounted: true,
     damageCompleteModalContent: '',
     damageCompleteConfirmText: '',
@@ -934,8 +983,8 @@ Page({
   },
 
   resumeAIDetection(reason = 'manual') {
-    const { currentStep, showConfirmModal, showDamageCompleteModal } = this.data
-    const capturePausedByModal = showConfirmModal || showDamageCompleteModal
+    const { currentStep, showConfirmModal, showDamageCompleteModal, showCaptureGuideModal } = this.data
+    const capturePausedByModal = showConfirmModal || showDamageCompleteModal || showCaptureGuideModal
     const aiSupportedStep = [constants.SHOOT_STEP.LICENSE_PLATE, constants.SHOOT_STEP.DAMAGE].includes(currentStep)
     const detectionRunning = !!this.detectTimer || this.aiBusy
 
@@ -944,6 +993,7 @@ Page({
       currentStep,
       showConfirmModal,
       showDamageCompleteModal,
+      showCaptureGuideModal,
       isLeaving: this.isLeaving,
       cameraInitialized: this.cameraInitialized,
       hasCameraContext: !!this.cameraContext,
@@ -965,6 +1015,7 @@ Page({
         aiSupportedStep,
         showConfirmModal,
         showDamageCompleteModal,
+        showCaptureGuideModal,
         isLeaving: this.isLeaving,
         cameraInitialized: this.cameraInitialized
       })
@@ -1208,7 +1259,7 @@ Page({
       const activeHint = this.getActiveDistanceHint()
       const supportDistanceHint = currentStep === constants.SHOOT_STEP.LICENSE_PLATE || currentStep === constants.SHOOT_STEP.DAMAGE
 
-      if (this.isLeaving || this.data.showConfirmModal || this.data.showDamageCompleteModal || !supportDistanceHint || !activeHint) {
+      if (this.isLeaving || this.data.showConfirmModal || this.data.showDamageCompleteModal || this.data.showCaptureGuideModal || !supportDistanceHint || !activeHint) {
         this.stopPlateBlink()
         return
       }
@@ -1255,6 +1306,7 @@ Page({
       && !this.isLeaving
       && !this.data.showConfirmModal
       && !this.data.showDamageCompleteModal
+      && !this.data.showCaptureGuideModal
       && (this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE || this.data.currentStep === constants.SHOOT_STEP.DAMAGE)
 
     if (shouldBlink) {
@@ -1622,7 +1674,7 @@ Page({
     })
 
     const scheduleNext = () => {
-      if (runId === this.aiDetectionRunId && !this.isLeaving && !this.data.showConfirmModal && !this.data.showDamageCompleteModal) {
+      if (runId === this.aiDetectionRunId && !this.isLeaving && !this.data.showConfirmModal && !this.data.showDamageCompleteModal && !this.data.showCaptureGuideModal) {
         this.detectTimer = setTimeout(loop, this.getDetectInterval(step))
       }
     }
@@ -1636,7 +1688,7 @@ Page({
       if (this.isLeaving) {
         return
       }
-      if (this.aiBusy || this.data.showConfirmModal || this.data.showDamageCompleteModal) {
+      if (this.aiBusy || this.data.showConfirmModal || this.data.showDamageCompleteModal || this.data.showCaptureGuideModal) {
         scheduleNext()
         return
       }
@@ -1938,6 +1990,7 @@ Page({
     }
     
     const damageCount = flowContext.damageCount
+    const captureGuideSeen = getCaptureGuideSeen(cache)
 
     // 婵犵數濮烽弫鍛婃叏閻戝鈧倿鎸婃竟鈺嬬秮瀹曘劑寮堕幋鐙呯幢闂備線鈧偛鑻晶鎾煛鐏炲墽銆掗柍褜鍓ㄧ紞鍡涘磻閸涱厾鏆︾€光偓閸曨剛鍘搁悗鍏夊亾閻庯綆鍓涢敍鐔哥箾鐎电顎撳┑鈥虫喘楠炲繘鎮╃拠鑼唽闂佸湱鍎ら崺鍫濐焽閵夈儮鏀介柣妯活問閺嗩垶鏌嶈閸撴瑩宕捄銊ф／鐟滄棃寮婚悢纰辨晩闁绘挸绨堕崑鎾诲箹娴ｇ懓浠奸梺缁樺灱濡嫬鏁梻浣稿暱閹碱偊宕愰悷鎵虫瀺闁糕剝绋掗埛鎴︽煕韫囨稒锛熼柤鍓蹭邯閺屾稒鎯旈姀銏″垱闂佽桨绀侀崯鏉戠暦閹烘垟妲堥柟鐑樻尭椤忓綊姊婚崒娆戭槮婵犫偓鏉堚晛鍨濇い鏍ㄧ矋閺嗘粓鏌ｉ幇顒夊殶濠⒀€鍓濈换婵嬫偨闂堟刀锝嗐亜閺冣偓閻楃姴鐣风憴鍕嚤閻庢稒锚閳ь剝鍩栫换婵嬫濞戝啿濮涙繛瀛樼矆缁瑥顫忕紒妯诲闁告繂瀚紓鎾绘⒑缁嬫寧鍞夊ù婊庡墯缁旂喖寮撮姀鈺傛櫍闂佺粯锚閸熷潡宕㈣ぐ鎺撯拺?
     if (flowContext.hasRetakeContext) {
@@ -1951,6 +2004,8 @@ Page({
         previewButtonText: getPreviewButtonText(cache),
         vehicleType: vehicleType || vehicleFields.vehicleType,
         damageCount,
+        sceneGuideSeen: captureGuideSeen.scene45,
+        damageGuideSeen: captureGuideSeen.damage,
         damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
@@ -1978,6 +2033,8 @@ Page({
         stepDisplayName: getStepDisplayName(flowContext.currentStep),
         previewButtonText: getPreviewButtonText(cache),
         damageCount,
+        sceneGuideSeen: captureGuideSeen.scene45,
+        damageGuideSeen: captureGuideSeen.damage,
         damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
           ? this.getDamagePhaseLabel({ phase: 'SEEK' })
           : '',
@@ -1992,6 +2049,7 @@ Page({
           detectionRunning: !!this.detectTimer || this.aiBusy
         })
         this.resumeAIDetectionAfterStepReady(resumeReason)
+        this.maybeShowCaptureGuide(flowContext.currentStep, { cache, flowContext })
       })
       workflowPage.syncPageWorkflowState(
         this,
@@ -2007,7 +2065,7 @@ Page({
   },
 
   onCapture() {
-    if (this.data.showDamageCompleteModal) {
+    if (this.data.showDamageCompleteModal || this.data.showCaptureGuideModal) {
       return
     }
 
@@ -2127,6 +2185,7 @@ Page({
 
     this.setData({
       showConfirmModal: true,
+      showCaptureGuideModal: false,
       qualityHintText: options.qualityHintText || '',
       pendingPhoto: photo
     })
@@ -2319,6 +2378,7 @@ Page({
       ...buildCameraVehicleFields(nextFlowContext),
       isNavigating: false,
       showConfirmModal: false,
+      showCaptureGuideModal: false,
       pendingPhoto: null,
       qualityHintText: '',
       currentStep: constants.SHOOT_STEP.DAMAGE,
@@ -2335,6 +2395,10 @@ Page({
         step: constants.SHOOT_STEP.DAMAGE
       })
       this.resumeAIDetectionAfterStepReady(reason)
+      this.maybeShowCaptureGuide(constants.SHOOT_STEP.DAMAGE, {
+        cache: nextCache,
+        flowContext: nextFlowContext
+      })
     })
   },
 
@@ -2365,6 +2429,7 @@ Page({
       isNavigating: false,
       showConfirmModal: false,
       showDamageCompleteModal: false,
+      showCaptureGuideModal: false,
       cameraMounted: false,
       damageCompleteModalContent: '',
       damageCompleteConfirmText: '',
@@ -2421,6 +2486,7 @@ Page({
     this.pauseCaptureForDamageCompleteModal()
     this.setData({
       showDamageCompleteModal: true,
+      showCaptureGuideModal: false,
       cameraMounted: false,
       damageCompleteModalContent: buildDamageCompleteContent(damageCount, hasNextVehicle),
       damageCompleteConfirmText: hasNextVehicle ? NEXT_VEHICLE_TEXT : GO_PREVIEW_TEXT,
@@ -2475,6 +2541,7 @@ Page({
       ...buildCameraVehicleFields(flowContext),
       isNavigating: true,
       showConfirmModal: false,
+      showCaptureGuideModal: false,
       cameraMounted: false,
       pendingPhoto: null,
       qualityHintText: '',
@@ -2497,6 +2564,123 @@ Page({
     }
 
     this.goToPreviewPage(cache, flowContext)
+  },
+
+  maybeShowCaptureGuide(step, options = {}) {
+    const type = getCaptureGuideTypeForStep(step)
+    if (!type || this.data.showConfirmModal || this.data.showDamageCompleteModal) {
+      return false
+    }
+
+    const cache = options.cache || storage.loadCache()
+    if (!cache) {
+      return false
+    }
+
+    const flowContext = options.flowContext || cacheSelectors.getCurrentFlowContext(cache)
+    if (flowContext && flowContext.hasRetakeContext) {
+      return false
+    }
+
+    const seen = getCaptureGuideSeen(cache)
+    this.setData({
+      sceneGuideSeen: seen.scene45,
+      damageGuideSeen: seen.damage
+    })
+
+    if (type === CAPTURE_GUIDE_TYPE.DAMAGE && flowContext && flowContext.currentVehicleIndex > 0) {
+      this.setData({
+        showCaptureGuideModal: false,
+        captureGuideType: '',
+        captureGuideIntro: false
+      })
+      return false
+    }
+
+    if (seen[type]) {
+      this.setData({
+        showCaptureGuideModal: false,
+        captureGuideType: '',
+        captureGuideIntro: false
+      })
+      return false
+    }
+
+    return this.showCaptureGuide(type, true)
+  },
+
+  showCaptureGuide(type, isIntro = false) {
+    const guideType = normalizeCaptureGuideType(type)
+    const guideConfig = CAPTURE_GUIDE_CONFIG[guideType]
+    if (!guideConfig) {
+      return false
+    }
+
+    this.stopAIDetectionLoop()
+    this.stopAIFrameListener('capture_guide_modal')
+    this.stopPlateBlink()
+    this.setData({
+      showCaptureGuideModal: true,
+      captureGuideType: guideType,
+      captureGuideIntro: !!isIntro,
+      captureGuideTitle: guideConfig.title,
+      captureGuideDescription: guideConfig.description,
+      captureGuideButtonText: isIntro ? '知道了，开始拍摄' : '关闭'
+    })
+    return true
+  },
+
+  onCaptureGuideConfirm() {
+    const guideType = this.data.captureGuideType
+    const isIntro = this.data.captureGuideIntro
+
+    if (isIntro && guideType) {
+      const cache = storage.loadCache()
+      if (cache) {
+        cache.captureGuideSeen = {
+          ...(cache.captureGuideSeen || {}),
+          [guideType]: true
+        }
+        if (guideType === CAPTURE_GUIDE_TYPE.SCENE_45) {
+          cache.sceneGuideSeen = true
+        }
+        if (guideType === CAPTURE_GUIDE_TYPE.DAMAGE) {
+          cache.damageGuideSeen = true
+        }
+        storage.saveCache(cache)
+      }
+
+      this.setData({
+        sceneGuideSeen: guideType === CAPTURE_GUIDE_TYPE.SCENE_45 ? true : this.data.sceneGuideSeen,
+        damageGuideSeen: guideType === CAPTURE_GUIDE_TYPE.DAMAGE ? true : this.data.damageGuideSeen
+      })
+    }
+
+    this.onCloseCaptureGuide()
+  },
+
+  onCloseCaptureGuide() {
+    this.setData({
+      showCaptureGuideModal: false,
+      captureGuideType: '',
+      captureGuideIntro: false,
+      captureGuideTitle: '',
+      captureGuideDescription: '',
+      captureGuideButtonText: '关闭'
+    }, () => {
+      this.resumeAIDetectionAfterStepReady('capture_guide_closed')
+    })
+  },
+
+  onOpenCaptureGuide(event = {}) {
+    const datasetGuide = event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.guide
+      : ''
+    const type = normalizeCaptureGuideType(datasetGuide) || getCaptureGuideTypeForStep(this.data.currentStep)
+    if (!type) {
+      return false
+    }
+    return this.showCaptureGuide(type, false)
   },
 
   onConfirmPhoto() {
@@ -2538,6 +2722,7 @@ Page({
         pendingPhoto: null,
         qualityHintText: '',
         currentStep: cache.currentStep,
+        stepDisplayName: getStepDisplayName(cache.currentStep),
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damagePhaseLabel: ''
       }, () => {
@@ -2609,6 +2794,7 @@ Page({
         pendingPhoto: null,
         qualityHintText: '',
         currentStep: cache.currentStep,
+        stepDisplayName: getStepDisplayName(cache.currentStep),
         guideTip: constants.GUIDE_TIPS[cache.currentStep],
         damagePhaseLabel: ''
       }, () => {
@@ -2650,6 +2836,7 @@ Page({
           pendingPhoto: null,
           qualityHintText: '',
           currentStep: cache.currentStep,
+          stepDisplayName: getStepDisplayName(cache.currentStep),
           guideTip: constants.GUIDE_TIPS[cache.currentStep],
           damagePhaseLabel: ''
         }, () => {
@@ -2765,6 +2952,7 @@ Page({
     this.resetAIState()
     this.setData({
       showConfirmModal: false,
+      showCaptureGuideModal: false,
       pendingPhoto: null,
       qualityHintText: '',
       damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : ''

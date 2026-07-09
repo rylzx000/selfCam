@@ -29,12 +29,33 @@
       </view>
     </view>
 
-    <view class="preview-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onGoPreview">
-      <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">{{previewButtonText}}</text>
-    </view>
+    <view class="side-bottom">
+      <view class="preview-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onGoPreview">
+        <text class="preview-text" style="{{cameraLayout.actionButtonTextStyle}}">{{previewButtonText}}</text>
+      </view>
 
-    <view wx:if="{{currentStep === 'damage'}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
-      <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
+      <view wx:if="{{currentStep === 'damage'}}" class="finish-btn" style="{{cameraLayout.sideActionButtonStyle}}" bindtap="onFinishDamage">
+        <text class="finish-text" style="{{cameraLayout.actionButtonTextStyle}}">{{finishDamageText}}</text>
+      </view>
+
+      <view
+        wx:if="{{currentStep === 'scene45' || currentStep === 'damage'}}"
+        class="side-guide-entry"
+        data-guide="{{currentStep === 'damage' ? 'damage' : 'scene45'}}"
+        bindtap="onOpenCaptureGuide"
+      >
+        <view class="side-guide-icon">
+          <view wx:if="{{currentStep === 'scene45'}}" class="mini-scene-car"></view>
+          <view wx:if="{{currentStep === 'damage'}}" class="mini-damage-steps">
+            <view></view>
+            <view></view>
+            <view></view>
+          </view>
+        </view>
+        <view class="side-guide-copy">
+          <text class="side-guide-title">{{currentStep === 'damage' ? '远 / 中 / 近' : '45度示意'}}</text>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -221,7 +242,7 @@
   </view>
 
   <view class="action-area" style="{{cameraLayout.actionAreaStyle}}">
-    <view wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal}}" class="capture-section">
+    <view wx:if="{{cameraMounted && !showConfirmModal && !showDamageCompleteModal && !showCaptureGuideModal}}" class="capture-section">
       <view class="capture-btn" style="{{cameraLayout.captureButtonStyle}}" bindtap="onCapture">
         <view class="capture-inner" style="{{cameraLayout.captureInnerStyle}}"></view>
       </view>
@@ -251,6 +272,48 @@
     bind:cancel="onDamageCompleteModalCancel"
     bind:masktap="onDamageCompleteModalMaskTap"
   />
+
+  <view wx:if="{{showCaptureGuideModal}}" class="guide-modal-mask">
+    <view class="guide-modal-card">
+      <text class="guide-modal-title">{{captureGuideTitle}}</text>
+      <text wx:if="{{captureGuideDescription}}" class="guide-modal-desc">{{captureGuideDescription}}</text>
+
+      <view wx:if="{{captureGuideType === 'scene45'}}" class="guide-hero">
+        <image
+          class="guide-photo guide-photo-scene"
+          src="/packageD/assets/images/capture-guides/scene-45deg.png"
+          mode="aspectFit"
+        ></image>
+      </view>
+
+      <view wx:if="{{captureGuideType === 'damage'}}" class="guide-triptych">
+        <view class="guide-shot">
+          <view class="guide-shot-visual">
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-far.png" mode="aspectFit"></image>
+          </view>
+          <text>远</text>
+        </view>
+        <view class="guide-shot">
+          <view class="guide-shot-visual">
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-mid.png" mode="aspectFit"></image>
+          </view>
+          <text>中</text>
+        </view>
+        <view class="guide-shot">
+          <view class="guide-shot-visual">
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-close.png" mode="aspectFit"></image>
+          </view>
+          <text>近</text>
+        </view>
+      </view>
+
+      <view class="guide-modal-actions">
+        <view class="guide-primary-btn" bindtap="onCaptureGuideConfirm">
+          <text>{{captureGuideButtonText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
 
   <view wx:if="{{appEnvBadgeText}}" class="env-badge">{{appEnvBadgeText}}</view>
 </view>
