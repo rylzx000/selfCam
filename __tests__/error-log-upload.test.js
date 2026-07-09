@@ -135,7 +135,7 @@ describe('runtimeLogger backend error upload', () => {
       ticket: 'AUX202606150001',
       errorCode: 'AI_MODEL_SESSION_CREATE_FAILED',
       errorMessage: '模型会话创建失败',
-      appVersion: '1.5.0',
+      appVersion: '1.5.1',
       envVersion: 'trial',
       sdkVersion: '3.15.1',
       networkType: 'wifi',

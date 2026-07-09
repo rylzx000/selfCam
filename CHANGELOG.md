@@ -4,6 +4,21 @@
 
 ---
 
+## [v1.5.1] - 2026-07-09
+
+### 新增
+
+- 接入 OpenSpec 和 Comet 项目工作流，新增项目级规则、技能目录、OpenSpec 配置和 Comet 配置。
+- 新增 `baseline-existing-selfcam` OpenSpec 基线 change，用于索引现有 `docs/` 与 `PRDS/` 文档，不迁移原文全文。
+
+### 文档
+
+- `AGENTS.md` 补充 OpenSpec / Comet 使用规则，以及 OpenSpec 中文正文、英文 kebab-case 标识的命名与语言规则。
+
+### 版本
+
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.5.1`。
+
 ## [v1.5.0] - 2026-07-06
 
 ### 新增

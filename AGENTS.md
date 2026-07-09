@@ -55,3 +55,21 @@
 - 仅当用户明确要求生成审查材料时，才生成 `review.diff` 和 `review-summary.md`。
 - 用户未明确要求时，修改 `AGENTS.md`、全局配置、长提示词、系统/项目协作指令、Codex 工作流文档等“指令层内容”，不默认生成额外审查文件。
 - 如需生成审查材料，`review.diff` 只包含本次指令或文档改动相关文件，不要混入业务改动。
+
+## OpenSpec / Comet 使用规则
+
+- 本项目已接入 OpenSpec 与 Comet：OpenSpec 根目录为 `openspec/`，Comet 项目配置为 `.comet/`，Codex 侧技能与规则位于 `.codex/`。
+- 涉及新功能、业务流程、接口、配置体系、技术架构或跨页面状态流的改动，优先先创建或更新 OpenSpec change，再进入实现。
+- `openspec/changes/baseline-existing-selfcam/` 是现有 `docs/` 与 `PRDS/` 的基线索引，只记录文档路径、标题和用途；不要把原文档全文迁移进 OpenSpec。
+- 需要理解现有业务规则时，先通过 `baseline-existing-selfcam` 定位源文档，再回源阅读 `docs/` 或 `PRDS/` 下的原文件。
+- 使用 Comet 时遵循阶段守卫、脏工作区检查和验证要求；不要绕过 Comet/OpenSpec 流程直接扩大改动范围。
+- 接入 OpenSpec / Comet 不改变本项目既有安全红线：不自动 commit、不 push、不改业务代码、不新增无关文档。
+
+### 命名与语言规则
+
+- OpenSpec 文档正文、标题、背景、设计说明、验收场景默认使用简体中文。
+- OpenSpec 的 change id、spec id、目录名默认使用英文短名或 kebab-case，例如 `baseline-existing-selfcam`、`camera-capture`。
+- OpenSpec 模板中的固定结构关键字保留英文，例如 `Requirement`、`Scenario`、`ADDED`、`MODIFIED`、`REMOVED`。
+- 不使用中文目录名作为 OpenSpec change/spec 标识，避免 CLI、脚本、Git、CI 或跨平台路径兼容问题。
+- 现有 `docs/`、`PRDS/` 中文文档保留原路径，不为了接入 OpenSpec 强制改名或搬迁。
+- OpenSpec 只做结构化索引、能力规格、验收标准提炼和变更归档。
