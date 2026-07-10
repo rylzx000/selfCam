@@ -1,6 +1,6 @@
 # baseline-existing-selfcam
 
-Baseline index for existing selfCam docs and PRDS without migrating full text.
+selfCam 现有成果物的 OpenSpec 基线索引，不迁移原文全文。
 
 ## 用途
 
@@ -45,3 +45,21 @@ Baseline index for existing selfCam docs and PRDS without migrating full text.
 
 - 新增功能、流程、架构或接口变更时，先基于本索引定位原始文档，再创建独立 OpenSpec change。
 - 如果后续确需把某个文档内容转成正式 spec，应单独提出迁移 change，并说明迁移范围。
+
+## 能力规格映射
+
+| Spec | 能力范围 | 主要代码入口 | 主要测试入口 |
+|---|---|---|---|
+| `camera-capture` | 开始采集、拍照状态、确认/重拍、车损容量、缓存恢复 | `packageD/pages/index/`、`packageD/pages/camera/`、`packageD/utils/workflow-state.js`、`packageD/utils/storage.js` | `__tests__/workflow-state.test.js`、`__tests__/workflow-recovery.test.js`、`__tests__/camera-ai-start.test.js`、`e2e/specs/delete-retake-replenish.spec.js` |
+| `ai-auto-capture` | 车牌/车损检测、几何门控、稳定性、冷却、降级 | `packageD/utils/plate-detector.js`、`packageD/utils/damage-auto-capture-engine.js`、`packageD/utils/damage-phase-controller.js`、`packageD/utils/frame-utils.js` | `__tests__/damage-capture-modules.test.js`、`__tests__/camera-ai-start.test.js`、`__tests__/model-cache.test.js` |
+| `vehicle-info` | 现场环境、车牌、VIN、多车信息与归属 | `packageD/pages/camera/`、`packageD/pages/preview/`、`packageD/utils/storage-schema.js`、`packageD/utils/aux-photo-mapper.js` | `__tests__/module-one-preview.test.js`、`__tests__/aux-photo-mapper.test.js`、`e2e/specs/module-one-two-flow.spec.js` |
+| `preview-flow` | 模块预览、最终预览、补拍/重拍、证件采集、完成页 | `packageD/pages/preview/`、`packageD/pages/document/`、`packageD/pages/complete/`、`packageD/utils/documents.js` | `__tests__/preview-driving-license.test.js`、`__tests__/preview-layout.test.js`、`__tests__/complete-page.test.js`、`e2e/specs/submit-consistency.spec.js` |
+| `backend-integration` | ticket 初始化、车辆映射、图片上传、完成提交、错误日志 | `packageD/utils/aux-photo-api.js`、`packageD/utils/aux-photo-mapper.js`、`packageD/utils/upload-state.js`、`packageD/utils/runtime-logger.js` | `__tests__/aux-photo-api.test.js`、`__tests__/upload-state.test.js`、`__tests__/error-log-upload.test.js` |
+| `quality-and-tests` | 拍后轻质检、配置降级、验证分级与关键一致性 | `packageD/utils/photo-quality.js`、`packageD/utils/quality-config.js`、`packageD/utils/quality-config-loader.js` | `__tests__/photo-quality.test.js`、`__tests__/quality-config.test.js`、`__tests__/camera-photo-quality.test.js`、`e2e/specs/` |
+
+## 索引原则
+
+- 规格中的业务规则以当前代码、自动化测试和现行文档的交叉验证结果为基础。
+- 文档与实现存在冲突时，不静默选择一方；在对应 spec 的“已知限制 / 待确认点”中记录。
+- API 完整报文、UI 全量文案、模型参数表、测试步骤和历史版本说明只保留路径引用。
+- 本 change 只建立基线，不修改业务代码、测试代码、原有 `docs/` 或 `PRDS/` 文件。
