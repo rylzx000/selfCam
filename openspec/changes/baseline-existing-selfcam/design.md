@@ -98,7 +98,7 @@ selfCam 是微信小程序分包项目，当前核心流程由开始页、拍照
 4. 由用户审核规格内容。
 5. 审核通过后，单独确认是否执行 `openspec archive baseline-existing-selfcam`。
 
-回滚方式：在 archive 前可直接撤销本 change 下的 OpenSpec 文件，不影响业务代码和原始文档。
+回滚方式：在 archive 前如需撤销，应通过新的 Git 提交还原本 change 下的 OpenSpec 文件；archive 后按 OpenSpec 归档修正流程处理。业务代码和原始文档不受影响。
 
 ## Open Questions
 

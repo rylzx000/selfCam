@@ -1,3 +1,3 @@
 schema: spec-driven
 created: 2026-07-09
-goal: Index existing docs/ and PRDS/ documents as OpenSpec baseline references.
+goal: 将现有 docs、PRDS、关键代码与测试提炼为 OpenSpec 能力基线，保留源文档并仅建立结构化索引与验收规格。
