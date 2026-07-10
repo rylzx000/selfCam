@@ -78,7 +78,7 @@ reviewer prompt 必须保持中立：
 
 ### 2. Implementer 范围限制
 
-implementer 只负责实现、测试和提交代码。**implementer 不得勾选 plan 或 OpenSpec task**，也不得只更新内置 Todo 或对话 checklist。
+implementer 只负责实现、测试和回报证据；只有用户在当前任务中明确授权提交时才允许执行 commit。**implementer 不得勾选 plan 或 OpenSpec task**，也不得只更新内置 Todo 或对话 checklist。
 
 ### 3. TDD 硬约束
 
@@ -124,9 +124,9 @@ Comet 不读取、不写入、也不要求任何 Superpowers `subagent-driven-de
 
 **verify 阶段的审查不在此表内。** verify 阶段的审查由 `verify_mode`（light/full）驱动规模，`review_mode` 只决定是否触发自动代码审查（`off` 跳过；`standard`/`thorough` 在轻量验证下做一次轻量代码审查，在全量验证下依赖 `openspec-verify-change`）。verify 阶段没有按 `review_mode` 区分的独立"完整"代码审查——verify 阶段的权威行为见 `comet-verify`。
 
-当 `review_mode: standard` 时，默认不为每个 task 派发 reviewer，而是按**风险触发**决定：implementer 自测、提交并回报证据（含风险信号自报）后，协调者读取自报信号并复核该 task 的 diff。**仅当 implementer 自报命中任一风险信号、或协调者复核 diff 发现命中任一风险信号时**，为该 task 单独派发一个每任务 reviewer，同时检查 spec compliance 与 code quality，发现 CRITICAL/IMPORTANT 问题进入一轮 review-fix（最多 1 轮），复查未通过则标记 **BLOCKED**。未命中风险信号的 task 直接做定向勾选验证后放行。所有 task 完成后仍派发一次最终轻量 code reviewer（范围：正确性、安全、边界）。若最终轻量审查发现 CRITICAL 或 IMPORTANT 问题，最多自动派发一轮修复 agent 并复查一次；复查仍未通过时标记 **BLOCKED**，暂停并把反馈交给用户。非 CRITICAL 发现可记录接受理由后继续。
+当 `review_mode: standard` 时，默认不为每个 task 派发 reviewer，而是按**风险触发**决定：implementer 自测并回报证据（含风险信号自报；仅在用户已授权时附带提交）后，协调者读取自报信号并复核该 task 的 diff。**仅当 implementer 自报命中任一风险信号、或协调者复核 diff 发现命中任一风险信号时**，为该 task 单独派发一个每任务 reviewer，同时检查 spec compliance 与 code quality，发现 CRITICAL/IMPORTANT 问题进入一轮 review-fix（最多 1 轮），复查未通过则标记 **BLOCKED**。未命中风险信号的 task 直接做定向勾选验证后放行。所有 task 完成后仍派发一次最终轻量 code reviewer（范围：正确性、安全、边界）。若最终轻量审查发现 CRITICAL 或 IMPORTANT 问题，最多自动派发一轮修复 agent 并复查一次；复查仍未通过时标记 **BLOCKED**，暂停并把反馈交给用户。非 CRITICAL 发现可记录接受理由后继续。
 
-当 `review_mode: thorough` 时，**每个 task 派发一个每任务 reviewer，同时检查 spec compliance 与 code quality**：implementer 自测、提交并回报证据后，协调者为该 task 派发一个全新后台 reviewer。reviewer 发现 CRITICAL/IMPORTANT 问题进入审查-修复（最多 2 轮），仍未通过则标记 **BLOCKED**，暂停并把反馈交给用户。所有 task 完成后再派发一次最终完整 reviewer。thorough 不做批次合并审查——高风险 change 要求每个任务即时、专注的审查，等批次边界才抓到问题代价过大。
+当 `review_mode: thorough` 时，**每个 task 派发一个每任务 reviewer，同时检查 spec compliance 与 code quality**：implementer 自测并回报证据（仅在用户已授权时附带提交）后，协调者为该 task 派发一个全新后台 reviewer。reviewer 发现 CRITICAL/IMPORTANT 问题进入审查-修复（最多 2 轮），仍未通过则标记 **BLOCKED**，暂停并把反馈交给用户。所有 task 完成后再派发一次最终完整 reviewer。thorough 不做批次合并审查——高风险 change 要求每个任务即时、专注的审查，等批次边界才抓到问题代价过大。
 
 当 reviewer 返回无法仅从审查材料验证的发现时，协调者必须在 task 勾选前自行核对。若直接检查仓库后确认是真实缺口，按失败的 spec/quality review 处理，进入对应修复与复查流程；若该项已由未改动代码或跨任务约束满足，在检查点记录理由后继续。
 

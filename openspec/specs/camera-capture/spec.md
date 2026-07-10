@@ -1,7 +1,7 @@
 # camera-capture Specification
 
 ## Purpose
-TBD - created by archiving change baseline-existing-selfcam. Update Purpose after archive.
+定义从开始页创建或恢复采集上下文、拍照与待确认状态转换、照片确认和重拍、车损容量控制、缓存异常恢复，以及多车辆和预览补拍返回上下文的通用流程要求。
 ## Requirements
 ### Requirement: 合法采集入口与流程状态
 
@@ -68,3 +68,26 @@ TBD - created by archiving change baseline-existing-selfcam. Update Purpose afte
 - **WHEN** 补拍或重拍上下文已过期、缺失或与当前流程事实冲突
 - **THEN** 系统清理无效上下文并回到可确定的流程位置
 - **AND** 当前步骤不得漂移到无关模块
+
+### Requirement: 拍摄指引不破坏相机生命周期
+
+系统 SHALL 在整车 45 度现场照片和车损照片首次进入拍摄时展示对应图文指引，并允许用户通过拍照页左侧入口再次查看相同内容。
+
+#### Scenario: 首次进入整车 45 度拍摄
+- **WHEN** 用户首次进入整车 45 度现场照片拍摄步骤
+- **THEN** 系统展示整车 45 度图文拍摄指引
+- **AND** 用户确认后关闭弹层并继续当前拍摄步骤
+
+#### Scenario: 首次进入车损拍摄
+- **WHEN** 用户首次进入任一车辆的车损拍摄步骤
+- **THEN** 系统展示远景、中景、近景图文拍摄指引
+- **AND** 远景、中景、近景仅作为引导，不作为强制照片类型
+
+#### Scenario: 指引弹层打开
+- **WHEN** 拍摄指引弹层处于展示状态
+- **THEN** 系统暂停 AI 检测并禁用拍照动作
+- **AND** 系统不得通过条件渲染卸载相机组件
+
+#### Scenario: 再次查看指引
+- **WHEN** 用户点击拍照页左侧的拍摄指引入口
+- **THEN** 系统展示与首次进入当前步骤时一致的指引弹层

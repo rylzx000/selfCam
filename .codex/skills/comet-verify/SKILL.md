@@ -7,7 +7,7 @@ description: "Use when Comet change 已完成 build 阶段，需要验证实现�
 
 ## 前置条件
 
-- 代码已提交（阶段 3 完成）
+- 当前 change 的实现和专项验证已完成；只有用户明确授权时才要求代码已提交
 - tasks.md 全部任务已完成
 
 ## 步骤
@@ -40,9 +40,9 @@ node "$COMET_STATE" scale <change-name>
 
 验证开始前，按 `comet/reference/dirty-worktree.md` 协议检查并处理未提交改动。verify 阶段的特殊处理：
 
-1. 若 dirty diff 属于当前 change 且涉及实现、测试、tasks、delta spec 或 design doc 变更，不在 verify 阶段直接修复或提交；报告失败项并进入 Step 1b 的验证失败决策阻塞点
+1. 若 dirty diff 已明确归属于当前 change 且 tasks.md 已全部勾选，应把该 diff 纳入本轮验证；不得仅因用户未授权 commit 而判定失败
 2. 若 dirty diff 只是 verify 本阶段产物（例如验证报告草稿、分支处理记录），可继续在 verify 阶段完成并记录状态
-3. 若 dirty diff 已实现但 tasks.md 未勾选，视为 build 状态滞后；报告失败项并进入 Step 1b，由用户决定回退修复或接受偏差
+3. 若 dirty diff 来源不明、包含当前 change 范围外改动，或已实现但 tasks.md 未勾选，视为验证阻塞；报告失败项并进入 Step 1b，由用户决定回退修复、拆分或接受偏差
 
 用户选择修复后，才允许回退到 build 阶段：
 
@@ -53,7 +53,7 @@ node "$COMET_STATE" transition <change-name> verify-fail
 
 注意：verify-fail 回退到 build 时 `branch_status` 不会被重置。如果首次 verify 已完成分支处理，修复后再次进入 verify 时跳过已完成的分支处理步骤，直接使用 `node "$COMET_STATE" set <change-name> branch_status handled` 保留原有分支处理结果。
 
-注意：如果 build 阶段每个任务都已提交，脚本基于工作区 diff 的文件数可能低估改动规模。此时必须读取 plan 文件头的 `base-ref` 并用提交区间复核：
+注意：如果 build 阶段任务已经提交，脚本基于工作区 diff 的文件数可能低估改动规模。此时必须读取 plan 文件头的 `base-ref` 并用提交区间复核：
 
 ```bash
 PLAN=$(node "$COMET_STATE" get <change-name> plan)

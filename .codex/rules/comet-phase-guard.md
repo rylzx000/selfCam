@@ -79,7 +79,7 @@ Hook 硬拦截白名单包括 `openspec/*`、`docs/superpowers/*`、`.superpower
 ## Build 阶段专项
 
 1. plan 创建后必须询问用户选择继续或暂停（`build_pause` 机制）
-2. 每个 task 验收后必须: tasks.md 打勾 → git commit（不得积攒）。`subagent-driven-development` 必须按当前 `review_mode` 完成验收，再由协调者按任务唯一文本定向勾选和验证；不得用未完成任务总表代替当前任务验证
+2. 每个 task 验收后必须及时勾选 tasks.md，并按任务唯一文本完成定向验证。只有用户在当前任务中明确授权提交时才允许执行 git commit；未授权时保留已验证的工作区改动，不得把 commit 作为阶段推进前置条件。`subagent-driven-development` 必须按当前 `review_mode` 完成验收，不得用未完成任务总表代替当前任务验证
 3. 遇到失败必须加载 **systematic-debugging** skill，根因未定位前不得提出源码修复
 4. spec 变更分级: 小改直接编辑 | 中改加载 brainstorming | 大改暂停等用户确认拆分
 

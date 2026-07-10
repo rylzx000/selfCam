@@ -1,7 +1,7 @@
 # quality-and-tests Specification
 
 ## Purpose
-TBD - created by archiving change baseline-existing-selfcam. Update Purpose after archive.
+定义拍后轻质检及其配置加载和安全降级规则，并规定图片容量、多车辆数据隔离、删除重拍、缓存恢复、上传队列和最终完成统计之间必须保持一致的验证要求。
 ## Requirements
 ### Requirement: 拍后轻质检不阻断主流程
 

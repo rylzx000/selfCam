@@ -79,7 +79,7 @@ node "$COMET_STATE" next <name>
    - 运行项目格式化命令（如 `mvn spotless:apply`、`npm run format` 等）
    - 运行相关测试确认通过
    - 将 tasks.md 中对应 `- [ ]` 勾选为 `- [x]`
-   - 提交代码，commit message 格式：`fix: <简述修复>`
+   - 只有用户在当前任务中明确授权提交时才执行 commit，commit message 建议格式为 `fix: <简述修复>`；未授权时保留工作区改动并继续验证
 3. 全部任务完成后，显式运行项目相关测试和构建命令
 
 执行 hotfix 期间，只要运行程序、测试、构建或手动验证时出现崩溃、异常行为、测试失败或构建失败，必须使用 Skill 工具加载 Superpowers `systematic-debugging` 技能。在完成根因调查前，不得提出或实施源码修复。

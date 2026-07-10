@@ -82,7 +82,7 @@ brainstorming → delta spec → 实施 → 验证 → 主 spec 合并 → desig
 - 主 spec 按 delta 语义合并的内容
 - design doc / plan 的归档元数据标注
 
-**必须提示用户提交这些归档改动**，否则归档成果会停留在工作区。展示待提交文件后建议执行：
+**必须提示用户提交这些归档改动**，否则归档成果会停留在工作区。不得自动执行 commit；展示待提交文件后可以建议用户授权执行：
 
 ```bash
 git add -A

@@ -59,11 +59,16 @@
 ## OpenSpec / Comet 使用规则
 
 - 本项目已接入 OpenSpec 与 Comet：OpenSpec 根目录为 `openspec/`，Comet 项目配置为 `.comet/`，Codex 侧技能与规则位于 `.codex/`。
+- 本项目的实施请求默认先由 Comet 根据任务性质路由：新增 capability、公共接口、schema、跨页面状态流或架构调整使用 `full`；不新增 capability 的明确既有行为修复使用 `hotfix`；文档、配置、prompt 和可收敛为单一 change 的轻中量修改使用 `tweak`。
+- 用户明确指定 `comet`、`comet-hotfix`、`comet-tweak` 或要求不使用 Comet 时，以用户选择为准；只读检查、分析和方案输出不启动实施 workflow。
+- 如果存在与当前请求匹配的 active change，默认恢复该 change；如果 active change 不匹配或同时存在多个候选，先让用户确认继续哪个 change 或创建新 change。
 - 涉及新功能、业务流程、接口、配置体系、技术架构或跨页面状态流的改动，优先先创建或更新 OpenSpec change，再进入实现。
-- `openspec/changes/baseline-existing-selfcam/` 是现有 `docs/` 与 `PRDS/` 的基线索引，只记录文档路径、标题和用途；不要把原文档全文迁移进 OpenSpec。
-- 需要理解现有业务规则时，先通过 `baseline-existing-selfcam` 定位源文档，再回源阅读 `docs/` 或 `PRDS/` 下的原文件。
+- 当前能力基线位于 `openspec/specs/`；`openspec/changes/archive/2026-07-10-baseline-existing-selfcam/` 保留现有成果物基线化过程、来源映射和历史验收场景。
+- 需要理解现有业务规则时，先阅读 `openspec/specs/` 下的对应能力规格，再通过归档基线定位并回源阅读 `docs/` 或 `PRDS/` 下的原文件；不要把原文档全文迁移进 OpenSpec。
 - 使用 Comet 时遵循阶段守卫、脏工作区检查和验证要求；不要绕过 Comet/OpenSpec 流程直接扩大改动范围。
-- 接入 OpenSpec / Comet 不改变本项目既有安全红线：不自动 commit、不 push、不改业务代码、不新增无关文档。
+- 接入 OpenSpec / Comet 不改变本项目既有安全红线：未经用户当前任务明确授权，不自动 commit、push、打 tag、创建或切换分支；不修改无关业务代码，不新增无关文档。
+- 每次任务的最终汇总必须在最后一行说明本轮 Comet、OpenSpec、Superpowers 的使用情况；已使用时写明阶段或用途，未使用时明确写“未使用”。
+- 工具使用情况固定使用格式：`工具使用情况：Comet（...）；OpenSpec（...）；Superpowers（...）。`
 
 ### 命名与语言规则
 

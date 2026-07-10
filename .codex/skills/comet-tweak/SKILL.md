@@ -81,9 +81,11 @@ node "$COMET_GUARD" <change-name> open --apply
    - 运行项目格式化命令（如 `mvn spotless:apply`、`npm run format` 等）
    - 运行相关测试确认通过
    - 按 `openspec-apply-change` 规则将对应 task 勾选为完成
-   - 提交代码，commit message 格式：`tweak: <简述变更>`
+   - 只有用户在当前任务中明确授权提交时才执行 commit，commit message 建议格式为 `tweak: <简述变更>`；未授权时保留工作区改动并继续后续任务和验证
 6. 全部任务完成后，显式运行项目相关测试和构建命令
 7. 运行阶段守卫完成 build → verify 过渡
+
+如果变更只涉及文档、规格或配置，项目又没有可执行的 build 脚本，应先完成与本次范围对应的严格校验（例如 OpenSpec strict validation、JSON/YAML 解析、语法检查和旧口径扫描），记录结果后仅对本次 guard 命令设置 `COMET_SKIP_BUILD=1`。不得用该变量跳过业务代码、运行时配置或可构建项目本应执行的构建与测试。
 
 执行 tweak 期间，只要运行程序、测试、构建或手动验证时出现崩溃、异常行为、测试失败或构建失败，必须使用 Skill 工具加载 Superpowers `systematic-debugging` 技能。在完成根因调查前，不得提出或实施源码修复。
 

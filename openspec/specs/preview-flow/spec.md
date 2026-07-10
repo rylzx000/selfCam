@@ -1,7 +1,7 @@
 # preview-flow Specification
 
 ## Purpose
-TBD - created by archiving change baseline-existing-selfcam. Update Purpose after archive.
+定义模块一、模块二、模块三和最终总预览的内容隔离，以及照片查看、补拍、重拍、证件采集和最终完成流转要求。
 ## Requirements
 ### Requirement: 多模式预览内容隔离
 
@@ -72,3 +72,43 @@ TBD - created by archiving change baseline-existing-selfcam. Update Purpose afte
 - **WHEN** 用户完成删除、重拍和补拍后执行最终完成流程
 - **THEN** 完成页统计与当前车辆和照片集合一致
 - **AND** 被删除或替换的旧照片不得出现在最终缓存或上传数据中
+
+### Requirement: 模块三以车辆证件预览页作为采集入口
+
+系统 SHALL 在模块三直接按车辆展示驾驶证和行驶证槽位，不设置独立的线性证件拍摄流程。
+
+#### Scenario: 进入模块三
+- **WHEN** 用户确认完成模块二并进入模块三
+- **THEN** 页面按车辆分组展示驾驶证和行驶证
+- **AND** 同一车辆的两类证件在同一行内展示
+
+#### Scenario: 点击缺失证件
+- **WHEN** 用户点击某辆车缺失的驾驶证或行驶证槽位
+- **THEN** 系统让用户选择电子证件或实物证件
+- **AND** 实物证件进入正页和副页采集流程
+
+### Requirement: 阶段切换必须经过统一确认弹层
+
+系统 MUST 在模块一进入模块二、模块二进入模块三以及模块三进入最终预览前展示统一的阶段完成弹层。
+
+#### Scenario: 确认进入下一阶段
+- **WHEN** 用户在阶段完成弹层点击确认
+- **THEN** 系统进入对应的下一阶段入口
+- **AND** 模块一确认后直接进入第一辆车的车损拍摄
+
+#### Scenario: 返回当前预览
+- **WHEN** 用户在阶段完成弹层选择返回
+- **THEN** 系统关闭弹层并停留在当前模块预览页
+
+### Requirement: 相册保存确认只在最终提交前出现
+
+系统 SHALL 仅在最终总预览执行完成采集时询问是否将本次拍摄来源且尚未保存的照片保存至手机相册。
+
+#### Scenario: 存在待保存照片
+- **WHEN** 用户在最终总预览点击完成采集且存在待保存候选
+- **THEN** 系统展示一次相册保存确认
+- **AND** 用户选择后继续最终上传流程
+
+#### Scenario: 模块阶段完成
+- **WHEN** 用户完成模块一、模块二或模块三并切换到下一阶段
+- **THEN** 系统不得在阶段切换过程中询问是否保存至手机相册

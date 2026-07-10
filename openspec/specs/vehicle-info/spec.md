@@ -1,7 +1,7 @@
 # vehicle-info Specification
 
 ## Purpose
-TBD - created by archiving change baseline-existing-selfcam. Update Purpose after archive.
+定义案件级整车 45 度和现场补充照片、车辆级车牌与 VIN 的保存与展示规则，以及多车辆数据隔离、车辆切换和辅助拍照模式下以后端初始化车辆列表为准的控制要求。
 ## Requirements
 ### Requirement: 案件级现场环境照片
 

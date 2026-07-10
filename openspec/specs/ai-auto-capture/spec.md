@@ -1,7 +1,7 @@
 # ai-auto-capture Specification
 
 ## Purpose
-TBD - created by archiving change baseline-existing-selfcam. Update Purpose after archive.
+定义车牌和车损 AI 自动抓拍的启停时机、目标识别与几何门控、画面稳定性、防重复触发、实时帧坐标适配，以及模型或推理能力不可用时保留手动拍照的降级要求。
 ## Requirements
 ### Requirement: AI 按采集步骤启停
 

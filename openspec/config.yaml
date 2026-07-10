@@ -1,20 +1,23 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  项目：selfCam 微信小程序横屏事故现场拍照工具。
+  技术栈：微信小程序 JavaScript、WXML、WXSS，业务代码位于 packageD/。
+  当前流程：模块一采集案件级现场环境及车辆车牌/VIN，模块二按车辆采集最多 10 张车损照片，模块三按车辆补充驾驶证和行驶证，最终总预览后逐张上传并调用 complete。
+  事实来源：openspec/specs/ 定义稳定业务要求；当前代码和本轮实际运行的自动化测试证明已实现状态；PRDS/ 与 docs/ 提供详细产品、技术和接口资料；归档 change 仅作为历史形成过程和来源映射。
+  文档与代码冲突时不得把目标状态写成已实现状态，应明确记录当前限制或待实现项。
+  OpenSpec 正文使用简体中文，change id、spec id 和目录使用英文 kebab-case。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - 明确区分当前问题、目标变化和非目标范围。
+    - 列出受影响的既有 capability，不重复创建同义 capability。
+  design:
+    - 说明事实来源、兼容边界和不修改的历史材料。
+    - 不把待实现接口或页面能力描述为当前已经完成。
+  specs:
+    - Requirement 和 Scenario 使用简体中文，固定结构关键字保留英文。
+    - 每项要求必须可验证，并避免复制完整接口报文、像素参数或历史版本记录。
+  tasks:
+    - 任务按依赖顺序拆分，每项必须可独立验证。
+    - 不包含未经用户明确授权的 commit、push、tag 或分支操作。

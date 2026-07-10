@@ -291,7 +291,7 @@ cache.uploadSession = {
 }
 ```
 
-上传队列由 `utils/upload-state.js` 从案件级现场照片、车辆照片和车辆级证件资料组装：现场照片、现场补充照片、车牌、VIN、车损、驾驶证正页、驾驶证副页、电子驾驶证、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。案件级现场照片不绑定车辆 `vehicleId`，旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
+当前上传队列由 `utils/upload-state.js` 从车辆照片和车辆级证件资料组装：车牌、VIN、车损、驾驶证正页、驾驶证副页、电子驾驶证、行驶证正页、行驶证副页、电子行驶证均保留 `vehicleId/uploadItemId/photoType/sortNo/filePath/clientPhotoId`。`utils/aux-photo-mapper.js` 已保存案件级 `caseUploadItems`，但整车 45 度现场照片和现场补充照片尚未进入 `upload-state.js` 上传队列；后续接入时使用案件级 `uploadItemId`，不绑定真实车辆 `vehicleId`。旧根级 `documents[]` 仍作为备用单证页兼容数据保留，不作为辅助拍照 `uploadPhotoBase64` 队列来源。
 
 恢复策略保持轻量：页面重新进入预览页时，如果缓存里存在 `uploadSession`，按 `phase` 恢复遮罩和进度；遗留 `uploading` 照片恢复为 `pending` 后继续上传，`failed` 只提供 `重试上传`，`ready` 不显示可跳转按钮并自动排队调用 `complete`，`complete_failed` 只提供 `重试完成`。`completed + success` 直接回到完成页，不重新展示上传遮罩或重复提交。真实文件可读性检查、重新拉取后端已上传状态、本地文件丢失后的补拍引导不在当前阶段处理。
 
