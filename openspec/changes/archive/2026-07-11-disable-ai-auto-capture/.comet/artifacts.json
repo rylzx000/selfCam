@@ -1,0 +1,7 @@
+{
+  "openspec_proposal": "openspec/changes/disable-ai-auto-capture/proposal.md",
+  "openspec_design": "openspec/changes/disable-ai-auto-capture/design.md",
+  "openspec_tasks": "openspec/changes/disable-ai-auto-capture/tasks.md",
+  "openspec_delta_spec": "openspec/changes/disable-ai-auto-capture/specs/ai-auto-capture/spec.md",
+  "archive_directory": "openspec/changes/archive/2026-07-11-disable-ai-auto-capture"
+}

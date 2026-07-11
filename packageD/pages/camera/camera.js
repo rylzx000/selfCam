@@ -12,7 +12,7 @@ const {
   createVirtualCameraMapping
 } = require('../../utils/frame-utils')
 const DamageAutoCaptureEngine = require('../../utils/damage-auto-capture-engine')
-const { AUTO_CAPTURE } = require('../../utils/ai-config')
+const { AI_FEATURES, AUTO_CAPTURE } = require('../../utils/ai-config')
 const workflow = require('../../utils/workflow-state')
 const workflowPage = require('../../utils/workflow-page')
 const {
@@ -546,8 +546,11 @@ Page({
     isNavigating: false,  // 闂傚倸鍊搁崐鎼佸磹閹间礁纾归柟闂寸绾惧綊鏌熼梻瀵割槮闁汇値鍠楅妵鍕箛閳轰胶鍔撮梺鎼炲€栧ú鐔煎蓟濞戙埄鏁冮柨婵嗘椤︹晠姊烘潪鎵槮婵☆偅鐟ч幑銏犫槈閵忕姷顓哄┑鐐叉缁绘帗绂掓ィ鍐┾拺缂備焦蓱鐏忣參鏌涙繝鍌ょ吋闁糕斁鍋撳銈嗗坊閸嬫挾绱掗悩鑼х€规洘娲熼弻鍡楊吋閸涱垼鍞甸梺璇插嚱缂嶅棝鍩€椤掑寮跨紒鎻掑⒔閹广垹鈹戦崱鈺傚兊濡炪倖鎸炬慨鎾嵁濡ゅ懏鈷掑ù锝呮憸缁夋椽鏌涚€ｎ亷韬€规洘婢樿灃闁告侗鍘奸幆鐐烘⒑闁偛鑻晶瀛樻叏?
     aiStatusText: '',
     aiReady: false,
-    aiAvailable: true,
-    aiEnabled: true,
+    aiFeatureEnabled: AI_FEATURES.enabled,
+    plateAIFeatureEnabled: AI_FEATURES.plateEnabled,
+    damageAIFeatureEnabled: AI_FEATURES.damageEnabled,
+    aiAvailable: false,
+    aiEnabled: false,
     aiLoading: false,
     aiLocked: false,
     plateFrameState: 'normal',
@@ -876,7 +879,29 @@ Page({
     })
   },
 
+  isAIFeatureEnabledForStep(step) {
+    if (!this.data.aiFeatureEnabled) {
+      return false
+    }
+    if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
+      return !!this.data.plateAIFeatureEnabled
+    }
+    if (step === constants.SHOOT_STEP.DAMAGE) {
+      return !!this.data.damageAIFeatureEnabled
+    }
+    return false
+  },
+
+  isAIEnabledForStep(step) {
+    return this.isAIFeatureEnabledForStep(step)
+      && this.data.aiAvailable
+      && this.data.aiEnabled
+  },
+
   getAIStatusByStep(step) {
+    if (!this.isAIFeatureEnabledForStep(step)) {
+      return ''
+    }
     if (!this.data.aiAvailable || !this.data.aiEnabled) {
       return AUTO_CAPTURE.STATUS_TEXT.unavailable
     }
@@ -890,7 +915,7 @@ Page({
   },
 
   async ensureDetector(step) {
-    if (!this.data.aiAvailable || !this.data.aiEnabled) {
+    if (!this.isAIEnabledForStep(step)) {
       return null
     }
 
@@ -988,6 +1013,14 @@ Page({
     const aiSupportedStep = [constants.SHOOT_STEP.LICENSE_PLATE, constants.SHOOT_STEP.DAMAGE].includes(currentStep)
     const detectionRunning = !!this.detectTimer || this.aiBusy
 
+    this.stopAIDetectionLoop()
+
+    if (!this.isAIFeatureEnabledForStep(currentStep)) {
+      this.stopAIFrameListener(`feature_disabled_${reason}`)
+      this.setData({ aiStatusText: '', aiLocked: false })
+      return
+    }
+
     runtimeLogger.info('ai', 'resume_detection_request', {
       reason,
       currentStep,
@@ -1003,8 +1036,6 @@ Page({
       plateModelLoaded: !!this.plateDetector?.isModelLoaded?.(),
       damageModelLoaded: !!this.damageDetector?.isModelLoaded?.()
     })
-
-    this.stopAIDetectionLoop()
 
     if (!aiSupportedStep || capturePausedByModal || this.isLeaving || !this.cameraInitialized) {
       this.stopAIFrameListener(`resume_skipped_${reason}`)
@@ -1026,7 +1057,11 @@ Page({
   },
 
   resumeAIDetectionAfterStepReady(reason) {
-    this.syncPlateBlink(this.getActiveDistanceHint())
+    if (this.isAIFeatureEnabledForStep(this.data.currentStep)) {
+      this.syncPlateBlink(this.getActiveDistanceHint())
+    } else {
+      this.stopPlateBlink()
+    }
     this.resumeAIDetection(reason)
   },
 
@@ -1039,6 +1074,10 @@ Page({
   },
 
   async triggerAutoCapture(step, aiDetection) {
+    if (!this.isAIEnabledForStep(step)) {
+      return
+    }
+
     const canUseSelectedDamageFrame = step === constants.SHOOT_STEP.DAMAGE && !!aiDetection?.selectedFramePath
 
     if ((!canUseSelectedDamageFrame && (!this.cameraContext || !this.cameraInitialized)) || this.isLeaving) {
@@ -1134,22 +1173,49 @@ Page({
   },
 
   initAICapability() {
-    this.plateFrameChecker = new PlateFrameUtils({
-      minConsecutiveFrames: AUTO_CAPTURE.PLATE.minConsecutiveFrames,
-      minAreaRatio: AUTO_CAPTURE.PLATE.minAreaRatio,
-      maxAreaRatio: AUTO_CAPTURE.PLATE.maxAreaRatio,
-      centerOffsetThreshold: 0.16
-    })
-    this.damageAutoCaptureEngine = new DamageAutoCaptureEngine({
-      config: AUTO_CAPTURE.DAMAGE_FLOW
+    const aiFeatureEnabled = AI_FEATURES.enabled === true
+    const plateAIFeatureEnabled = AI_FEATURES.plateEnabled === true
+    const damageAIFeatureEnabled = AI_FEATURES.damageEnabled === true
+    const canUseInference = typeof wx.createInferenceSession === 'function'
+    const aiEnabled = aiFeatureEnabled && canUseInference
+    const currentStepFeatureEnabled = aiFeatureEnabled && (
+      (this.data.currentStep === constants.SHOOT_STEP.LICENSE_PLATE && plateAIFeatureEnabled)
+      || (this.data.currentStep === constants.SHOOT_STEP.DAMAGE && damageAIFeatureEnabled)
+    )
+
+    this.setData({
+      aiFeatureEnabled,
+      plateAIFeatureEnabled,
+      damageAIFeatureEnabled,
+      aiAvailable: canUseInference,
+      aiEnabled,
+      aiReady: false,
+      aiLoading: false,
+      aiLocked: false,
+      aiStatusText: currentStepFeatureEnabled
+        ? (canUseInference ? AUTO_CAPTURE.STATUS_TEXT.loading : AUTO_CAPTURE.STATUS_TEXT.unavailable)
+        : ''
     })
 
-    const canUseInference = typeof wx.createInferenceSession === 'function'
-    this.setData({
-      aiAvailable: canUseInference,
-      aiEnabled: canUseInference,
-      aiStatusText: canUseInference ? AUTO_CAPTURE.STATUS_TEXT.loading : AUTO_CAPTURE.STATUS_TEXT.unavailable
-    })
+    if (!aiFeatureEnabled) {
+      return
+    }
+
+    if (plateAIFeatureEnabled) {
+      this.plateFrameChecker = new PlateFrameUtils({
+        minConsecutiveFrames: AUTO_CAPTURE.PLATE.minConsecutiveFrames,
+        minAreaRatio: AUTO_CAPTURE.PLATE.minAreaRatio,
+        maxAreaRatio: AUTO_CAPTURE.PLATE.maxAreaRatio,
+        centerOffsetThreshold: 0.16
+      })
+    }
+
+    if (damageAIFeatureEnabled) {
+      this.damageAutoCaptureEngine = new DamageAutoCaptureEngine({
+        config: AUTO_CAPTURE.DAMAGE_FLOW
+      })
+    }
+
     runtimeLogger.info('ai', 'capability_ready', { canUseInference })
     if (!canUseInference) {
       this.reportAiUnavailable('inference_api_unavailable', {
@@ -1393,22 +1459,28 @@ Page({
     this.stopPlateBlink()
     this.aiCooldownUntil = 0
     this.aiBusy = false
-      this.setData({
-        aiLocked: false,
-        aiStatusText: this.data.aiEnabled && this.data.aiAvailable ? '' : AUTO_CAPTURE.STATUS_TEXT.unavailable,
-        plateFrameState: 'normal',
-        plateDistanceHint: '',
-        damageDistanceHint: '',
-        plateBlinkFrame: 'a',
-        damageFrameState: 'normal',
-        damageAreaRatioText: '',
-        damagePhaseLabel: this.data.currentStep === constants.SHOOT_STEP.DAMAGE
+    const aiFeatureEnabledForStep = this.isAIFeatureEnabledForStep(this.data.currentStep)
+    this.setData({
+      aiLocked: false,
+      aiStatusText: aiFeatureEnabledForStep && (!this.data.aiEnabled || !this.data.aiAvailable)
+        ? AUTO_CAPTURE.STATUS_TEXT.unavailable
+        : '',
+      plateFrameState: 'normal',
+      plateDistanceHint: '',
+      damageDistanceHint: '',
+      plateBlinkFrame: 'a',
+      damageFrameState: 'normal',
+      damageAreaRatioText: '',
+      damagePhaseLabel: aiFeatureEnabledForStep && this.data.currentStep === constants.SHOOT_STEP.DAMAGE
         ? this.getDamagePhaseLabel({ phase: 'SEEK' })
         : ''
-      })
+    })
   },
 
   startAIFrameListener(reason = 'manual') {
+    if (!this.isAIEnabledForStep(this.data.currentStep)) {
+      return false
+    }
     if (!this.cameraContext || typeof this.cameraContext.onCameraFrame !== 'function') {
       return false
     }
@@ -1649,6 +1721,11 @@ Page({
 
   startAIDetectionLoop(step) {
     this.stopAIDetectionLoop()
+
+    if (!this.isAIFeatureEnabledForStep(step)) {
+      this.setData({ aiStatusText: '', aiLocked: false })
+      return
+    }
 
     if (!this.data.aiAvailable || !this.data.aiEnabled || !this.cameraContext || !this.cameraInitialized) {
       this.setData({ aiStatusText: this.getAIStatusByStep(step) || AUTO_CAPTURE.STATUS_TEXT.unavailable })

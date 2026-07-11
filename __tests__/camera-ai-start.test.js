@@ -10,10 +10,19 @@ describe('camera AI detection start timing', () => {
   let runtimeLogger
   let PlateDetector
   let DamageDetector
+  let PlateFrameUtils
+  let DamageAutoCaptureEngine
+  let aiFeatureConfig
 
-  function loadCameraPage() {
+  function loadCameraPage(options = {}) {
     jest.resetModules()
     pageConfig = null
+    aiFeatureConfig = {
+      enabled: false,
+      plateEnabled: true,
+      damageEnabled: true,
+      ...(options.aiFeatureConfig || {})
+    }
 
     constants = {
       SHOOT_STEP: {
@@ -143,6 +152,14 @@ describe('camera AI detection start timing', () => {
       this.isModelLoaded = jest.fn(() => true)
       this.load = jest.fn(() => Promise.resolve(true))
     })
+    PlateFrameUtils = jest.fn(function PlateFrameUtilsMock() {
+      this.reset = jest.fn()
+      this.check = jest.fn()
+    })
+    DamageAutoCaptureEngine = jest.fn(function DamageAutoCaptureEngineMock() {
+      this.reset = jest.fn()
+      this.shouldRunDetector = jest.fn(() => true)
+    })
 
     global.wx = {
       hideLoading: jest.fn(),
@@ -192,7 +209,7 @@ describe('camera AI detection start timing', () => {
     jest.doMock('../packageD/utils/plate-detector', () => PlateDetector)
     jest.doMock('../packageD/utils/damage-detector', () => DamageDetector)
     jest.doMock('../packageD/utils/frame-utils', () => ({
-      PlateFrameUtils: jest.fn(),
+      PlateFrameUtils,
       createVirtualCameraMapping: jest.fn(() => ({
         sourceWidth: 400,
         sourceHeight: 300,
@@ -208,8 +225,9 @@ describe('camera AI detection start timing', () => {
         offsetY: 0
       }))
     }))
-    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
+    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => DamageAutoCaptureEngine)
     jest.doMock('../packageD/utils/ai-config', () => ({
+      AI_FEATURES: aiFeatureConfig,
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3,
         DETECT_INTERVAL: 100,
@@ -272,6 +290,9 @@ describe('camera AI detection start timing', () => {
         cameraMounted: true,
         showConfirmModal: false,
         pendingPhoto: null,
+        aiFeatureEnabled: aiFeatureConfig.enabled,
+        plateAIFeatureEnabled: aiFeatureConfig.plateEnabled,
+        damageAIFeatureEnabled: aiFeatureConfig.damageEnabled,
         aiEnabled: true,
         aiAvailable: true
       },
@@ -294,6 +315,9 @@ describe('camera AI detection start timing', () => {
         }
       },
       getDamagePhaseLabel: pageConfig.getDamagePhaseLabel,
+      isAIFeatureEnabledForStep: pageConfig.isAIFeatureEnabledForStep,
+      isAIEnabledForStep: pageConfig.isAIEnabledForStep,
+      getAIStatusByStep: pageConfig.getAIStatusByStep,
       getAIFrameBytes: pageConfig.getAIFrameBytes,
       convertAIFrameToImagePath: pageConfig.convertAIFrameToImagePath,
       getFeedbackId: pageConfig.getFeedbackId,
@@ -327,6 +351,10 @@ describe('camera AI detection start timing', () => {
       clearCameraRestartTimer: pageConfig.clearCameraRestartTimer,
       mountPendingCamera: pageConfig.mountPendingCamera,
       requestCameraRemountAfterStop: pageConfig.requestCameraRemountAfterStop,
+      resetDamageAutoCaptureStage: pageConfig.resetDamageAutoCaptureStage,
+      cancelPlateHintClear: pageConfig.cancelPlateHintClear,
+      getActiveDistanceHint: pageConfig.getActiveDistanceHint,
+      syncPlateBlink: jest.fn(),
       stopAIDetectionLoop: jest.fn(),
       stopAIFrameListener: jest.fn(),
       stopPlateBlink: jest.fn(),
@@ -639,7 +667,85 @@ describe('camera AI detection start timing', () => {
     expect(instance.stopAIFrameListener).not.toHaveBeenCalled()
   })
 
+  test('AI feature switch disabled keeps plate and damage detection fully manual', async () => {
+    wx.createInferenceSession = jest.fn()
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout')
+    const onCameraFrame = jest.fn()
+    const startAIFrameListener = jest.fn()
+    const instance = createPageInstance({
+      cameraContext: { onCameraFrame },
+      startAIFrameListener,
+      stopAIDetectionLoop: pageConfig.stopAIDetectionLoop,
+      stopAIFrameListener: jest.fn(),
+      stopPlateBlink: jest.fn(),
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        aiStatusText: 'loading',
+        aiReady: true,
+        aiLoading: true,
+        aiLocked: true,
+        aiFeatureEnabled: true,
+        plateAIFeatureEnabled: true,
+        damageAIFeatureEnabled: true,
+        aiAvailable: true,
+        aiEnabled: true
+      }
+    })
+
+    try {
+      pageConfig.initAICapability.call(instance)
+
+      expect(instance.data.aiFeatureEnabled).toBe(false)
+      expect(instance.data.aiAvailable).toBe(true)
+      expect(instance.data.aiEnabled).toBe(false)
+      expect(instance.data.aiStatusText).toBe('')
+      expect(PlateFrameUtils).not.toHaveBeenCalled()
+      expect(DamageAutoCaptureEngine).not.toHaveBeenCalled()
+      expect(runtimeLogger.info).not.toHaveBeenCalledWith('ai', 'capability_ready', expect.any(Object))
+      expect(runtimeLogger.forceError).not.toHaveBeenCalledWith('ai', 'ai_unavailable', expect.any(Object))
+
+      await expect(pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.LICENSE_PLATE)).resolves.toBeNull()
+      await expect(pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.DAMAGE)).resolves.toBeNull()
+      expect(PlateDetector).not.toHaveBeenCalled()
+      expect(DamageDetector).not.toHaveBeenCalled()
+      expect(envConfig.getAiConfig).not.toHaveBeenCalled()
+
+      pageConfig.resumeAIDetection.call(instance, 'feature_switch_test')
+      expect(instance.stopAIFrameListener).toHaveBeenCalledWith('feature_disabled_feature_switch_test')
+      expect(instance.data.aiStatusText).toBe('')
+
+      expect(pageConfig.startAIFrameListener.call(instance, 'disabled_listener')).toBe(false)
+      pageConfig.startAIDetectionLoop.call(instance, constants.SHOOT_STEP.LICENSE_PLATE)
+      expect(startAIFrameListener).not.toHaveBeenCalled()
+      expect(onCameraFrame).not.toHaveBeenCalled()
+      expect(instance.detectTimer).toBeNull()
+      expect(setTimeoutSpy).not.toHaveBeenCalled()
+    } finally {
+      setTimeoutSpy.mockRestore()
+    }
+  })
+
+  test('AI feature switch disabled keeps page copy in manual capture mode', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const aiConfigSource = fs.readFileSync(path.resolve(__dirname, '../packageD/utils/ai-config.js'), 'utf8')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
+
+    expect(aiConfigSource).toContain('const AI_FEATURES = Object.freeze({')
+    expect(aiConfigSource).toContain('enabled: false')
+    expect(aiConfigSource).toContain('plateEnabled: true')
+    expect(aiConfigSource).toContain('damageEnabled: true')
+    expect(cameraWxml).toContain("请对准车损处，点击下方按钮拍照")
+    expect(cameraWxml).toContain("{{aiEnabled && ((currentStep === 'licensePlate' && plateAIFeatureEnabled) || (currentStep === 'damage' && damageAIFeatureEnabled)) ? '手动拍照' : '点击拍照'}}")
+    expect(cameraWxml).toContain('wx:if="{{aiStatusText}}"')
+  })
+
   test('starts and stops camera frame listener for AI preview frames', () => {
+    loadCameraPage({
+      aiFeatureConfig: {
+        enabled: true
+      }
+    })
     let frameHandler = null
     const start = jest.fn(({ success } = {}) => {
       if (success) success()
@@ -860,6 +966,11 @@ describe('camera AI detection start timing', () => {
   })
 
   test('passes fresh aiConfig into detectors instead of frozen model url and path', async () => {
+    loadCameraPage({
+      aiFeatureConfig: {
+        enabled: true
+      }
+    })
     const instance = createPageInstance()
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -914,6 +1025,11 @@ describe('camera AI detection start timing', () => {
   })
 
   test('logs ai config and system info when detector init fails', async () => {
+    loadCameraPage({
+      aiFeatureConfig: {
+        enabled: true
+      }
+    })
     const detectorError = Object.assign(new Error('Download failed with status: 418'), {
       stage: 'download_status',
       modelName: 'plate',
@@ -989,6 +1105,11 @@ describe('camera AI detection start timing', () => {
   })
 
   test('reports AI unavailable when inference API is missing', () => {
+    loadCameraPage({
+      aiFeatureConfig: {
+        enabled: true
+      }
+    })
     const instance = createPageInstance()
 
     pageConfig.initAICapability.call(instance)
@@ -1913,6 +2034,148 @@ describe('camera AI detection start timing', () => {
     expect(storage.saveCache).toHaveBeenCalledWith(cache)
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_license_plate')
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
+  })
+
+  test('manual license plate capture still works while AI is disabled', () => {
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    const instance = createPageInstance({
+      cameraContext: {
+        takePhoto: jest.fn(({ success } = {}) => {
+          success({ tempImagePath: '/tmp/manual-plate.jpg' })
+        })
+      },
+      handlePhoto: jest.fn(),
+      stopAIDetectionLoop: pageConfig.stopAIDetectionLoop,
+      stopAIFrameListener: jest.fn(),
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: false,
+        showDamageCompleteModal: false,
+        showCaptureGuideModal: false,
+        pendingPhoto: null,
+        aiFeatureEnabled: false,
+        plateAIFeatureEnabled: true,
+        damageAIFeatureEnabled: true,
+        aiEnabled: false,
+        aiAvailable: true,
+        aiStatusText: ''
+      }
+    })
+
+    pageConfig.onCapture.call(instance)
+
+    expect(instance.cameraContext.takePhoto).toHaveBeenCalledWith(expect.objectContaining({
+      quality: 'high'
+    }))
+    expect(instance.handlePhoto).toHaveBeenCalledWith('/tmp/manual-plate.jpg', expect.objectContaining({
+      captureMode: 'manual',
+      captureTrigger: 'manual_button',
+      aiDetection: null
+    }))
+    expect(instance.stopAIFrameListener).toHaveBeenCalledWith('manual_capture')
+    expect(instance.data.aiStatusText).toBe('')
+  })
+
+  test('manual damage capture still works through module two and multi vehicle flow while AI is disabled', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = 0
+    cache.currentDamageCount = 0
+    cache.vehicles = [
+      { type: 'target', vehicleRoleName: 'target', damages: [] },
+      { type: 'thirdParty', vehicleRoleName: 'thirdParty', damages: [] }
+    ]
+    const instance = createPageInstance({
+      cameraContext: {
+        takePhoto: jest.fn(({ success } = {}) => {
+          success({ tempImagePath: '/tmp/manual-damage.jpg' })
+        })
+      },
+      handlePhoto: jest.fn(),
+      resetAIState: pageConfig.resetAIState,
+      resumeAIDetectionAfterStepReady: jest.fn(),
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        showDamageCompleteModal: false,
+        showCaptureGuideModal: false,
+        pendingPhoto: null,
+        damageCount: 0,
+        aiFeatureEnabled: false,
+        plateAIFeatureEnabled: true,
+        damageAIFeatureEnabled: true,
+        aiEnabled: false,
+        aiAvailable: true,
+        aiStatusText: ''
+      }
+    })
+
+    pageConfig.onCapture.call(instance)
+    expect(instance.handlePhoto).toHaveBeenCalledWith('/tmp/manual-damage.jpg', expect.objectContaining({
+      captureMode: 'manual',
+      captureTrigger: 'manual_button',
+      aiDetection: null
+    }))
+
+    instance.setData({
+      showConfirmModal: true,
+      pendingPhoto: { compressedPath: '/tmp/manual-damage-confirmed.jpg' }
+    })
+    pageConfig.onConfirmPhoto.call(instance)
+    expect(cache.vehicles[0].damages).toHaveLength(1)
+    expect(cache.vehicles[0].damages[0]).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/manual-damage-confirmed.jpg'
+    }))
+    expect(instance.data.damageCount).toBe(1)
+
+    pageConfig.startModuleTwoDamageCapture.call(instance, cache, 'manual_module_two_start')
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.aiStatusText).toBe('')
+
+    pageConfig.advanceToNextAuxVehicle.call(instance, cache, cacheSelectors.getCurrentFlowContext(cache))
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.aiStatusText).toBe('')
+  })
+
+  test('AI initialization path is still available when feature switch is restored', async () => {
+    loadCameraPage({
+      aiFeatureConfig: {
+        enabled: true
+      }
+    })
+    wx.createInferenceSession = jest.fn()
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        aiFeatureEnabled: true,
+        plateAIFeatureEnabled: true,
+        damageAIFeatureEnabled: true,
+        aiEnabled: false,
+        aiAvailable: false,
+        aiStatusText: ''
+      }
+    })
+
+    pageConfig.initAICapability.call(instance)
+
+    expect(instance.data.aiFeatureEnabled).toBe(true)
+    expect(instance.data.aiAvailable).toBe(true)
+    expect(instance.data.aiEnabled).toBe(true)
+    expect(instance.data.aiStatusText).toBe('loading')
+    expect(PlateFrameUtils).toHaveBeenCalled()
+    expect(DamageAutoCaptureEngine).toHaveBeenCalled()
+    expect(runtimeLogger.info).toHaveBeenCalledWith('ai', 'capability_ready', {
+      canUseInference: true
+    })
+
+    await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.LICENSE_PLATE)
+    await pageConfig.ensureDetector.call(instance, constants.SHOOT_STEP.DAMAGE)
+
+    expect(PlateDetector).toHaveBeenCalledTimes(1)
+    expect(DamageDetector).toHaveBeenCalledTimes(1)
+    expect(envConfig.getAiConfig).toHaveBeenCalled()
   })
 
   test('does not save to album when user retakes pending photo', () => {

@@ -4,6 +4,12 @@
 
 const envConfig = require('./env-config')
 
+const AI_FEATURES = Object.freeze({
+  enabled: false,
+  plateEnabled: true,
+  damageEnabled: true
+})
+
 const resolvedAiConfig = envConfig.getAiConfig()
 const resolvedDebugConfig = envConfig.getDebugConfig()
 
@@ -109,6 +115,7 @@ const AUTO_CAPTURE = {
 }
 
 module.exports = {
+  AI_FEATURES,
   PLATE_MODEL_PATH,
   DAMAGE_MODEL_PATH,
   PLATE_MODEL_URL,
