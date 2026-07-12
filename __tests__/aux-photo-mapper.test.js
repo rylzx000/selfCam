@@ -88,7 +88,7 @@ describe('aux-photo mapper', () => {
       ticket: 'AUX202605220004',
       caseUploadItems: [
         { uploadItemId: 'CASE_SCENE_45', photoType: 'SCENE_45', photoName: '整车45度现场照片', maxCount: 1 },
-        { uploadItemId: 'CASE_SCENE_SUPPLEMENT', photoType: 'SCENE_SUPPLEMENT', photoName: '现场补充照片', maxCount: 2 }
+        { uploadItemId: 'CASE_SCENE_SUPPLEMENT', photoType: 'SCENE_SUPPLEMENT', photoName: '现场补充照片', maxCount: 3 }
       ],
       vehicles: [
         {
@@ -101,7 +101,7 @@ describe('aux-photo mapper', () => {
 
     expect(cache.caseUploadItems).toHaveLength(2)
     expect(cache.caseUploadItemsByPhotoType.SCENE_45.uploadItemId).toBe('CASE_SCENE_45')
-    expect(cache.caseUploadItemsByPhotoType.SCENE_SUPPLEMENT.maxCount).toBe(2)
+    expect(cache.caseUploadItemsByPhotoType.SCENE_SUPPLEMENT.maxCount).toBe(3)
     expect(cache.currentStep).toBe('scene45')
   })
 

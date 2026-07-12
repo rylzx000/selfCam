@@ -26,6 +26,7 @@ const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，�
 const AUX_VEHICLE_LOCKED_TIP = '辅助拍照车辆以后台为准'
 const AUX_UPLOAD_ITEM_MISSING_TIP = '当前任务未下发该证件类型'
 const MODULE_ONE_MISSING_SCENE_TIP = '现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。你也可以继续进入车损照片拍摄。'
+const SCENE_SUPPLEMENT_PROMPT_CONTENT = '是否补充其他现场环境或道路相关损失？\n\n如护栏、灯杆、路牌、路面痕迹等'
 
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
@@ -401,6 +402,15 @@ function isAuxPhotoEnabled(cache) {
   return !!(cache && cache.auxPhoto && cache.auxPhoto.enabled === true)
 }
 
+function isModuleOneMainComplete(moduleOneSummary = {}) {
+  return !!(
+    moduleOneSummary.hasScene45
+    && Array.isArray(moduleOneSummary.vehicles)
+    && moduleOneSummary.vehicles.length > 0
+    && moduleOneSummary.vehicles.every((vehicle) => vehicle.hasLicensePlate && vehicle.hasVinCode)
+  )
+}
+
 Page({
   data: {
     isModuleOnePreview: false,
@@ -414,7 +424,9 @@ Page({
       vehicles: [],
       hasScene45: false,
       supplementCount: 0,
-      remainingSupplementCount: 0
+      remainingSupplementCount: 0,
+      canAddSceneSupplement: true,
+      scenePhotoCount: 0
     },
     vehicles: [],
     documents: [],
@@ -467,6 +479,7 @@ Page({
 
   isLeaving: false,
   isRedirectingToComplete: false,
+  isReturningFromPreviewFlow: false,
   uploadRunnerSessionId: '',
   uploadFlowPromise: null,
   completeFlowPromise: null,
@@ -498,6 +511,7 @@ Page({
   onLoad(options = {}) {
     this.isRedirectingToComplete = false
     this.isLeaving = false
+    this.isReturningFromPreviewFlow = false
     this.applyPreviewMode(options)
     this.updateAppEnvBadge()
     this.updatePreviewLayout('on_load')
@@ -557,6 +571,7 @@ Page({
 
     const cache = storage.loadCacheForResume()
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    this.isReturningFromPreviewFlow = !!(cache && flowContext.fromPreview)
 
     if (cache && flowContext.fromPreview) {
       storage.saveCache(storage.clearPreviewFlags(cache))
@@ -633,6 +648,10 @@ Page({
   loadData() {
     const cache = storage.loadCacheForResume()
     const summary = cacheSelectors.getCacheSummary(cache)
+    const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    const promptFlowContext = this.isReturningFromPreviewFlow
+      ? { ...flowContext, fromPreview: true }
+      : flowContext
 
     if (!cache) {
       this.isLeaving = true
@@ -669,6 +688,68 @@ Page({
     })
 
     this.restoreUploadOverlay(cache)
+    this.showSceneSupplementPromptIfNeeded(cache, summary.moduleOneSummary, promptFlowContext)
+    this.isReturningFromPreviewFlow = false
+  },
+
+  shouldShowSceneSupplementPrompt(cache, moduleOneSummary, flowContext) {
+    return !!(
+      this.data.isModuleOnePreview
+      && cache
+      && cache.sceneSupplementPromptShown !== true
+      && !(flowContext && flowContext.fromPreview)
+      && !(cache.retakeMode && cache.retakeMode.enabled)
+      && isModuleOneMainComplete(moduleOneSummary)
+    )
+  },
+
+  showSceneSupplementPromptIfNeeded(cache, moduleOneSummary, flowContext) {
+    if (!this.shouldShowSceneSupplementPrompt(cache, moduleOneSummary, flowContext)) {
+      return false
+    }
+
+    this.setData({
+      showModal: true,
+      modalContent: SCENE_SUPPLEMENT_PROMPT_CONTENT,
+      modalConfirmText: '去拍摄',
+      modalCancelText: '没有了',
+      modalType: 'sceneSupplementPrompt'
+    })
+    return true
+  },
+
+  markSceneSupplementPromptShown(cache = storage.loadCache()) {
+    if (!cache) {
+      return null
+    }
+
+    cache.sceneSupplementPromptShown = true
+    storage.saveCache(cache)
+    return cache
+  },
+
+  enterSceneSupplementCapture(cache = storage.loadCache()) {
+    if (!cache) {
+      this.isLeaving = true
+      wx.redirectTo({ url: '/packageD/pages/index/index' })
+      return false
+    }
+
+    const supplements = cache.scenePhotos && Array.isArray(cache.scenePhotos.supplements)
+      ? cache.scenePhotos.supplements
+      : []
+    const targetIndex = supplements.length
+
+    if (targetIndex >= constants.LIMITS.MAX_SCENE_SUPPLEMENTS) {
+      wx.showToast({ title: `现场补充照片最多${constants.LIMITS.MAX_SCENE_SUPPLEMENTS}张`, icon: 'none' })
+      return false
+    }
+
+    cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    cache.sceneSupplementIndex = targetIndex
+    cache.fromPreview = true
+    this.goToCameraWithCache(cache)
+    return true
   },
 
   getUploadCurrentItem(session) {
@@ -1877,6 +1958,9 @@ Page({
       await this.saveAlbumCandidatesAndComplete()
     } else if (modalType === 'missingScene45') {
       this.showModuleOneHandoff()
+    } else if (modalType === 'sceneSupplementPrompt') {
+      const cache = this.markSceneSupplementPromptShown()
+      this.enterSceneSupplementCapture(cache)
     }
   },
 
@@ -1893,10 +1977,15 @@ Page({
       cache.currentStep = constants.SHOOT_STEP.SCENE_45
       cache.fromPreview = true
       this.goToCameraWithCache(cache)
+    } else if (modalType === 'sceneSupplementPrompt') {
+      this.markSceneSupplementPromptShown()
     }
   },
 
   onModalMaskTap() {
+    if (this.data.modalType === 'sceneSupplementPrompt') {
+      this.markSceneSupplementPromptShown()
+    }
     this.setData({ showModal: false })
   },
 

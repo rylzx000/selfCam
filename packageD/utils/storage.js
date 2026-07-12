@@ -1,4 +1,5 @@
 const schema = require('./storage-schema')
+const constants = require('./constants')
 const vehicleDocuments = require('./documents')
 
 const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
@@ -294,11 +295,14 @@ function saveScenePhoto(sceneType, photo, supplementIndex = null) {
       ? supplementIndex
       : cache.scenePhotos.supplements.length
 
-    if (targetIndex < 0 || targetIndex >= 2) {
+    if (targetIndex < 0 || targetIndex >= constants.LIMITS.MAX_SCENE_SUPPLEMENTS) {
       return null
     }
 
-    if (targetIndex >= cache.scenePhotos.supplements.length && cache.scenePhotos.supplements.length >= 2) {
+    if (
+      targetIndex >= cache.scenePhotos.supplements.length
+      && cache.scenePhotos.supplements.length >= constants.LIMITS.MAX_SCENE_SUPPLEMENTS
+    ) {
       return null
     }
 

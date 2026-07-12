@@ -87,6 +87,10 @@ describe('storage cache governance', () => {
       compressedPath: '/scene-supplement-3.jpg',
       localPhotoId: 'scene-supplement-3'
     })
+    const supplement4 = storage.saveScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, {
+      compressedPath: '/scene-supplement-4.jpg',
+      localPhotoId: 'scene-supplement-4'
+    })
 
     let savedCache = storage.loadCache()
     expect(scene45).toEqual(expect.objectContaining({
@@ -102,14 +106,18 @@ describe('storage cache governance', () => {
       compressedPath: '/scene-supplement-2.jpg',
       sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
     }))
-    expect(supplement3).toBeNull()
+    expect(supplement3).toEqual(expect.objectContaining({
+      compressedPath: '/scene-supplement-3.jpg',
+      sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
+    }))
+    expect(supplement4).toBeNull()
     expect(savedCache.scenePhotos.scene45.compressedPath).toBe('/scene-45.jpg')
     expect(savedCache.scenePhotos.supplements).toHaveLength(constants.LIMITS.MAX_SCENE_SUPPLEMENTS)
     expect(savedCache.vehicles[0].damages).toHaveLength(1)
 
     expect(storage.deleteScenePhoto(constants.SCENE_PHOTO_TYPE.SUPPLEMENT, 0)).toBe(true)
     savedCache = storage.loadCache()
-    expect(savedCache.scenePhotos.supplements).toHaveLength(1)
+    expect(savedCache.scenePhotos.supplements).toHaveLength(2)
     expect(savedCache.scenePhotos.supplements[0].compressedPath).toBe('/scene-supplement-2.jpg')
     expect(savedCache.vehicles[0].damages).toHaveLength(1)
   })

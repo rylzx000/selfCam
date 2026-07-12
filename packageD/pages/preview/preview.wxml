@@ -76,7 +76,7 @@
       <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
         <view class="vehicle-title-wrap">
           <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">一、现场环境及车辆信息</text>
-          <text class="vehicle-tag" style="{{previewLayout.vehicleTagStyle}}">现场补充 {{moduleOneSummary.supplementCount}} / 2</text>
+          <text class="vehicle-tag" style="{{previewLayout.vehicleTagStyle}}">现场补充 {{moduleOneSummary.supplementCount}} / 3</text>
         </view>
       </view>
       <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">

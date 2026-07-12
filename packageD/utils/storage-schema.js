@@ -196,6 +196,7 @@ function createCache() {
     albumSaveSummary: buildDefaultAlbumSaveSummary(),
     uploadSession: buildDefaultUploadSession(),
     fromPreview: false,
+    sceneSupplementPromptShown: false,
     createdAt: timestamp,
     updatedAt: timestamp
   }
@@ -1193,6 +1194,10 @@ function validateCache(cache) {
     issues.push('documents_invalid')
   }
 
+  if (typeof cache.sceneSupplementPromptShown !== 'boolean') {
+    issues.push('scene_supplement_prompt_shown_invalid')
+  }
+
   if (Array.isArray(cache.documents) && cache.documents.some((document) => !isPlainObject(document))) {
     issues.push('documents_invalid')
   }
@@ -1356,9 +1361,16 @@ function repairCache(cache) {
   const albumSaveSummary = sanitizeAlbumSaveSummary(migrated.albumSaveSummary, tracker)
   const uploadSession = sanitizeUploadSession(migrated.uploadSession, tracker)
   const fromPreview = typeof migrated.fromPreview === 'boolean' ? migrated.fromPreview : false
+  const sceneSupplementPromptShown = typeof migrated.sceneSupplementPromptShown === 'boolean'
+    ? migrated.sceneSupplementPromptShown
+    : false
 
   if (typeof migrated.fromPreview !== 'boolean') {
     markIssue(tracker, 'from_preview_invalid')
+  }
+
+  if (typeof migrated.sceneSupplementPromptShown !== 'boolean') {
+    markIssue(tracker, 'scene_supplement_prompt_shown_invalid')
   }
 
   const repairedCache = {
@@ -1376,6 +1388,7 @@ function repairCache(cache) {
     albumSaveSummary,
     uploadSession,
     fromPreview,
+    sceneSupplementPromptShown,
     createdAt,
     updatedAt
   }

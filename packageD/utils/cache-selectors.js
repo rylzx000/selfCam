@@ -360,7 +360,7 @@ function getModuleOneSummary(cache) {
     {
       key: constants.SCENE_PHOTO_TYPE.SCENE_45,
       sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45,
-      label: '现场照片',
+      label: '整车45度',
       completed: sceneSummary.hasScene45,
       photo: sceneSummary.hasScene45 ? sceneSummary.scene45 : null
     }
@@ -375,18 +375,22 @@ function getModuleOneSummary(cache) {
       key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:${index}`,
       sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
       supplementIndex: index,
-      label: '补充照片',
+      label: '现场照片（可选）',
       completed: true,
       photo
     })
   })
 
-  if (sceneSummary.supplementCount < constants.LIMITS.MAX_SCENE_SUPPLEMENTS) {
+  for (
+    let index = sceneSummary.supplements.length;
+    index < constants.LIMITS.MAX_SCENE_SUPPLEMENTS;
+    index += 1
+  ) {
     sceneSlots.push({
-      key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:${sceneSummary.supplements.length}`,
+      key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:${index}`,
       sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
-      supplementIndex: sceneSummary.supplements.length,
-      label: '补充照片',
+      supplementIndex: index,
+      label: '现场照片（可选）',
       completed: false,
       photo: null
     })

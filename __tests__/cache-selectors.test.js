@@ -95,7 +95,7 @@ describe('cache selectors', () => {
     expect(summary.sceneSummary).toEqual(expect.objectContaining({
       hasScene45: true,
       supplementCount: 1,
-      remainingSupplementCount: 1
+      remainingSupplementCount: 2
     }))
     expect(summary.allPhotos.slice(0, 2).map((photo) => photo.type)).toEqual([
       constants.PHOTO_TYPE.SCENE_45,
@@ -144,13 +144,23 @@ describe('cache selectors', () => {
     expect(moduleOneSummary.sceneSlots).toEqual([
       expect.objectContaining({
         key: constants.SCENE_PHOTO_TYPE.SCENE_45,
-        label: '现场照片',
+        label: '整车45度',
         completed: true,
         photo: expect.objectContaining({ compressedPath: '/scene-45.jpg' })
       }),
       expect.objectContaining({
         key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:0`,
-        label: '补充照片',
+        label: '现场照片（可选）',
+        completed: false
+      }),
+      expect.objectContaining({
+        key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:1`,
+        label: '现场照片（可选）',
+        completed: false
+      }),
+      expect.objectContaining({
+        key: `${constants.SCENE_PHOTO_TYPE.SUPPLEMENT}:2`,
+        label: '现场照片（可选）',
         completed: false
       })
     ])

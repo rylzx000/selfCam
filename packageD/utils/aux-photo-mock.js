@@ -1,4 +1,6 @@
 const PHOTO_TYPES = {
+  SCENE_45: 'SCENE_45',
+  SCENE_SUPPLEMENT: 'SCENE_SUPPLEMENT',
   LICENSE_PLATE: 'LICENSE_PLATE',
   VIN: 'VIN',
   DAMAGE: 'DAMAGE',
@@ -93,6 +95,10 @@ function buildMockInitResponse(ticket) {
       ticketStatus: 'OPENED',
       registNo: 'MOCK_REGIST_NO',
       expireTime: '2099-12-31 23:59:59',
+      caseUploadItems: [
+        buildUploadItem('MOCK_CASE', PHOTO_TYPES.SCENE_45, '整车45度现场照片', 1, true),
+        buildUploadItem('MOCK_CASE', PHOTO_TYPES.SCENE_SUPPLEMENT, '现场补充照片', 3, false)
+      ],
       vehicles: MOCK_VEHICLES.slice(0, vehicleCount).map(buildMockVehicle)
     }
   }

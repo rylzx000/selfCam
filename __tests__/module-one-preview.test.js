@@ -78,6 +78,7 @@ describe('module one preview flow', () => {
         compressedPath: `/scene-supplement-${index + 1}.jpg`
       })
     }
+    cache.sceneSupplementPromptShown = true
     return cache
   }
 
@@ -161,10 +162,12 @@ describe('module one preview flow', () => {
 
     expect(page.data.isModuleOnePreview).toBe(true)
     expect(page.data.pageTitle).toBe('现场环境及车辆信息')
-    expect(page.data.moduleOneSummary.sceneSlots).toHaveLength(2)
+    expect(page.data.moduleOneSummary.sceneSlots).toHaveLength(4)
     expect(page.data.moduleOneSummary.sceneSlots.map((slot) => slot.label)).toEqual([
-      '现场照片',
-      '补充照片'
+      '整车45度',
+      '现场照片（可选）',
+      '现场照片（可选）',
+      '现场照片（可选）'
     ])
     expect(page.data.moduleOneSummary.vehicles[0]).toEqual(expect.objectContaining({
       displayName: '标的车 京A12345',
@@ -270,7 +273,7 @@ describe('module one preview flow', () => {
     }))
   })
 
-  test('hides module one scene supplement button after two supplements', () => {
+  test('hides module one scene supplement button after three supplements', () => {
     const noSupplementPage = loadPreviewPageWithCache(buildModuleOneCache({ withScene45: true }), { mode: 'moduleOne' })
     expect(noSupplementPage.data.moduleOneSummary.canAddSceneSupplement).toBe(true)
 
@@ -279,11 +282,11 @@ describe('module one preview flow', () => {
       { mode: 'moduleOne' }
     )
     expect(oneSupplementPage.data.moduleOneSummary.canAddSceneSupplement).toBe(true)
-    expect(oneSupplementPage.data.moduleOneSummary.sceneSlots).toHaveLength(3)
-    expect(oneSupplementPage.data.moduleOneSummary.sceneSlots.filter((slot) => !slot.completed)).toHaveLength(1)
+    expect(oneSupplementPage.data.moduleOneSummary.sceneSlots).toHaveLength(4)
+    expect(oneSupplementPage.data.moduleOneSummary.sceneSlots.filter((slot) => !slot.completed)).toHaveLength(2)
 
     const fullSupplementPage = loadPreviewPageWithCache(
-      buildModuleOneCache({ withScene45: true, supplementCount: 2 }),
+      buildModuleOneCache({ withScene45: true, supplementCount: 3 }),
       { mode: 'moduleOne' }
     )
     expect(fullSupplementPage.data.moduleOneSummary.canAddSceneSupplement).toBe(false)
@@ -292,6 +295,72 @@ describe('module one preview flow', () => {
     const supplementButtonMatch = wxml.match(/<view[^>]*bindtap="onTapModuleOneSceneSlot"[^>]*>补充现场照片<\/view>/)
     expect(supplementButtonMatch).not.toBeNull()
     expect(supplementButtonMatch[0]).toContain('wx:if="{{moduleOneSummary.canAddSceneSupplement}}"')
+  })
+
+  test('shows scene supplement prompt first time module one main flow is complete', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.sceneSupplementPromptShown = false
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleOne' })
+
+    expect(page.data.showModal).toBe(true)
+    expect(page.data.modalType).toBe('sceneSupplementPrompt')
+    expect(page.data.modalContent).toContain('是否补充其他现场环境或道路相关损失？')
+    expect(page.data.modalContent).toContain('如护栏、灯杆、路牌、路面痕迹等')
+    expect(page.data.modalConfirmText).toBe('去拍摄')
+    expect(page.data.modalCancelText).toBe('没有了')
+  })
+
+  test('scene supplement prompt cancel writes one-time flag and stays on preview', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.sceneSupplementPromptShown = false
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleOne' })
+
+    page.onModalCancel()
+
+    const updatedCache = storage.loadCache()
+    expect(updatedCache.sceneSupplementPromptShown).toBe(true)
+    expect(updatedCache.currentStep).not.toBe(constants.SHOOT_STEP.SCENE_SUPPLEMENT)
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+  })
+
+  test('scene supplement prompt confirm writes flag and enters first supplement slot', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.sceneSupplementPromptShown = false
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleOne' })
+
+    page.onModalConfirm()
+
+    const updatedCache = storage.loadCache()
+    expect(updatedCache.sceneSupplementPromptShown).toBe(true)
+    expect(updatedCache.currentStep).toBe(constants.SHOOT_STEP.SCENE_SUPPLEMENT)
+    expect(updatedCache.sceneSupplementIndex).toBe(0)
+    expect(updatedCache.fromPreview).toBe(true)
+    expect(updatedCache.previewReturnMode).toBe('moduleOne')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test('does not show scene supplement prompt after returning from supplement capture', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.sceneSupplementPromptShown = true
+    cache.fromPreview = true
+    cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleOne' })
+
+    expect(page.data.showModal).toBe(false)
+    expect(page.data.modalType).toBe('')
+  })
+
+  test('does not show scene supplement prompt when scene 45 is missing', () => {
+    const cache = buildModuleOneCache({ withScene45: false })
+    cache.sceneSupplementPromptShown = false
+
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleOne' })
+
+    expect(page.data.showModal).toBe(false)
+    expect(page.data.modalType).toBe('')
   })
 
   test('uses explicit module one mode even when cache step has already advanced', () => {
@@ -360,6 +429,29 @@ describe('module one preview flow', () => {
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/camera/camera'
     }))
+  })
+
+  test('blocks fourth scene supplement capture and keeps user on preview', () => {
+    const page = loadPreviewPageWithCache(
+      buildModuleOneCache({ withScene45: true, supplementCount: 3 }),
+      { mode: 'moduleOne' }
+    )
+
+    page.onTapModuleOneSceneSlot({
+      currentTarget: {
+        dataset: {
+          sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT,
+          supplementIndex: 3,
+          completed: false
+        }
+      }
+    })
+
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: '现场补充照片最多3张',
+      icon: 'none'
+    })
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
   })
 
   test('opens completed scene photo in fullscreen preview instead of routing to camera', () => {
@@ -432,6 +524,7 @@ describe('module one preview flow', () => {
 
     expect(page.data.isModuleOnePreview).toBe(false)
     expect(page.data.moduleOneSummary.sceneSlots.filter((slot) => slot.completed)).toHaveLength(2)
+    expect(page.data.moduleOneSummary.canAddSceneSupplement).toBe(true)
     expect(page.data.allPhotos.slice(0, 2).map((photo) => photo.id)).toEqual([
       'scene-45',
       'scene-supplement-0'
@@ -439,7 +532,26 @@ describe('module one preview flow', () => {
 
     const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
     expect(wxml).toContain('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+    expect(wxml).toContain('现场补充 {{moduleOneSummary.supplementCount}} / 3')
     expect(wxml).toContain('现场环境')
+  })
+
+  test('final preview supports three completed scene supplement photos', () => {
+    const cache = buildModuleOneCache({ withScene45: true, supplementCount: 3 })
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
+
+    const page = loadPreviewPageWithCache(cache, { mode: 'final' })
+
+    expect(page.data.isFinalPreview).toBe(true)
+    expect(page.data.moduleOneSummary.supplementCount).toBe(3)
+    expect(page.data.moduleOneSummary.canAddSceneSupplement).toBe(false)
+    expect(page.data.moduleOneSummary.sceneSlots.filter((slot) => slot.completed)).toHaveLength(4)
+    expect(page.data.allPhotos.slice(0, 4).map((photo) => photo.id)).toEqual([
+      'scene-45',
+      'scene-supplement-0',
+      'scene-supplement-1',
+      'scene-supplement-2'
+    ])
   })
 
   test('module three document area renders flat vehicle cards', () => {

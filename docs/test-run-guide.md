@@ -176,6 +176,8 @@ wx.setStorageSync('SELF_CAM_AUX_PHOTO_HOST', 'http://127.0.0.1:8787')
 - `__tests__/workflow-state.test.js`
 - `__tests__/storage.test.js`
 - `__tests__/cache-selectors.test.js`
+- `__tests__/module-one-preview.test.js`
+- `__tests__/aux-photo-mapper.test.js`
 - `__tests__/damage-capture-modules.test.js`
 
 ### 微信开发者工具页面自动化
