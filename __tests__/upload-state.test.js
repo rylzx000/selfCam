@@ -106,6 +106,82 @@ describe('upload state', () => {
     }))
   })
 
+  test('builds case-level scene45 upload item without vehicleId', () => {
+    const cache = createAuxCache()
+    cache.caseUploadItems = [
+      { uploadItemId: 'CASE_SCENE_45', photoType: 'SCENE_45', photoName: '现场45度', maxCount: 1 }
+    ]
+    cache.caseUploadItemsByPhotoType = {
+      SCENE_45: cache.caseUploadItems[0]
+    }
+    cache.scenePhotos.scene45 = {
+      status: 'completed',
+      compressedPath: '/tmp/scene45.jpg',
+      localPhotoId: 'scene45-id',
+      compressedSize: 99
+    }
+
+    const items = uploadState.buildUploadItems(cache)
+    const scene45Item = items.find((item) => item.photoType === 'SCENE_45')
+
+    expect(scene45Item).toEqual(expect.objectContaining({
+      id: 'case-scene45',
+      clientPhotoId: 'scene45-id',
+      uploadItemId: 'CASE_SCENE_45',
+      sortNo: 1,
+      filePath: '/tmp/scene45.jpg',
+      label: '现场45度照片'
+    }))
+    expect(scene45Item).not.toHaveProperty('vehicleId')
+  })
+
+  test('builds up to three case-level scene supplement upload items with sortNo', () => {
+    const cache = createAuxCache()
+    cache.caseUploadItems = [
+      { uploadItemId: 'CASE_SCENE_SUPPLEMENT', photoType: 'SCENE_SUPPLEMENT', photoName: '现场补充', maxCount: 3 }
+    ]
+    cache.caseUploadItemsByPhotoType = {
+      SCENE_SUPPLEMENT: cache.caseUploadItems[0]
+    }
+    cache.scenePhotos.supplements = [1, 2, 3, 4].map((index) => ({
+      status: 'completed',
+      compressedPath: '/tmp/scene-supplement-' + index + '.jpg',
+      localPhotoId: 'scene-supplement-' + index,
+      compressedSize: 80 + index
+    }))
+
+    const items = uploadState.buildUploadItems(cache)
+    const supplementItems = items.filter((item) => item.photoType === 'SCENE_SUPPLEMENT')
+
+    expect(supplementItems).toHaveLength(3)
+    expect(supplementItems.map((item) => item.sortNo)).toEqual([1, 2, 3])
+    expect(supplementItems.map((item) => item.uploadItemId)).toEqual([
+      'CASE_SCENE_SUPPLEMENT',
+      'CASE_SCENE_SUPPLEMENT',
+      'CASE_SCENE_SUPPLEMENT'
+    ])
+    supplementItems.forEach((item) => {
+      expect(item).not.toHaveProperty('vehicleId')
+    })
+  })
+
+  test('throws explicit error when caseUploadItems are missing for scene photos', () => {
+    const cache = createAuxCache()
+    cache.scenePhotos.scene45 = {
+      status: 'completed',
+      compressedPath: '/tmp/scene45.jpg',
+      localPhotoId: 'scene45-id'
+    }
+
+    expect(() => uploadState.buildUploadItems(cache)).toThrow('案件级拍照项未下发，请联系后台配置。')
+    try {
+      uploadState.buildUploadItems(cache)
+    } catch (error) {
+      expect(error.code).toBe('AUX_CASE_UPLOAD_ITEM_MISSING')
+      expect(error.message).toBe('案件级拍照项未下发，请联系后台配置。')
+    }
+  })
+
   test('marks a fail-once mock item successful after retry without reuploading successful items', () => {
     const session = uploadState.createUploadSession(createAuxCache(), {
       now: '2026-05-25T00:00:00.000Z'

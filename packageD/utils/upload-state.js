@@ -24,6 +24,16 @@ const COMPLETE_STATUS = {
   FAILED: 'failed'
 }
 
+const CASE_PHOTO_TYPES = {
+  SCENE_45: 'SCENE_45',
+  SCENE_SUPPLEMENT: 'SCENE_SUPPLEMENT'
+}
+
+const CASE_UPLOAD_ITEM_MISSING_ERROR = {
+  code: 'AUX_CASE_UPLOAD_ITEM_MISSING',
+  message: '案件级拍照项未下发，请联系后台配置。'
+}
+
 const MOCK_ERROR = {
   code: 'MOCK_UPLOAD_FAILED',
   message: '模拟上传失败'
@@ -86,6 +96,32 @@ function getUploadItem(vehicle, photoType) {
   return null
 }
 
+function getCaseUploadItem(cache, photoType) {
+  if (!cache || !photoType) {
+    return null
+  }
+
+  if (
+    isPlainObject(cache.caseUploadItemsByPhotoType)
+    && isPlainObject(cache.caseUploadItemsByPhotoType[photoType])
+  ) {
+    return cache.caseUploadItemsByPhotoType[photoType]
+  }
+
+  if (Array.isArray(cache.caseUploadItems)) {
+    return cache.caseUploadItems.find((item) => item && item.photoType === photoType) || null
+  }
+
+  return null
+}
+
+function createCaseUploadItemMissingError(photoType) {
+  const error = new Error(CASE_UPLOAD_ITEM_MISSING_ERROR.message)
+  error.code = CASE_UPLOAD_ITEM_MISSING_ERROR.code
+  error.photoType = photoType
+  return error
+}
+
 function getClientPhotoId(photo, fallbackId) {
   return sanitizeString(photo && photo.localPhotoId, fallbackId)
 }
@@ -98,7 +134,8 @@ function buildUploadItem({
   photoType,
   sortNo,
   label,
-  uploadItemId
+  uploadItemId,
+  caseLevel = false
 }) {
   const filePath = getPhotoFilePath(photo)
 
@@ -106,13 +143,9 @@ function buildUploadItem({
     return null
   }
 
-  const vehicleId = getVehicleId(vehicle, vehicleIndex)
-
-  return {
+  const item = {
     id,
     clientPhotoId: getClientPhotoId(photo, id),
-    vehicleIndex,
-    vehicleId,
     uploadItemId: sanitizeString(uploadItemId),
     photoType,
     sortNo,
@@ -132,6 +165,13 @@ function buildUploadItem({
     lastErrorCode: '',
     lastErrorMessage: ''
   }
+
+  if (!caseLevel) {
+    item.vehicleIndex = vehicleIndex
+    item.vehicleId = getVehicleId(vehicle, vehicleIndex)
+  }
+
+  return item
 }
 
 function pushVehiclePhoto(result, vehicle, vehicleIndex, slotName, photo, photoType, labelSuffix) {
@@ -204,9 +244,61 @@ function pushVehicleDocuments(result, vehicle, vehicleIndex) {
   })
 }
 
+function pushCasePhoto(result, cache, slotName, photo, photoType, sortNo, label) {
+  if (!photo || photo.status !== 'completed' || !getPhotoFilePath(photo)) {
+    return
+  }
+
+  const uploadItem = getCaseUploadItem(cache, photoType)
+  if (!uploadItem || !sanitizeString(uploadItem.uploadItemId)) {
+    throw createCaseUploadItemMissingError(photoType)
+  }
+
+  result.push(buildUploadItem({
+    id: 'case-' + slotName,
+    photo,
+    vehicle: null,
+    vehicleIndex: null,
+    photoType,
+    sortNo,
+    label,
+    uploadItemId: uploadItem.uploadItemId,
+    caseLevel: true
+  }))
+}
+
+function pushCaseScenePhotos(result, cache) {
+  const scenePhotos = isPlainObject(cache && cache.scenePhotos) ? cache.scenePhotos : {}
+
+  pushCasePhoto(
+    result,
+    cache,
+    'scene45',
+    scenePhotos.scene45,
+    CASE_PHOTO_TYPES.SCENE_45,
+    1,
+    '现场45度照片'
+  )
+
+  const supplements = Array.isArray(scenePhotos.supplements) ? scenePhotos.supplements : []
+  supplements.slice(0, constants.LIMITS.MAX_SCENE_SUPPLEMENTS).forEach((photo, index) => {
+    pushCasePhoto(
+      result,
+      cache,
+      'scene-supplement-' + index,
+      photo,
+      CASE_PHOTO_TYPES.SCENE_SUPPLEMENT,
+      index + 1,
+      '现场补充照片' + (index + 1)
+    )
+  })
+}
+
 function buildUploadItems(cache) {
   const result = []
   const vehicles = Array.isArray(cache && cache.vehicles) ? cache.vehicles : []
+
+  pushCaseScenePhotos(result, cache)
 
   vehicles.forEach((vehicle, vehicleIndex) => {
     pushVehiclePhoto(result, vehicle, vehicleIndex, 'licensePlate', vehicle.licensePlate, 'LICENSE_PLATE', '车牌')
@@ -553,6 +645,8 @@ module.exports = {
   UPLOAD_PHASE,
   UPLOAD_ITEM_STATUS,
   COMPLETE_STATUS,
+  CASE_PHOTO_TYPES,
+  CASE_UPLOAD_ITEM_MISSING_ERROR,
   buildUploadItems,
   createUploadSession,
   getNextUploadItem,

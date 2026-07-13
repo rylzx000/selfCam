@@ -4,6 +4,33 @@
 
 ---
 
+## [v1.5.3] - 2026-07-13
+
+### 新增
+
+- 接入初始化接口下发的案件级拍照项 `caseUploadItems[]`，支持现场 45 度和最多 3 张现场补充照片进入最终统一上传队列。
+- 案件级拍照项缺失时返回 `AUX_CASE_UPLOAD_ITEM_MISSING`，提示联系后台配置。
+
+### 调整
+
+- 案件级 `SCENE_45`、`SCENE_SUPPLEMENT` 上传请求体不再包含 `vehicleId`；车辆级照片继续校验并传递 `vehicleId`。
+- 旧 `document` 页面不再创建上传会话或触发旧上传，误入后跳转新流程最终预览页。
+- 保持 init、uploadPhotoBase64、complete 接口路径及逐张上传方式不变。
+
+### 文档
+
+- 更新辅助拍照接口对接文档，补充案件级与车辆级上传边界。
+- 新增 `integrate-case-level-upload-items` OpenSpec change、技术设计和实施计划。
+
+### 测试
+
+- 补充案件级上传队列、补充照片排序、请求体 `vehicleId` 差异、配置缺失错误和旧 document 页入口测试。
+- 已通过 4 个相关 Jest 测试文件共 36 个测试、JS 语法检查、OpenSpec strict validation 和 `git diff --check`。
+
+### 版本
+
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.5.3`。
+
 ## [v1.5.2] - 2026-07-11
 
 ### 调整

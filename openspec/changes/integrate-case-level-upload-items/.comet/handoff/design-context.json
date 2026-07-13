@@ -1,0 +1,14 @@
+{
+  "change": "integrate-case-level-upload-items",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "edef792c143c6f63f488bb8ff807d9e816b64eb1496b1b0ad705a095fbf8ff47",
+  "files": [
+    { "path": "openspec/changes/integrate-case-level-upload-items/proposal.md", "sha256": "8cf744ed5f0977d377c85a2b7b5c21485c747787656337fe8caff2d513f0a924" },
+    { "path": "openspec/changes/integrate-case-level-upload-items/design.md", "sha256": "8fc97047e42bb59f6564b2a27d4454cc6f7b99f41c3ad6a5f60b33f450aac5f8" },
+    { "path": "openspec/changes/integrate-case-level-upload-items/tasks.md", "sha256": "ba5ca72f7d613dbad3fb85129f54af98cf362fd3d6fbcf3aadc56656136f2267" },
+    { "path": "openspec/changes/integrate-case-level-upload-items/specs/backend-integration/spec.md", "sha256": "cd443235962cbc5120ecf194c3a845dcfe9b010405e243ec44379291f572a3a1" }
+  ]
+}

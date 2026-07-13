@@ -94,7 +94,7 @@ describe('aux-photo api', () => {
       timeout: 5000,
       data: {
         ticket: 'AUX_REAL_001',
-        clientVersion: '1.5.1'
+        clientVersion: '1.5.3'
       }
     }))
   })
@@ -204,6 +204,124 @@ describe('aux-photo api', () => {
         fileName: 'damage-2.jpg',
         fileBase64: 'BASE64_IMAGE_DATA'
       })
+    }))
+  })
+
+  test('uploads case-level scene photo without vehicleId in request body', async () => {
+    const readFile = jest.fn(({ success }) => {
+      success({ data: 'BASE64_SCENE_IMAGE' })
+    })
+    global.wx = {
+      getFileSystemManager: jest.fn(() => ({
+        readFile
+      })),
+      request: jest.fn(({ success }) => {
+        success({
+          statusCode: 200,
+          data: {
+            success: true,
+            code: '0000',
+            message: '图片上传成功',
+            data: {
+              uploadRecordId: 'AUP_SCENE_001',
+              photoId: 'DOC_SCENE_001',
+              uploadItemId: 'CASE_SCENE_45',
+              photoType: 'SCENE_45',
+              duplicate: false,
+              itemUploadedCount: 1,
+              ticketStatus: 'UPLOADING'
+            }
+          }
+        })
+      })
+    }
+    const api = loadApi({
+      wxEnvVersion: 'develop',
+      envVersion: 'develop',
+      appEnv: 'dev',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'http://127.0.0.1:8787',
+      requestTimeoutMs: 5000
+    })
+
+    await api.uploadPhoto({
+      clientPhotoId: 'scene45-local-id',
+      uploadItemId: 'CASE_SCENE_45',
+      photoType: 'SCENE_45',
+      sortNo: 1,
+      filePath: 'wxfile://tmp/scene45.jpg',
+      fileSize: 1024
+    }, {
+      ticket: 'AUX_REAL_001'
+    })
+
+    const requestPayload = global.wx.request.mock.calls[0][0].data
+    expect(requestPayload).toEqual(expect.objectContaining({
+      ticket: 'AUX_REAL_001',
+      clientPhotoId: 'scene45-local-id',
+      uploadItemId: 'CASE_SCENE_45',
+      photoType: 'SCENE_45',
+      sortNo: 1,
+      fileName: 'scene45.jpg',
+      fileBase64: 'BASE64_SCENE_IMAGE'
+    }))
+    expect(requestPayload).not.toHaveProperty('vehicleId')
+  })
+
+  test('keeps vehicle-level upload vehicleId validation', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.uploadPhoto({
+      clientPhotoId: 'damage-local-id',
+      uploadItemId: 'LOSS_VEHICLE_100001_DAMAGE',
+      photoType: 'DAMAGE',
+      sortNo: 2,
+      filePath: 'wxfile://tmp/damage-2.jpg',
+      fileSize: 2048
+    }, {
+      ticket: 'AUX_REAL_001'
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_PHOTO_UPLOAD_PARAM_INVALID'
+    }))
+  })
+
+  test('returns explicit error when case-level uploadItemId is missing', async () => {
+    global.wx = {
+      request: jest.fn()
+    }
+    const api = loadApi({
+      wxEnvVersion: 'trial',
+      envVersion: 'trial',
+      appEnv: 'sit',
+      mockEnabled: true,
+      requestEnabled: true,
+      baseUrl: 'https://onlineclaim.example.com',
+      requestTimeoutMs: 5000
+    })
+
+    await expect(api.uploadPhoto({
+      clientPhotoId: 'scene45-local-id',
+      photoType: 'SCENE_45',
+      sortNo: 1,
+      filePath: 'wxfile://tmp/scene45.jpg',
+      fileSize: 1024
+    }, {
+      ticket: 'AUX_REAL_001'
+    })).rejects.toEqual(expect.objectContaining({
+      code: 'AUX_CASE_UPLOAD_ITEM_MISSING',
+      message: '案件级拍照项未下发，请联系后台配置。'
     }))
   })
 

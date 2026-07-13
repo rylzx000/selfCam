@@ -91,23 +91,33 @@ describe('document page upload entry', () => {
     delete global.Page
   })
 
-  test('starts cached upload session and returns to preview instead of complete page', () => {
+  test('blocks legacy document submit without creating upload session', () => {
+    const uploadStateMock = {
+      createUploadSession: jest.fn()
+    }
+    jest.doMock('../packageD/utils/upload-state', () => uploadStateMock)
     const cache = storage.initCache()
     cache.vehicles.push(completeVehicle(0))
     cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    cache.uploadSession = {
+      sessionId: 'legacy-session',
+      phase: 'uploading'
+    }
     storage.saveCache(cache)
     const page = loadDocumentPage()
 
     page.onSubmit()
 
     const savedCache = storage.loadCache()
-    expect(savedCache.uploadSession).toEqual(expect.objectContaining({
-      phase: 'uploading',
-      total: 3
-    }))
-    expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(uploadStateMock.createUploadSession).not.toHaveBeenCalled()
+    expect(savedCache.uploadSession).toBeNull()
+    expect(savedCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(global.wx.showToast).toHaveBeenCalledWith({
+      title: '请在最终预览页提交',
+      icon: 'none'
+    })
     expect(global.wx.redirectTo).toHaveBeenCalledWith({
-      url: '/packageD/pages/preview/preview'
+      url: '/packageD/pages/preview/preview?mode=final'
     })
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({
       url: '/packageD/pages/complete/complete'

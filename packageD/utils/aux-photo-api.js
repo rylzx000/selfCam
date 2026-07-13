@@ -1,10 +1,15 @@
 const envConfig = require('./env-config')
 const auxPhotoMock = require('./aux-photo-mock')
 
-const CLIENT_VERSION = '1.5.2'
+const CLIENT_VERSION = '1.5.3'
 const INIT_PATH = '/onlineclaim/AuxPhotoService/init'
 const UPLOAD_PHOTO_BASE64_PATH = '/onlineclaim/AuxPhotoService/uploadPhotoBase64'
 const COMPLETE_PATH = '/onlineclaim/AuxPhotoService/complete'
+const CASE_PHOTO_TYPES = ['SCENE_45', 'SCENE_SUPPLEMENT']
+const CASE_UPLOAD_ITEM_MISSING_ERROR = {
+  code: 'AUX_CASE_UPLOAD_ITEM_MISSING',
+  message: '案件级拍照项未下发，请联系后台配置。'
+}
 
 function sanitizeTicket(ticket) {
   if (typeof ticket !== 'string') {
@@ -70,6 +75,10 @@ function sanitizeString(value, fallback = '', maxLength = 512) {
 
   const trimmed = value.trim()
   return trimmed ? trimmed.slice(0, maxLength) : fallback
+}
+
+function isCaseLevelPhotoType(photoType) {
+  return CASE_PHOTO_TYPES.indexOf(photoType) >= 0
 }
 
 function parseResponseData(data) {
@@ -168,13 +177,15 @@ function getFileType(fileName = '') {
 
 function buildUploadMetadata(item = {}, ticket = '') {
   const fileName = getFileName(item.filePath, `${sanitizeString(item.clientPhotoId || item.id, 'photo')}.jpg`)
+  const photoType = sanitizeString(item.photoType, '')
 
   return {
     ticket,
     clientPhotoId: sanitizeString(item.clientPhotoId || item.id, ''),
     vehicleId: sanitizeString(item.vehicleId, ''),
     uploadItemId: sanitizeString(item.uploadItemId, ''),
-    photoType: sanitizeString(item.photoType, ''),
+    photoType,
+    caseLevel: isCaseLevelPhotoType(photoType),
     fileName,
     fileType: getFileType(fileName),
     fileSize: Number.isFinite(item.fileSize) ? Math.round(item.fileSize) : 0,
@@ -227,13 +238,16 @@ function readFileBase64(filePath) {
 function buildUploadBase64Payload(metadata, fileBase64) {
   const payload = {
     ticket: metadata.ticket,
-    vehicleId: metadata.vehicleId,
     uploadItemId: metadata.uploadItemId,
     photoType: metadata.photoType,
     clientPhotoId: metadata.clientPhotoId,
     sortNo: metadata.sortNo,
     fileName: metadata.fileName,
     fileBase64
+  }
+
+  if (!metadata.caseLevel) {
+    payload.vehicleId = metadata.vehicleId
   }
 
   if (metadata.fileHash) {
@@ -322,7 +336,23 @@ function requestUploadPhoto(item, ticket, config) {
   }
 
   const metadata = buildUploadMetadata(item, ticket)
-  if (!metadata.ticket || !metadata.vehicleId || !metadata.uploadItemId || !metadata.photoType || !item.filePath) {
+  if (metadata.caseLevel && !metadata.uploadItemId) {
+    const errorPayload = buildError(
+      CASE_UPLOAD_ITEM_MISSING_ERROR.code,
+      CASE_UPLOAD_ITEM_MISSING_ERROR.message
+    )
+    logApiRequestFailed('uploadPhotoBase64', errorPayload, { stage: 'before_request' }, ticket)
+    return Promise.reject(errorPayload)
+  }
+
+  const vehicleIdRequired = !metadata.caseLevel
+  if (
+    !metadata.ticket
+    || (vehicleIdRequired && !metadata.vehicleId)
+    || !metadata.uploadItemId
+    || !metadata.photoType
+    || !item.filePath
+  ) {
     const errorPayload = buildError(
       'AUX_PHOTO_UPLOAD_PARAM_INVALID',
       '图片上传参数不完整'
