@@ -437,18 +437,19 @@
     }
 
     .side-guide-entry {
-      width: 76px;
-      height: 46px;
-      border: 1px solid rgba(31, 143, 95, .16);
-      border-radius: 8px;
-      padding: 5px 6px;
-      background: rgba(255,255,255,.7);
-      color: #1f2b24;
+      width: 96px;
+      min-height: 29px;
+      border: 1px solid rgba(31, 43, 36, .12);
+      border-radius: 7px;
+      padding: 3px 6px;
+      background: rgba(255, 255, 255, .48);
+      color: rgba(31, 43, 36, .76);
       display: grid;
-      grid-template-rows: 20px 1fr;
-      gap: 2px;
-      place-items: center;
-      text-align: center;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 5px;
+      align-items: center;
+      justify-items: start;
+      text-align: left;
       cursor: pointer;
       font-family: inherit;
       appearance: none;
@@ -457,70 +458,86 @@
     }
 
     .side-guide-entry:hover {
-      border-color: rgba(31, 143, 95, .34);
-      background: #fff;
+      border-color: rgba(31, 143, 95, .22);
+      background: rgba(255,255,255,.62);
+      color: #27362d;
+    }
+
+    .side-guide-entry:active {
+      border-color: rgba(31, 143, 95, .28);
+      background: rgba(232, 245, 238, .7);
+      transform: translateY(1px);
     }
 
     .side-guide-icon {
-      width: 28px;
-      height: 20px;
-      border-radius: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
       display: grid;
       place-items: center;
-      background: rgba(31, 143, 95, .1);
+      background: rgba(31, 143, 95, .07);
       overflow: hidden;
     }
 
     .side-guide-entry .mini-scene-car,
     .side-guide-entry .mini-damage-steps {
-      width: 24px;
-      height: 17px;
+      width: 15px;
+      height: 12px;
     }
 
     .side-guide-entry .mini-scene-car::before {
-      left: 3px;
+      left: 2px;
       right: 3px;
-      top: 7px;
-      height: 8px;
-      border-color: rgba(31, 143, 95, .9);
-      border-width: 1.5px;
+      top: 5px;
+      height: 6px;
+      border-color: rgba(15, 107, 69, .72);
+      border-width: 1px;
     }
 
     .side-guide-entry .mini-scene-car::after {
-      right: 1px;
+      right: 0;
       top: 1px;
-      width: 11px;
-      height: 11px;
-      border-color: rgba(31, 143, 95, .9);
-      border-width: 1.5px;
+      width: 9px;
+      height: 9px;
+      border-color: rgba(15, 107, 69, .72);
+      border-width: 1px;
     }
 
     .side-guide-entry .mini-damage-steps {
-      gap: 3px;
+      gap: 2px;
     }
 
     .side-guide-entry .mini-damage-steps i {
-      border-color: rgba(31, 143, 95, .75);
-      background: rgba(255, 214, 116, .52);
+      border-color: rgba(15, 107, 69, .32);
+      background: rgba(31, 143, 95, .12);
     }
 
-    .side-guide-entry .mini-damage-steps i:nth-child(1) { height: 10px; }
-    .side-guide-entry .mini-damage-steps i:nth-child(2) { height: 14px; }
-    .side-guide-entry .mini-damage-steps i:nth-child(3) { height: 18px; }
+    .side-guide-entry .mini-damage-steps i:nth-child(1) { height: 6px; }
+    .side-guide-entry .mini-damage-steps i:nth-child(2) { height: 9px; }
+    .side-guide-entry .mini-damage-steps i:nth-child(3) { height: 12px; }
 
     .side-guide-copy {
       min-width: 0;
       display: grid;
+      gap: 1px;
     }
 
     .side-guide-title {
-      color: #1f2b24;
+      color: #27362d;
       font-size: 10px;
       line-height: 12px;
-      font-weight: 800;
+      font-weight: 680;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .side-guide-sub {
+      color: rgba(31, 43, 36, .48);
+      font-size: 8px;
+      line-height: 10px;
+      font-weight: 640;
+      white-space: nowrap;
     }
 
     .preview-btn,
@@ -1774,6 +1791,7 @@
         upload: null,
         sceneGuideSeen: false,
         damageGuideSeen: false,
+        sceneSupplementPromptShown: false,
         pendingGuide: null
       };
 
@@ -1865,6 +1883,10 @@
         return;
       }
       render();
+    }
+
+    function isModuleOneMainComplete() {
+      return !!state.scenePhoto && state.vehicles.every(vehicle => vehicle.platePhoto && vehicle.vinPhoto);
     }
 
     function takePhoto() {
@@ -2069,6 +2091,20 @@
           <div class="modal-actions">
             <button class="btn" data-action="viewDamagePreview">查看已拍照片</button>
             <button class="btn primary" data-action="captureNextDamage" data-vehicle-index="${vehicleIndex + 1}">拍摄下一辆车</button>
+          </div>
+        </div>`;
+      modal.classList.add('show');
+    }
+
+    function showSceneSupplementPrompt() {
+      modal.innerHTML = `
+        <div class="modal-card">
+          <h3>补充现场信息</h3>
+          <p>是否还有其他环境信息或道路相关损失需要拍摄？</p>
+          <p>如护栏、灯杆、路牌、路面痕迹等，可补充拍摄。</p>
+          <div class="modal-actions">
+            <button class="btn" data-action="skipSceneSupplementPrompt">没有了</button>
+            <button class="btn primary" data-action="captureSceneSupplementPrompt">去拍摄</button>
           </div>
         </div>`;
       modal.classList.add('show');
@@ -2304,7 +2340,8 @@
           <button class="side-guide-entry" data-action="openCaptureGuide" data-guide="damage" aria-label="查看车损照片拍摄指引">
             <span class="side-guide-icon"><span class="mini-damage-steps"><i></i><i></i><i></i></span></span>
             <span class="side-guide-copy">
-              <span class="side-guide-title">远 / 中 / 近</span>
+              <span class="side-guide-title">拍摄指引</span>
+              <span class="side-guide-sub">远 / 中 / 近</span>
             </span>
           </button>`;
       }
@@ -2312,7 +2349,8 @@
         <button class="side-guide-entry" data-action="openCaptureGuide" data-guide="scene" aria-label="查看现场照片拍摄指引">
           <span class="side-guide-icon"><span class="mini-scene-car"></span></span>
           <span class="side-guide-copy">
-            <span class="side-guide-title">45度示意</span>
+            <span class="side-guide-title">拍摄指引</span>
+            <span class="side-guide-sub">45度</span>
           </span>
         </button>`;
     }
@@ -2388,8 +2426,8 @@
           <div class="section-title">环境照片 <small>现场照片 + 可选补充</small></div>
           <div class="strip">
             ${photoTile(state.scenePhoto, '现场照片', () => `data-open="scene"`, () => `data-capture="scene"`)}
-            ${state.supplements.map((p, i) => photoTile(p, p.label, () => `data-open="supplement:${i}"`)).join('')}
-            ${state.supplements.length < 2 ? photoTile(null, '补充照片', null, () => `data-capture="supplement"`) : ''}
+            ${state.supplements.map((p, i) => photoTile(p, '补充照片', () => `data-open="supplement:${i}"`)).join('')}
+            ${Array.from({ length: Math.max(3 - state.supplements.length, 0) }, () => photoTile(null, '+', null, () => `data-capture="supplement"`)).join('')}
           </div>
         </div>`;
       const vehicles = state.vehicles.map((v, i) => `
@@ -2404,9 +2442,10 @@
         CONFIG.titles.moduleOne,
         '',
         `<div class="stack">${env}<div><div class="section-title">车辆信息 <small>同车横向展示</small></div><div class="grid-2">${vehicles}</div></div></div>`,
-        `<button class="btn" data-capture="supplement">补充现场照片</button><button class="btn primary" data-stage="moduleOne">${CONFIG.buttons.moduleTwo}</button>`,
+        `${state.supplements.length < 3 ? '<button class="btn" data-capture="supplement">补充现场照片</button>' : ''}<button class="btn primary" data-stage="moduleOne">${CONFIG.buttons.moduleTwo}</button>`,
         `<span class="chip">第 1 步 / 共 3 步</span><span class="chip">${state.vehicles.length} 辆车</span>`
       );
+      if (isModuleOneMainComplete() && !state.sceneSupplementPromptShown) showSceneSupplementPrompt();
     }
 
     function renderModuleTwoPreview() {
@@ -2460,7 +2499,7 @@
           <div class="section-title">一、现场环境及车辆信息 <small>${state.scenePhoto ? '已拍现场' : '缺现场照片'}</small></div>
           <div class="strip">
             ${photoTile(state.scenePhoto, '现场照片', () => `data-open="scene"`, () => `data-capture="scene"`)}
-            ${state.supplements.map((p, i) => photoTile(p, p.label, () => `data-open="supplement:${i}"`)).join('')}
+            ${state.supplements.map((p, i) => photoTile(p, '补充照片', () => `data-open="supplement:${i}"`)).join('')}
           </div>
           <div class="grid-2" style="margin-top:8px;">${state.vehicles.map((v, i) => `
             <div class="vehicle-card">
@@ -2673,6 +2712,15 @@
         return closeModal();
       }
       if (action === 'openCaptureGuide') return showCaptureGuide(el.dataset.guide, false);
+      if (action === 'skipSceneSupplementPrompt') {
+        state.sceneSupplementPromptShown = true;
+        return closeModal();
+      }
+      if (action === 'captureSceneSupplementPrompt') {
+        state.sceneSupplementPromptShown = true;
+        closeModal();
+        return startCapture('supplement', null, 'moduleOnePreview');
+      }
       if (action === 'retakePending') {
         state.pendingPhoto = null;
         return render();
@@ -2709,6 +2757,7 @@
       }
       if (action === 'autoModuleOne') {
         fillModuleOne();
+        state.sceneSupplementPromptShown = true;
         state.page = 'moduleOnePreview';
         return render();
       }

@@ -2010,6 +2010,19 @@ describe('camera AI detection start timing', () => {
     expect(wxml).toContain("currentStep === 'sceneSupplement'")
   })
 
+  test('camera side capture guide entry keeps weak pill structure and scoped visibility', () => {
+    const wxml = require('fs').readFileSync('packageD/pages/camera/camera.wxml', 'utf8')
+
+    expect(wxml).toContain('class="side-guide-entry"')
+    expect(wxml).toContain('bindtap="onOpenCaptureGuide"')
+    expect(wxml).toContain("wx:if=\"{{currentStep === 'scene45' || currentStep === 'damage'}}\"")
+    expect(wxml).toContain("data-guide=\"{{currentStep === 'damage' ? 'damage' : 'scene45'}}\"")
+    expect(wxml).toContain('class="side-guide-main">拍摄指引</text>')
+    expect(wxml).toContain("class=\"side-guide-tag\">{{currentStep === 'damage' ? '远 / 中 / 近' : '45度'}}")
+    expect(wxml).toContain('class="mini-scene-car"')
+    expect(wxml).toContain('class="mini-damage-steps"')
+  })
+
   test('continues confirmation without saving confirmed photo to album', async () => {
     cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
     const instance = createPageInstance({

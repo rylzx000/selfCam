@@ -251,43 +251,44 @@ page {
 }
 
 .side-guide-entry {
-  width: 76px;
-  height: 46px;
-  border: 1px solid rgba(31, 143, 95, 0.16);
-  border-radius: 8px;
-  padding: 5px 6px;
-  background: rgba(255, 255, 255, 0.7);
+  width: 88px;
+  min-height: 29px;
+  border: 1px solid rgba(31, 43, 36, 0.12);
+  border-radius: 7px;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.66);
   color: #1f2b24;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  text-align: center;
+  justify-content: flex-start;
+  gap: 5px;
+  text-align: left;
   box-sizing: border-box;
 }
 
 .side-guide-entry:active {
-  border-color: rgba(31, 143, 95, 0.34);
-  background: #FFFFFF;
-  transform: scale(0.98);
+  border-color: rgba(31, 143, 95, 0.28);
+  background: rgba(232, 245, 238, 0.7);
+  transform: translateY(1px);
 }
 
 .side-guide-icon {
-  width: 28px;
-  height: 20px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(31, 143, 95, 0.1);
+  flex: 0 0 18px;
+  background: rgba(31, 143, 95, 0.07);
   overflow: hidden;
 }
 
 .mini-scene-car,
 .mini-damage-steps {
-  width: 24px;
-  height: 17px;
+  width: 16px;
+  height: 12px;
 }
 
 .mini-scene-car {
@@ -297,12 +298,12 @@ page {
 .mini-scene-car::before {
   content: "";
   position: absolute;
-  left: 3px;
+  left: 2px;
   right: 3px;
-  top: 7px;
-  height: 8px;
-  border: 1.5px solid rgba(31, 143, 95, 0.9);
-  border-radius: 4px;
+  top: 5px;
+  height: 6px;
+  border: 1px solid rgba(15, 107, 69, 0.72);
+  border-radius: 3px;
   box-sizing: border-box;
 }
 
@@ -311,9 +312,9 @@ page {
   position: absolute;
   right: 1px;
   top: 1px;
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid rgba(31, 143, 95, 0.9);
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(15, 107, 69, 0.72);
   border-radius: 50%;
   box-sizing: border-box;
 }
@@ -322,41 +323,53 @@ page {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .mini-damage-steps view {
-  width: 5px;
-  border: 1px solid rgba(31, 143, 95, 0.75);
-  border-radius: 3px;
-  background: rgba(255, 214, 116, 0.52);
+  width: 4px;
+  border: 1px solid rgba(15, 107, 69, 0.56);
+  border-radius: 2px;
+  background: rgba(31, 143, 95, 0.09);
   box-sizing: border-box;
 }
 
 .mini-damage-steps view:nth-child(1) {
-  height: 10px;
+  height: 7px;
 }
 
 .mini-damage-steps view:nth-child(2) {
-  height: 14px;
+  height: 10px;
 }
 
 .mini-damage-steps view:nth-child(3) {
-  height: 18px;
+  height: 12px;
 }
 
 .side-guide-copy {
   min-width: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
 }
 
-.side-guide-title {
-  color: #1f2b24;
+.side-guide-main {
+  display: block;
+  color: #27362d;
   font-size: 10px;
   line-height: 12px;
-  font-weight: 800;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.side-guide-tag {
+  display: block;
+  margin-top: 1px;
+  color: rgba(31, 43, 36, 0.48);
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 640;
   white-space: nowrap;
 }
 
