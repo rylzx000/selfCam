@@ -72,7 +72,7 @@
       </scroll-view>
     </view>
 
-    <view wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
+    <view wx:if="{{isFinalPreview}}" class="module-one-section final-group" style="{{previewLayout.vehicleSectionStyle}}">
       <view class="vehicle-header" style="{{previewLayout.vehicleHeaderStyle}}">
         <view class="vehicle-title-wrap">
           <text class="vehicle-title" style="{{previewLayout.vehicleTitleStyle}}">一、现场环境及车辆信息</text>
@@ -80,21 +80,21 @@
         </view>
       </view>
       <view class="photo-grid" style="{{previewLayout.photoGridStyle}}">
-        <block wx:for="{{moduleOneSummary.sceneSlots}}" wx:key="key">
-          <view wx:if="{{item.completed}}"
-                class="photo-item"
-                style="{{previewLayout.photoItemStyle}}"
-                bindtap="onTapModuleOneSceneSlot"
-                data-scene-type="{{item.sceneType}}"
-                data-supplement-index="{{item.supplementIndex}}"
-                data-completed="{{item.completed}}">
-            <view class="thumb" style="{{previewLayout.thumbStyle}}">
-              <image src="{{item.photo.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
-              <view class="check" style="{{previewLayout.checkStyle}}">✓</view>
-            </view>
-            <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{item.label}}</text>
+        <view wx:for="{{moduleOneSummary.sceneSlots}}"
+              wx:key="key"
+              class="photo-item"
+              style="{{previewLayout.photoItemStyle}}"
+              bindtap="onTapModuleOneSceneSlot"
+              data-scene-type="{{item.sceneType}}"
+              data-supplement-index="{{item.supplementIndex}}"
+              data-completed="{{item.completed}}">
+          <view class="thumb {{item.completed ? '' : 'empty-thumb'}}" style="{{previewLayout.thumbStyle}}">
+            <image wx:if="{{item.completed}}" src="{{item.photo.compressedPath}}" mode="aspectFill" style="{{previewLayout.thumbImageStyle}}"></image>
+            <text wx:else class="plus" style="{{previewLayout.plusStyle}}">+</text>
+            <view wx:if="{{item.completed}}" class="check" style="{{previewLayout.checkStyle}}">✓</view>
           </view>
-        </block>
+          <text class="photo-label" style="{{previewLayout.photoLabelStyle}}">{{item.label}}</text>
+        </view>
       </view>
     </view>
 

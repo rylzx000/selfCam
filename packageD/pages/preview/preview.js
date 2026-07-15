@@ -1648,6 +1648,8 @@ Page({
       return
     }
 
+    const previewReturnMode = getCurrentPreviewReturnMode(this.data)
+
     if (photo.sceneType) {
       if (photo.sceneType === constants.SCENE_PHOTO_TYPE.SCENE_45) {
         cache.currentStep = constants.SHOOT_STEP.SCENE_45
@@ -1658,6 +1660,9 @@ Page({
       }
       delete cache.retakeMode
       cache.fromPreview = true
+      if (previewReturnMode) {
+        cache.previewReturnMode = previewReturnMode
+      }
       storage.saveCache(cache)
       this.isLeaving = true
       wx.navigateTo({ url: '/packageD/pages/camera/camera' })
@@ -1677,6 +1682,9 @@ Page({
       damageIndex: photo.damage
     }
     cache.fromPreview = true
+    if (previewReturnMode) {
+      cache.previewReturnMode = previewReturnMode
+    }
     storage.saveCache(cache)
     this.isLeaving = true
     wx.navigateTo({ url: '/packageD/pages/camera/camera' })

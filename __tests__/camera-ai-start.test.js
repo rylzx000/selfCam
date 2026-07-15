@@ -32,6 +32,8 @@ describe('camera AI detection start timing', () => {
         VIN_CODE: 'vinCode',
         DAMAGE: 'damage',
         MODULE_ONE_PREVIEW: 'moduleOnePreview',
+        MODULE_THREE: 'moduleThree',
+        FINAL_PREVIEW: 'finalPreview',
         PREVIEW: 'preview'
       },
       PHOTO_TYPE: {
@@ -56,6 +58,7 @@ describe('camera AI detection start timing', () => {
         TARGET: 'target'
       },
       LIMITS: {
+        MAX_SCENE_SUPPLEMENTS: 3,
         MAX_DAMAGES: 10
       }
     }
@@ -80,6 +83,7 @@ describe('camera AI detection start timing', () => {
         fromPreview: false
       })),
       isRetakeMode: jest.fn(() => false),
+      saveRetakenPhoto: jest.fn(() => true),
       normalizePhotoMeta: jest.fn((photo, meta) => ({
         ...photo,
         ...meta
@@ -1199,6 +1203,177 @@ describe('camera AI detection start timing', () => {
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('confirm_scene_45')
   })
 
+  test('module one scene 45 preview recapture returns to module one preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.fromPreview = true
+    cache.previewReturnMode = 'moduleOne'
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/scene-45-retake.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.scenePhotos.scene45).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/scene-45-retake.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+    expect(instance.data.currentStep).not.toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalledWith('confirm_scene_45')
+  })
+
+  test('final preview scene 45 recapture returns to final preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.fromPreview = true
+    cache.previewReturnMode = 'final'
+    cache.scenePhotos = {
+      scene45: { status: 'pending' },
+      supplements: []
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_45,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/final-scene-45.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.scenePhotos.scene45).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/final-scene-45.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+    expect(global.wx.navigateTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+  })
+
+  test('final preview scene supplement recapture returns to final preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    cache.fromPreview = true
+    cache.previewReturnMode = 'final'
+    cache.sceneSupplementIndex = 0
+    cache.scenePhotos = {
+      scene45: { status: 'completed', compressedPath: '/tmp/scene-45.jpg' },
+      supplements: [{ status: 'completed', compressedPath: '/tmp/old-supplement.jpg' }]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.SCENE_SUPPLEMENT,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/final-scene-supplement.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.scenePhotos.supplements[0]).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/final-scene-supplement.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+    expect(global.wx.navigateTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+  })
+
+  test('final preview license plate recapture returns to final preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    cache.fromPreview = true
+    cache.previewReturnMode = 'final'
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/final-plate.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.vehicles[0].licensePlate).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/final-plate.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+    expect(global.wx.navigateTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+  })
+
+  test('final preview VIN recapture returns to final preview', () => {
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.fromPreview = true
+    cache.previewReturnMode = 'final'
+    cache.vehicles[0].licensePlate = {
+      status: 'completed',
+      compressedPath: '/tmp/final-plate.jpg'
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.VIN_CODE,
+        showConfirmModal: true,
+        pendingPhoto: {
+          compressedPath: '/tmp/final-vin.jpg'
+        },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.vehicles[0].vinCode).toEqual(expect.objectContaining({
+      compressedPath: '/tmp/final-vin.jpg',
+      status: 'completed'
+    }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+    expect(global.wx.navigateTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    }))
+  })
+
   test('module two entry starts damage capture without returning to license plate or VIN', () => {
     cache.currentStep = constants.SHOOT_STEP.DAMAGE
     cache.currentVehicleIndex = 0
@@ -1875,7 +2050,7 @@ describe('camera AI detection start timing', () => {
       status: 'completed'
     }))
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
-    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/preview/preview?mode=moduleOne'
     }))
     expect(instance.data.currentStep).not.toBe(constants.SHOOT_STEP.DAMAGE)
@@ -1982,12 +2157,45 @@ describe('camera AI detection start timing', () => {
 
   test('preview return mode keeps final preview after damage supplement', () => {
     cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.fromPreview = true
     cache.previewReturnMode = 'final'
     const instance = createPageInstance()
 
     pageConfig.navigateToPreviewPage.call(instance, cache)
 
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=final'
+    }))
+  })
+
+  test('retake mode navigateBack fallback keeps final preview return mode', () => {
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.fromPreview = true
+    cache.previewReturnMode = 'final'
+    cache.retakeMode = {
+      enabled: true,
+      vehicleIndex: 0,
+      photoType: constants.PHOTO_TYPE.DAMAGE,
+      damageIndex: 0
+    }
+    storage.isRetakeMode.mockReturnValue(true)
+    global.wx.navigateBack.mockImplementationOnce(({ fail } = {}) => {
+      if (fail) fail({ errMsg: 'navigateBack:fail' })
+    })
+    const instance = createPageInstance()
+
+    pageConfig.savePhoto.call(instance, {
+      compressedPath: '/tmp/final-retake-damage.jpg'
+    })
+
+    expect(storage.saveRetakenPhoto).toHaveBeenCalledWith(expect.objectContaining({
+      compressedPath: '/tmp/final-retake-damage.jpg'
+    }))
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      fromPreview: false,
+      previewReturnMode: 'final'
+    }))
+    expect(global.wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/preview/preview?mode=final'
     }))
   })

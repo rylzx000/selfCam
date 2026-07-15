@@ -181,7 +181,7 @@ describe('module one preview flow', () => {
     const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
     const moduleOnePreviewMarkup = wxml.slice(
       wxml.indexOf('wx:if="{{isModuleOnePreview}}"'),
-      wxml.indexOf('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+      wxml.indexOf('一、现场环境及车辆信息')
     )
 
     expect(moduleOnePreviewMarkup).toContain('环境照片')
@@ -493,7 +493,53 @@ describe('module one preview flow', () => {
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.SCENE_SUPPLEMENT)
     expect(cache.sceneSupplementIndex).toBe(0)
     expect(cache.fromPreview).toBe(true)
+    expect(cache.previewReturnMode).toBe('moduleOne')
     expect(cache.retakeMode && cache.retakeMode.enabled).toBe(false)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test('final preview retakes completed scene photo with final return mode', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
+    const page = loadPreviewPageWithCache(cache, { mode: 'final' })
+
+    page.setData({
+      currentPhoto: page.data.allPhotos.find((photo) => photo.id === 'scene-45')
+    })
+    page.onRetake()
+
+    const updatedCache = storage.loadCache()
+    expect(updatedCache.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
+    expect(updatedCache.fromPreview).toBe(true)
+    expect(updatedCache.previewReturnMode).toBe('final')
+    expect(updatedCache.retakeMode && updatedCache.retakeMode.enabled).toBe(false)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test('final preview retakes completed vehicle photo with final return mode', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
+    const page = loadPreviewPageWithCache(cache, { mode: 'final' })
+
+    page.setData({
+      currentPhoto: page.data.allPhotos.find((photo) => photo.id === '0-licensePlate')
+    })
+    page.onRetake()
+
+    const updatedCache = storage.loadCache()
+    expect(updatedCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(updatedCache.currentVehicleIndex).toBe(0)
+    expect(updatedCache.fromPreview).toBe(true)
+    expect(updatedCache.previewReturnMode).toBe('final')
+    expect(updatedCache.retakeMode).toEqual(expect.objectContaining({
+      enabled: true,
+      vehicleIndex: 0,
+      photoType: constants.PHOTO_TYPE.LICENSE_PLATE
+    }))
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/camera/camera'
     }))
@@ -531,7 +577,9 @@ describe('module one preview flow', () => {
     ])
 
     const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
-    expect(wxml).toContain('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+    expect(wxml).not.toContain('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+    expect(wxml).toContain('wx:if="{{isFinalPreview}}" class="module-one-section final-group"')
+    expect(wxml).toContain("{{item.completed ? '' : 'empty-thumb'}}")
     expect(wxml).toContain('现场补充 {{moduleOneSummary.supplementCount}} / 3')
     expect(wxml).toContain('现场环境')
   })
@@ -607,7 +655,9 @@ describe('module one preview flow', () => {
     ])
 
     const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
-    expect(wxml).toContain('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+    expect(wxml).not.toContain('wx:if="{{isFinalPreview && moduleOneSummary.scenePhotoCount > 0}}"')
+    expect(wxml).toContain('wx:if="{{isFinalPreview}}" class="module-one-section final-group"')
+    expect(wxml).toContain("{{item.completed ? '' : 'empty-thumb'}}")
     expect(wxml).toContain('wx:if="{{!isModuleTwoPreview && !isFinalPreview && item.licensePlate.status === \'completed\'}}"')
     expect(wxml).toContain('wx:if="{{!isModuleTwoPreview && !isFinalPreview && item.vinCode.status === \'completed\'}}"')
     expect(wxml).not.toContain('item.drivingLicensePreview.items.length > 0')

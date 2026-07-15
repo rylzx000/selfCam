@@ -449,23 +449,37 @@ function shouldOpenModuleOnePreview(cache = {}, flowContext = null) {
   const step = flowContext?.currentStep || cache.currentStep
   return step === constants.SHOOT_STEP.SCENE_45
     || step === constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    || step === constants.SHOOT_STEP.LICENSE_PLATE
+    || step === constants.SHOOT_STEP.VIN_CODE
     || step === constants.SHOOT_STEP.MODULE_ONE_PREVIEW
 }
 
+function shouldUsePreviewReturnMode(cache = {}, flowContext = null) {
+  return !!(
+    hasExplicitPreviewReturnMode(cache)
+    && (
+      cache.fromPreview
+      || (flowContext && flowContext.fromPreview)
+      || (flowContext && flowContext.hasRetakeContext)
+      || (cache.retakeMode && cache.retakeMode.enabled)
+    )
+  )
+}
+
 function getPreviewPageUrl(cache = {}, flowContext = null) {
-  if (cache.previewReturnMode === 'final') {
+  if (shouldUsePreviewReturnMode(cache, flowContext) && cache.previewReturnMode === 'final') {
     return '/packageD/pages/preview/preview?mode=final'
   }
 
-  if (cache.previewReturnMode === 'moduleThree') {
+  if (shouldUsePreviewReturnMode(cache, flowContext) && cache.previewReturnMode === 'moduleThree') {
     return '/packageD/pages/preview/preview?mode=moduleThree'
   }
 
-  if (cache.previewReturnMode === 'moduleTwo') {
+  if (shouldUsePreviewReturnMode(cache, flowContext) && cache.previewReturnMode === 'moduleTwo') {
     return '/packageD/pages/preview/preview?mode=moduleTwo'
   }
 
-  if (cache.previewReturnMode === 'moduleOne') {
+  if (shouldUsePreviewReturnMode(cache, flowContext) && cache.previewReturnMode === 'moduleOne') {
     return '/packageD/pages/preview/preview?mode=moduleOne'
   }
 
@@ -481,6 +495,40 @@ function getPreviewPageUrl(cache = {}, flowContext = null) {
 
 function hasExplicitPreviewReturnMode(cache = {}) {
   return ['final', 'moduleThree', 'moduleTwo', 'moduleOne'].indexOf(cache.previewReturnMode) >= 0
+}
+
+function getPreviewReturnStep(cache = {}, flowContext = null) {
+  if (cache.previewReturnMode === 'final') {
+    return constants.SHOOT_STEP.FINAL_PREVIEW
+  }
+
+  if (cache.previewReturnMode === 'moduleThree') {
+    return constants.SHOOT_STEP.MODULE_THREE
+  }
+
+  if (cache.previewReturnMode === 'moduleTwo') {
+    return constants.SHOOT_STEP.DAMAGE
+  }
+
+  if (cache.previewReturnMode === 'moduleOne') {
+    return constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+  }
+
+  const step = flowContext?.currentStep || cache.currentStep
+  if (step === constants.SHOOT_STEP.DAMAGE) {
+    return constants.SHOOT_STEP.DAMAGE
+  }
+
+  return constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+}
+
+function setPreviewReturnStep(cache = {}, flowContext = null) {
+  const returnStep = getPreviewReturnStep(cache, flowContext)
+  cache.currentStep = returnStep
+  if (returnStep !== constants.SHOOT_STEP.DAMAGE) {
+    cache.currentDamageCount = 0
+  }
+  return cache
 }
 
 function getSystemInfoSnapshot() {
@@ -2247,6 +2295,7 @@ Page({
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
 
     if (storage.isRetakeMode()) {
+      const previewUrl = getPreviewPageUrl(cache, flowContext)
       storage.saveRetakenPhoto(photo)
       const latestCache = storage.loadCache()
       if (latestCache) {
@@ -2254,7 +2303,7 @@ Page({
       }
       wx.navigateBack({
         fail: () => {
-          wx.redirectTo({ url: '/packageD/pages/preview/preview' })
+          wx.redirectTo({ url: previewUrl })
         }
       })
       return
@@ -2789,6 +2838,13 @@ Page({
         status: 'completed',
         sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45
       }
+      if (flowContext.fromPreview) {
+        setPreviewReturnStep(cache, flowContext)
+        storage.saveCache(cache)
+        this.goToPreviewPage(cache, flowContext)
+        return
+      }
+
       cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
       storage.saveCache(cache)
       const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
@@ -2837,9 +2893,9 @@ Page({
         }
       }
       delete cache.sceneSupplementIndex
-      cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+      setPreviewReturnStep(cache, flowContext)
       storage.saveCache(cache)
-      this.navigateToModuleOnePreviewPage(cache)
+      this.goToPreviewPage(cache, flowContext)
       return
     }
 
@@ -2854,10 +2910,9 @@ Page({
         isNewEnergy: false
       }
       if (flowContext.fromPreview) {
-        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
-        cache.currentDamageCount = 0
+        setPreviewReturnStep(cache, flowContext)
         storage.saveCache(cache)
-        this.navigateToModuleOnePreviewPage(cache)
+        this.goToPreviewPage(cache, flowContext)
         return
       }
 
@@ -2893,10 +2948,9 @@ Page({
         isManualInput: true
       }
       if (flowContext.fromPreview) {
-        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
-        cache.currentDamageCount = 0
+        setPreviewReturnStep(cache, flowContext)
         storage.saveCache(cache)
-        this.navigateToModuleOnePreviewPage(cache)
+        this.goToPreviewPage(cache, flowContext)
         return
       }
 
@@ -3065,9 +3119,11 @@ Page({
         isManualInput: true,
         isNewEnergy: false
       }
-      cache.currentStep = flowContext.fromPreview
-        ? constants.SHOOT_STEP.MODULE_ONE_PREVIEW
-        : constants.SHOOT_STEP.VIN_CODE
+      if (flowContext.fromPreview) {
+        setPreviewReturnStep(cache, flowContext)
+      } else {
+        cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+      }
     } else if (flowContext.currentStep === constants.SHOOT_STEP.VIN_CODE) {
       const currentVehicle = cache.vehicles[flowContext.currentVehicleIndex]
       if (!currentVehicle) return false
@@ -3078,8 +3134,7 @@ Page({
         isManualInput: true
       }
       if (flowContext.fromPreview) {
-        cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
-        cache.currentDamageCount = 0
+        setPreviewReturnStep(cache, flowContext)
       } else if (flowContext.hasNextVehicle && Number.isInteger(flowContext.nextVehicleIndex)) {
         cache.currentVehicleIndex = flowContext.nextVehicleIndex
         cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
@@ -3135,6 +3190,9 @@ Page({
           status: 'completed',
           sceneType: constants.SCENE_PHOTO_TYPE.SUPPLEMENT
         })
+      }
+      if (flowContext.fromPreview) {
+        setPreviewReturnStep(cache, flowContext)
       }
     }
 
