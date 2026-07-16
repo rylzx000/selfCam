@@ -1,6 +1,7 @@
 describe('module one preview flow', () => {
   let storage
   let constants
+  let documents
   let pageConfig
   let memoryStorage
 
@@ -144,6 +145,7 @@ describe('module one preview flow', () => {
 
     storage = require('../packageD/utils/storage')
     constants = require('../packageD/utils/constants')
+    documents = require('../packageD/utils/documents')
   })
 
   afterEach(() => {
@@ -384,7 +386,7 @@ describe('module one preview flow', () => {
 
     expect(page.data.showModal).toBe(true)
     expect(page.data.modalType).toBe('missingScene45')
-    expect(page.data.modalContent).toBe('现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。你也可以继续进入车损照片拍摄。')
+    expect(page.data.modalContent).toBe('现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。')
     expect(page.data.showModuleOneHandoff).toBe(false)
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
   })
@@ -396,7 +398,11 @@ describe('module one preview flow', () => {
 
     expect(page.data.showModuleOneHandoff).toBe(true)
     expect(page.data.moduleOneHandoffTitle).toBe('现场环境及车辆信息已保存')
-    expect(page.data.moduleOneHandoffNext).toBe('下一步：车损照片拍摄')
+    expect(page.data.moduleOneHandoffProgress.map((item) => item.text)).toEqual([
+      '已完成：现场环境及车辆信息',
+      '下一步：车损照片拍摄',
+      '未完成：证件信息'
+    ])
 
     page.onConfirmModuleOneHandoff()
 
@@ -407,6 +413,73 @@ describe('module one preview flow', () => {
     expect(global.wx.reLaunch).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/camera/camera'
     }))
+  })
+
+  test('shows module two handoff overlay with progress list before documents', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.vehicles[0].damages = [{ status: 'completed', compressedPath: '/damage.jpg' }]
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleTwo' })
+
+    page.onEnterDocumentsFromModuleTwo()
+
+    expect(page.data.showModuleOneHandoff).toBe(true)
+    expect(page.data.moduleOneHandoffTitle).toBe('车损照片已保存')
+    expect(page.data.moduleOneHandoffProgress.map((item) => item.text)).toEqual([
+      '已完成：现场环境及车辆信息',
+      '已完成：车损照片拍摄',
+      '下一步：证件信息'
+    ])
+    expect(page.data.moduleHandoffConfirmText).toBe('进入证件信息')
+    expect(page.data.moduleHandoffTarget).toBe('moduleThree')
+  })
+
+  test('module three handoff omits missing document toast and shows pending document progress', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.currentStep = constants.SHOOT_STEP.MODULE_THREE
+    cache.vehicles[0].damages = [{ status: 'completed', compressedPath: '/damage.jpg' }]
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleThree' })
+
+    page.onEnterFinalFromModuleThree()
+
+    expect(global.wx.showToast).not.toHaveBeenCalled()
+    expect(page.data.showModuleOneHandoff).toBe(true)
+    expect(page.data.moduleOneHandoffTitle).toBe('证件信息已保存')
+    expect(page.data.moduleOneHandoffProgress.map((item) => item.text)).toEqual([
+      '已完成：现场环境及车辆信息',
+      '已完成：车损照片拍摄',
+      '待补充：证件信息'
+    ])
+  })
+
+  test('module three handoff shows completed document progress when documents are complete', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    const vehicle = cache.vehicles[0]
+    cache.currentStep = constants.SHOOT_STEP.MODULE_THREE
+    cache.vehicles[0].damages = [{ status: 'completed', compressedPath: '/damage.jpg' }]
+    vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVER_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    vehicle.documentSelections[documents.DOCUMENT_TYPES.DRIVING_LICENSE] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    vehicle.documents = [
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+        compressedPath: '/driver-license.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+        compressedPath: '/driving-license.jpg'
+      }
+    ]
+    const page = loadPreviewPageWithCache(cache, { mode: 'moduleThree' })
+
+    page.onEnterFinalFromModuleThree()
+
+    expect(page.data.moduleOneHandoffProgress.map((item) => item.text)).toEqual([
+      '已完成：现场环境及车辆信息',
+      '已完成：车损照片拍摄',
+      '已完成：证件信息'
+    ])
   })
 
   test('routes scene supplement slot back to camera and returns to module one preview', () => {

@@ -619,6 +619,36 @@ page {
   background: #e0e5e1;
 }
 
+.license-mode-tabs {
+  margin-bottom: 14rpx;
+  padding: 3rpx;
+  border-radius: 9rpx;
+  background: #f3f6f4;
+  display: flex;
+  gap: 4rpx;
+}
+
+.license-mode-tab {
+  flex: 1;
+  height: 30rpx;
+  border-radius: 7rpx;
+  color: #667085;
+  font-size: 13rpx;
+  line-height: 30rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.license-mode-tab.active {
+  background: #ffffff;
+  color: #008f55;
+  box-shadow: 0 2rpx 8rpx rgba(0, 155, 99, 0.12);
+}
+
+.license-mode-tab:active {
+  opacity: 0.76;
+}
+
 .license-switch {
   margin-top: 14rpx;
   height: 30rpx;
@@ -900,6 +930,10 @@ page {
   font-size: 14rpx;
   line-height: 18rpx;
   font-weight: 700;
+}
+
+.module-one-next-item + .module-one-next-item {
+  margin-top: 4rpx;
 }
 
 .module-one-secondary {

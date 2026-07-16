@@ -20,12 +20,11 @@ const {
 const DRIVING_LICENSE_MAX_FILE_SIZE = 400 * 1024
 const MAX_DAMAGES = (constants.LIMITS && constants.LIMITS.MAX_DAMAGES) || 5
 const DAMAGE_PHOTO_LIMIT_TIP = `最多${MAX_DAMAGES}张车损，请先删除`
-const DRIVING_LICENSE_RISK_TIP = '仍有车辆证件信息未采集完整，建议补充驾驶证和行驶证。如确实无法提供，可继续提交。是否确认提交？'
-const MODULE_THREE_MISSING_TIP = '仍有车辆证件信息未采集完整，建议补充驾驶证和行驶证。你也可以继续进入最终总预览。'
+const DRIVING_LICENSE_RISK_TIP = '证件信息不全，建议补充驾驶证和行驶证。如确实无法提供，可后续通过其他方式提供。是否确认提交？'
 const TOTAL_PHOTO_LIMIT_TIP = `最多${constants.LIMITS.MAX_TOTAL_PHOTOS}张，请先删除`
 const AUX_VEHICLE_LOCKED_TIP = '辅助拍照车辆以后台为准'
 const AUX_UPLOAD_ITEM_MISSING_TIP = '当前任务未下发该证件类型'
-const MODULE_ONE_MISSING_SCENE_TIP = '现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。你也可以继续进入车损照片拍摄。'
+const MODULE_ONE_MISSING_SCENE_TIP = '现场照片未采集，建议补拍，便于记录事故现场和车辆整体状态。'
 const SCENE_SUPPLEMENT_PROMPT_CONTENT = '是否补充其他现场环境或道路相关损失？\n\n如护栏、灯杆、路牌、路面痕迹等'
 
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
@@ -393,13 +392,29 @@ function getCurrentPreviewReturnMode(data = {}) {
   return ''
 }
 
-function getVehicleDocumentChoiceLabels(docType) {
-  const label = getVehicleDocumentBaseLabel(docType)
-  return [`电子${label}`, `实物${label}`]
-}
-
 function isAuxPhotoEnabled(cache) {
   return !!(cache && cache.auxPhoto && cache.auxPhoto.enabled === true)
+}
+
+function isVehicleDocumentMode(value) {
+  return value === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+    || value === vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
+}
+
+function getVehicleDocumentPanelMode(vehicle, docType) {
+  const currentSelection = vehicle && vehicle.documentSelections && vehicle.documentSelections[docType]
+  const hasDocumentRecord = vehicleDocuments.getVehicleDocuments(vehicle)
+    .some((document) => document.docType === docType)
+
+  if (hasDocumentRecord && isVehicleDocumentMode(currentSelection)) {
+    return currentSelection
+  }
+
+  return vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+}
+
+function buildHandoffProgress(items) {
+  return items.map((text) => ({ text }))
 }
 
 function isModuleOneMainComplete(moduleOneSummary = {}) {
@@ -451,7 +466,7 @@ Page({
     scrollToView: '',
     highlightDocument: false,
     showDrivingLicensePanel: false,
-    drivingLicenseMode: 'physical',
+    drivingLicenseMode: 'electronic',
     activeDrivingLicenseDocType: vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE,
     activeDrivingLicenseTitle: '行驶证',
     activeDrivingLicenseVehicleIndex: null,
@@ -460,8 +475,11 @@ Page({
     showUploadOverlay: false,
     showModuleOneHandoff: false,
     moduleOneHandoffTitle: '现场环境及车辆信息已保存',
-    moduleOneHandoffDesc: '本环节照片将后台上传，可继续拍摄车损照片',
-    moduleOneHandoffNext: '下一步：车损照片拍摄',
+    moduleOneHandoffProgress: buildHandoffProgress([
+      '已完成：现场环境及车辆信息',
+      '下一步：车损照片拍摄',
+      '未完成：证件信息'
+    ]),
     moduleHandoffConfirmText: '进入车损拍摄',
     moduleHandoffTarget: 'damage',
     uploadOverlayTitle: '',
@@ -1008,35 +1026,32 @@ Page({
     const { vehicle, docType } = e.currentTarget.dataset
     const activeDocType = docType || vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE
     const activeVehicle = this.data.vehicles[vehicle]
+    const drivingLicenseMode = activeVehicle
+      ? getVehicleDocumentPanelMode(activeVehicle, activeDocType)
+      : vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
 
     if (!activeVehicle) {
-      this.openVehicleDocumentPanel(vehicle, activeDocType, vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL)
+      this.openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode)
       return
     }
 
-    wx.showActionSheet({
-      itemList: getVehicleDocumentChoiceLabels(activeDocType),
-      success: (res) => {
-        const drivingLicenseMode = res.tapIndex === 0
-          ? vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
-          : vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
-
-        storage.setVehicleDocumentSelection(vehicle, activeDocType, drivingLicenseMode)
-        this.openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode)
-      }
-    })
+    storage.setVehicleDocumentSelection(vehicle, activeDocType, drivingLicenseMode)
+    this.openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode)
   },
 
   openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode) {
     const activeVehicle = this.data.vehicles[vehicle]
+    const panelMode = isVehicleDocumentMode(drivingLicenseMode)
+      ? drivingLicenseMode
+      : getVehicleDocumentPanelMode(activeVehicle, activeDocType)
     this.setData({
       showDrivingLicensePanel: true,
-      drivingLicenseMode,
+      drivingLicenseMode: panelMode,
       activeDrivingLicenseDocType: activeDocType,
       activeDrivingLicenseTitle: getVehicleDocumentBaseLabel(activeDocType),
       activeDrivingLicenseVehicleIndex: vehicle,
       activeDrivingLicenseSlots: activeVehicle
-        ? vehicleDocuments.buildVehicleDocumentSlots(activeVehicle, activeDocType, drivingLicenseMode)
+        ? vehicleDocuments.buildVehicleDocumentSlots(activeVehicle, activeDocType, panelMode)
         : []
     })
   },
@@ -1051,10 +1066,17 @@ Page({
     })
   },
 
-  onSwitchDrivingLicenseMode() {
-    const nextMode = this.data.drivingLicenseMode === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+  onSwitchDrivingLicenseMode(e = {}) {
+    const requestedMode = e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.mode
+    const nextMode = isVehicleDocumentMode(requestedMode)
+      ? requestedMode
+      : this.data.drivingLicenseMode === vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
       ? vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
       : vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+
+    if (nextMode === this.data.drivingLicenseMode) {
+      return
+    }
 
     if (this.data.activeDrivingLicenseVehicleIndex !== null) {
       storage.setVehicleDocumentSelection(
@@ -1064,10 +1086,17 @@ Page({
       )
     }
 
+    const activeVehicle = this.data.vehicles[this.data.activeDrivingLicenseVehicleIndex]
     this.setData({
-      drivingLicenseMode: nextMode
+      drivingLicenseMode: nextMode,
+      activeDrivingLicenseSlots: activeVehicle
+        ? vehicleDocuments.buildVehicleDocumentSlots(
+          activeVehicle,
+          this.data.activeDrivingLicenseDocType,
+          nextMode
+        )
+        : []
     })
-    this.loadData()
   },
 
   onTapDrivingLicenseSlot(e) {
@@ -1507,8 +1536,11 @@ Page({
     this.setData({
       showModuleOneHandoff: true,
       moduleOneHandoffTitle: '现场环境及车辆信息已保存',
-      moduleOneHandoffDesc: '本环节照片将后台上传，可继续拍摄车损照片',
-      moduleOneHandoffNext: '下一步：车损照片拍摄',
+      moduleOneHandoffProgress: buildHandoffProgress([
+        '已完成：现场环境及车辆信息',
+        '下一步：车损照片拍摄',
+        '未完成：证件信息'
+      ]),
       moduleHandoffConfirmText: '进入车损拍摄',
       moduleHandoffTarget: 'damage'
     })
@@ -1554,8 +1586,11 @@ Page({
     this.setData({
       showModuleOneHandoff: true,
       moduleOneHandoffTitle: '车损照片已保存',
-      moduleOneHandoffDesc: '本环节照片将后台上传，可继续补充证件信息',
-      moduleOneHandoffNext: '下一步：证件信息',
+      moduleOneHandoffProgress: buildHandoffProgress([
+        '已完成：现场环境及车辆信息',
+        '已完成：车损照片拍摄',
+        '下一步：证件信息'
+      ]),
       moduleHandoffConfirmText: '进入证件信息',
       moduleHandoffTarget: 'moduleThree'
     })
@@ -1589,18 +1624,18 @@ Page({
       return
     }
 
-    if (vehicleDocuments.hasIncompleteVehicleDocumentVehicles(cache.vehicles)) {
-      wx.showToast({
-        title: MODULE_THREE_MISSING_TIP,
-        icon: 'none'
-      })
-    }
+    const documentProgressText = vehicleDocuments.hasIncompleteVehicleDocumentVehicles(cache.vehicles)
+      ? '待补充：证件信息'
+      : '已完成：证件信息'
 
     this.setData({
       showModuleOneHandoff: true,
       moduleOneHandoffTitle: '证件信息已保存',
-      moduleOneHandoffDesc: '证件缺失不影响继续，可在最终预览页补拍',
-      moduleOneHandoffNext: '下一步：最终总预览',
+      moduleOneHandoffProgress: buildHandoffProgress([
+        '已完成：现场环境及车辆信息',
+        '已完成：车损照片拍摄',
+        documentProgressText
+      ]),
       moduleHandoffConfirmText: '进入最终总预览',
       moduleHandoffTarget: 'final'
     })
