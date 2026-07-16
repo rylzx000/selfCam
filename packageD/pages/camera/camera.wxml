@@ -24,9 +24,6 @@
         <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/10 张</text>
       </view>
 
-      <view wx:if="{{damageCount === 0}}" class="damage-tip">
-        <text style="{{cameraLayout.damageTipTextStyle}}">{{aiEnabled && damageAIFeatureEnabled ? '请对准车损处，稳定后自动拍照' : '请对准车损处，点击下方按钮拍照'}}</text>
-      </view>
     </view>
 
     <view class="side-bottom">
