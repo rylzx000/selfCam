@@ -56,6 +56,18 @@
       },
       {
         "type": "folder",
+        "value": "openspec"
+      },
+      {
+        "type": "folder",
+        "value": ".comet"
+      },
+      {
+        "type": "folder",
+        "value": ".codex"
+      },
+      {
+        "type": "folder",
         "value": "versions"
       },
       {

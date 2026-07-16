@@ -279,7 +279,7 @@
       <view wx:if="{{captureGuideType === 'scene45'}}" class="guide-hero">
         <image
           class="guide-photo guide-photo-scene"
-          src="/packageD/assets/images/capture-guides/scene-45deg.png"
+          src="/packageD/assets/images/capture-guides/scene-45deg.jpg"
           mode="aspectFit"
         ></image>
       </view>
@@ -287,19 +287,19 @@
       <view wx:if="{{captureGuideType === 'damage'}}" class="guide-triptych">
         <view class="guide-shot">
           <view class="guide-shot-visual">
-            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-far.png" mode="aspectFit"></image>
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-far.jpg" mode="aspectFit"></image>
           </view>
           <text>远</text>
         </view>
         <view class="guide-shot">
           <view class="guide-shot-visual">
-            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-mid.png" mode="aspectFit"></image>
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-mid.jpg" mode="aspectFit"></image>
           </view>
           <text>中</text>
         </view>
         <view class="guide-shot">
           <view class="guide-shot-visual">
-            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-close.png" mode="aspectFit"></image>
+            <image class="guide-photo" src="/packageD/assets/images/capture-guides/damage-close.jpg" mode="aspectFit"></image>
           </view>
           <text>近</text>
         </view>

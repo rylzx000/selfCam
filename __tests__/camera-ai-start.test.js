@@ -452,10 +452,10 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('bindtap="onCaptureGuideConfirm"')
     expect(cameraWxml).toContain('bindtap="onOpenCaptureGuide"')
     expect(cameraWxml).toContain("currentStep === 'scene45' || currentStep === 'damage'")
-    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/scene-45deg.png')
-    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-far.png')
-    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-mid.png')
-    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-close.png')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/scene-45deg.jpg')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-far.jpg')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-mid.jpg')
+    expect(cameraWxml).toContain('/packageD/assets/images/capture-guides/damage-close.jpg')
   })
 
   test('scene45 first entry shows intro capture guide and confirm marks it seen', () => {
