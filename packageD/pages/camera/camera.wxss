@@ -214,6 +214,15 @@ page {
   font-weight: 600;
 }
 
+.damage-count-value {
+  max-width: 100%;
+  font-size: 13rpx;
+  line-height: 17rpx;
+  text-align: center;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
 .damage-progress {
   margin-top: 0;
 }

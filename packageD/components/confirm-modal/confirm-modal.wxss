@@ -34,8 +34,18 @@
 .modal-content {
   padding: 20rpx 16rpx;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+.modal-title {
+  font-size: 17rpx;
+  color: #212121;
+  text-align: center;
+  line-height: 1.4;
+  font-weight: 600;
+  margin-bottom: 8rpx;
 }
 
 .modal-text {

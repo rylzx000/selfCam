@@ -248,7 +248,7 @@ describe('cache selectors', () => {
     expect(flowContext.currentVehiclePlateNo).toBe('京B12345')
     expect(flowContext.currentVehiclePlateTheme).toBe('oil')
     expect(flowContext.currentVehicleProgressText).toBe('2/2 辆')
-    expect(flowContext.finishDamageText).toBe('去预览')
+    expect(flowContext.finishDamageText).toBe('完成本车拍摄')
   })
 
   test('uses backend vehicle display name and locks manual vehicle count in aux photo mode', () => {
@@ -302,7 +302,7 @@ describe('cache selectors', () => {
     expect(flowContext.currentVehicleProgressText).toBe('2/3 辆')
     expect(flowContext.hasNextVehicle).toBe(true)
     expect(flowContext.nextVehicleIndex).toBe(2)
-    expect(flowContext.finishDamageText).toBe('下一辆车')
+    expect(flowContext.finishDamageText).toBe('完成本车拍摄')
     expect(summary.vehicles[2].vehiclePlateNo).toBe('车牌待确认')
     expect(summary.vehicles[2].vehiclePlateTheme).toBe('unknown')
   })

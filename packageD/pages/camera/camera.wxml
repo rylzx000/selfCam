@@ -21,7 +21,7 @@
           <text class="count-label" style="{{cameraLayout.labelTextStyle}}">车损照片</text>
           <text wx:if="{{vehicleProgressText}}" class="vehicle-progress damage-progress">{{vehicleProgressText}}</text>
         </view>
-        <text class="count-value" style="{{cameraLayout.primaryTextStyle}}">{{damageCount}}/10 张</text>
+        <text class="count-value damage-count-value" style="{{cameraLayout.damageCountTextStyle}}">{{damageCountText}}</text>
       </view>
 
     </view>
@@ -262,6 +262,7 @@
 
   <confirm-modal
     visible="{{showDamageCompleteModal}}"
+    title="{{damageCompleteModalTitle}}"
     content="{{damageCompleteModalContent}}"
     confirm-text="{{damageCompleteConfirmText}}"
     cancel-text="{{damageCompleteCancelText}}"

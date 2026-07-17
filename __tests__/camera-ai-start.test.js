@@ -108,9 +108,7 @@ describe('camera AI detection start timing', () => {
         fromPreview: !!targetCache.fromPreview,
         hasNextVehicle: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1,
         nextVehicleIndex: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1 ? targetCache.currentVehicleIndex + 1 : null,
-        finishDamageText: targetCache.currentVehicleIndex < targetCache.vehicles.length - 1
-          ? '下一辆车'
-          : '去预览',
+        finishDamageText: '完成本车拍摄',
         guideTip: constants.GUIDE_TIPS[targetCache.currentStep],
         damageCount: targetCache.vehicles[targetCache.currentVehicleIndex].damages.length,
         workflowState: 'CAPTURING'
@@ -347,6 +345,8 @@ describe('camera AI detection start timing', () => {
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
       pauseCaptureForDamageCompleteModal: pageConfig.pauseCaptureForDamageCompleteModal,
+      showDamageSoftConfirmModal: pageConfig.showDamageSoftConfirmModal,
+      executeDamageCompletionAfterSoftConfirm: pageConfig.executeDamageCompletionAfterSoftConfirm,
       showAuxDamageCompleteModal: pageConfig.showAuxDamageCompleteModal,
       handleDamageCompletedFlow: pageConfig.handleDamageCompletedFlow,
       onDamageCompleteModalConfirm: pageConfig.onDamageCompleteModalConfirm,
@@ -429,6 +429,19 @@ describe('camera AI detection start timing', () => {
     expect(cameraWxml).toContain('vehicle-plate-{{vehiclePlateTheme}}')
     expect(cameraWxml).toContain('{{vehicleProgressText}}')
     expect(cameraWxml).toContain('{{finishDamageText}}')
+  })
+
+  test('damage capture view weakens count target and keeps one finish entry', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
+
+    expect(cameraWxml).toContain('{{damageCountText}}')
+    expect(cameraWxml).toContain('title="{{damageCompleteModalTitle}}"')
+    expect(cameraWxml).toContain('bindtap="onFinishDamage"')
+    expect(cameraWxml).toContain('{{finishDamageText}}')
+    expect(cameraWxml).not.toContain('{{damageCount}}/10 张')
+    expect(cameraWxml).not.toContain('还可拍')
   })
 
   test('camera component keeps vehicle progress out of the plate card', () => {
@@ -542,6 +555,27 @@ describe('camera AI detection start timing', () => {
     expect(instance.data.showCaptureGuideModal).toBe(false)
     expect(instance.data.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.captureGuideSeen.damage).toBe(true)
+  })
+
+  test('damage guide tip keeps original before fourth photo and shows finish hint from fourth photo', () => {
+    const instance = createPageInstance()
+
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.vehicles[0].damages = [
+      { compressedPath: '/tmp/damage-1.jpg' },
+      { compressedPath: '/tmp/damage-2.jpg' },
+      { compressedPath: '/tmp/damage-3.jpg' }
+    ]
+    pageConfig.loadCacheData.call(instance, 'damage_three_photos')
+    expect(instance.data.damageCount).toBe(3)
+    expect(instance.data.damageCountText).toBe('本车已拍 3 张')
+    expect(instance.data.guideTip).toBe('damage tip')
+
+    cache.vehicles[0].damages.push({ compressedPath: '/tmp/damage-4.jpg' })
+    pageConfig.loadCacheData.call(instance, 'damage_four_photos')
+    expect(instance.data.damageCount).toBe(4)
+    expect(instance.data.damageCountText).toBe('本车已拍 4 张')
+    expect(instance.data.guideTip).toBe('已完成基础采集，可点击完成本车拍摄')
   })
 
   test('camera step display names stay short for scene plate and vin pages', () => {
@@ -1412,7 +1446,7 @@ describe('camera AI detection start timing', () => {
     }))
   })
 
-  test('aux photo finish damage asks before advancing to next vehicle', () => {
+  test('aux photo finish damage below three photos shows soft confirm before next vehicle handoff', () => {
     cache = {
       auxPhoto: {
         enabled: true,
@@ -1452,19 +1486,37 @@ describe('camera AI detection start timing', () => {
 
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
-    expect(instance.data.isNavigating).toBe(true)
+    expect(instance.data.isNavigating).toBe(false)
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
-    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 1 \u5f20')
-    expect(instance.data.damageCompleteModalContent).not.toContain('\u5df2\u62cd\u6ee1 10 \u5f20')
-    expect(instance.data.damageCompleteConfirmText).toBe('\u4e0b\u4e00\u8f86\u8f66')
-    expect(instance.data.damageCompleteCancelText).toBe('\u67e5\u770b\u5df2\u62cd')
+    expect(instance.data.damageCompleteModalTitle).toBe('车损照片较少')
+    expect(instance.data.damageCompleteModalContent).toBe('建议拍摄车损处远景、中景、近景照片。如现场情况简单，也可确认完成。')
+    expect(instance.data.damageCompleteConfirmText).toBe('确认完成')
+    expect(instance.data.damageCompleteCancelText).toBe('继续拍摄')
     expect(instance.data.damageCompleteShowCancel).toBe(true)
-    expect(instance.data.cameraMounted).toBe(false)
     expect(instance.stopAIDetectionLoop).toHaveBeenCalled()
     expect(instance.stopAIFrameListener).toHaveBeenCalledWith('damage_complete_modal')
+
+    pageConfig.onDamageCompleteModalCancel.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(instance.data.showDamageCompleteModal).toBe(false)
+    expect(instance.data.isNavigating).toBe(false)
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('damage_soft_confirm_continue')
+    instance.resumeAIDetectionAfterStepReady.mockClear()
+
+    pageConfig.onFinishDamage.call(instance)
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalTitle).toBe('')
+    expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 1 \u5f20')
+    expect(instance.data.damageCompleteConfirmText).toBe('\u4e0b\u4e00\u8f86\u8f66')
+    expect(instance.data.damageCompleteCancelText).toBe('\u67e5\u770b\u5df2\u62cd')
 
     pageConfig.onDamageCompleteModalConfirm.call(instance)
 
@@ -1480,7 +1532,7 @@ describe('camera AI detection start timing', () => {
     expect(instance.data.vehicleRoleName).toBe('三者车')
     expect(instance.data.vehiclePlateNo).toBe('京B12345')
     expect(instance.data.vehicleProgressText).toBe('2/2 辆')
-    expect(instance.data.finishDamageText).toBe('去预览')
+    expect(instance.data.finishDamageText).toBe('完成本车拍摄')
     expect(instance.data.isNavigating).toBe(false)
     expect(instance.data.showDamageCompleteModal).toBe(false)
     expect(instance.data.cameraMounted).toBe(false)
@@ -1496,6 +1548,89 @@ describe('camera AI detection start timing', () => {
     expect(instance.pendingCameraInitResumeReason).toBe('')
     expect(instance.pendingCameraRemountReason).toBe('')
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('finish_damage_next_vehicle')
+  })
+
+  test.each([0, 1, 2])('damage finish with %s photos shows soft confirm and confirm completes current vehicle', (damageTotal) => {
+    cache = {
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      currentDamageCount: damageTotal,
+      vehicles: [
+        {
+          type: 'target',
+          vehicleRoleName: 'target',
+          licenseNo: 'A12345',
+          damages: Array.from({ length: damageTotal }, (_, index) => ({
+            compressedPath: `/tmp/damage-${index + 1}.jpg`
+          }))
+        }
+      ]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        damageCount: damageTotal,
+        isNavigating: false,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalTitle).toBe('车损照片较少')
+    expect(instance.data.damageCompleteModalContent).toBe('建议拍摄车损处远景、中景、近景照片。如现场情况简单，也可确认完成。')
+    expect(instance.data.damageCompleteConfirmText).toBe('确认完成')
+    expect(instance.data.damageCompleteCancelText).toBe('继续拍摄')
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleTwo'
+    }))
+  })
+
+  test('damage finish with three photos completes directly without soft confirm', () => {
+    cache = {
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      currentDamageCount: 3,
+      vehicles: [
+        {
+          type: 'target',
+          vehicleRoleName: 'target',
+          licenseNo: 'A12345',
+          damages: [
+            { compressedPath: '/tmp/damage-1.jpg' },
+            { compressedPath: '/tmp/damage-2.jpg' },
+            { compressedPath: '/tmp/damage-3.jpg' }
+          ]
+        }
+      ]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        damageCount: 3,
+        isNavigating: false,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(instance.data.showDamageCompleteModal).toBe(false)
+    expect(instance.data.damageCompleteModalTitle).not.toBe('车损照片较少')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/preview/preview?mode=moduleTwo'
+    }))
   })
 
   test('aux photo finish damage opens preview when user reviews captured photos', () => {
@@ -1535,6 +1670,7 @@ describe('camera AI detection start timing', () => {
     })
 
     pageConfig.onFinishDamage.call(instance)
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
     expect(global.wx.showModal).not.toHaveBeenCalled()
     expect(instance.data.showDamageCompleteModal).toBe(true)
     expect(instance.data.damageCompleteModalContent).toContain('\u5df2\u62cd\u6444 1 \u5f20')
@@ -1604,7 +1740,7 @@ describe('camera AI detection start timing', () => {
     expect(instance.pendingCameraInitResumeReason).toBe('')
   })
 
-  test('aux photo finish damage on final vehicle with partial damages uses captured count copy', () => {
+  test('aux photo finish damage on final vehicle with three damages completes directly', () => {
     cache = {
       auxPhoto: {
         enabled: true,
@@ -1612,7 +1748,7 @@ describe('camera AI detection start timing', () => {
       },
       currentVehicleIndex: 0,
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      currentDamageCount: 2,
+      currentDamageCount: 3,
       vehicles: [
         {
           type: 'target',
@@ -1620,7 +1756,8 @@ describe('camera AI detection start timing', () => {
           licenseNo: 'A12345',
           damages: [
             { compressedPath: '/tmp/damage-1.jpg' },
-            { compressedPath: '/tmp/damage-2.jpg' }
+            { compressedPath: '/tmp/damage-2.jpg' },
+            { compressedPath: '/tmp/damage-3.jpg' }
           ]
         }
       ]
@@ -1630,7 +1767,7 @@ describe('camera AI detection start timing', () => {
         currentStep: constants.SHOOT_STEP.DAMAGE,
         showConfirmModal: false,
         pendingPhoto: null,
-        damageCount: 2,
+        damageCount: 3,
         isNavigating: false,
         aiEnabled: true,
         aiAvailable: true
@@ -1693,7 +1830,7 @@ describe('camera AI detection start timing', () => {
     expect(instance.data.showConfirmModal).toBe(false)
     expect(instance.data.pendingPhoto).toBeNull()
     expect(instance.data.damageCount).toBe(10)
-    expect(instance.data.finishDamageText).toBe('下一辆车')
+    expect(instance.data.finishDamageText).toBe('完成本车拍摄')
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
 
@@ -2208,7 +2345,8 @@ describe('camera AI detection start timing', () => {
     expect(wxml).toContain('bindtap="onCapture"')
     expect(wxml).toContain('bindtap="onConfirmPhoto"')
     expect(wxml).toContain('<confirm-modal')
-    expect(wxml).toContain('{{damageCount}}/10 张</text>')
+    expect(wxml).toContain('{{damageCountText}}</text>')
+    expect(wxml).not.toContain('{{damageCount}}/10 张</text>')
     expect(wxml).toContain('当前车辆')
     expect(wxml).toContain('车损照片')
     expect(wxml).not.toContain('?/text>')

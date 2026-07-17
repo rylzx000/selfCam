@@ -197,7 +197,7 @@ describe('流程路由矩阵 - 相机页出口', () => {
       currentVehicleProgressText: vehicles.length > 1 ? `${currentVehicleIndex + 1}/${vehicles.length} 辆` : '',
       hasNextVehicle,
       nextVehicleIndex: hasNextVehicle ? currentVehicleIndex + 1 : null,
-      finishDamageText: hasNextVehicle ? '下一辆车' : '去预览',
+      finishDamageText: '完成本车拍摄',
       damageCount: currentVehicle && Array.isArray(currentVehicle.damages) ? currentVehicle.damages.length : 0,
       fromPreview: !!(targetCache && targetCache.fromPreview),
       workflowState: 'CAPTURING',
@@ -401,6 +401,10 @@ describe('流程路由矩阵 - 相机页出口', () => {
       goToPreviewPage: pageConfig.goToPreviewPage,
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
+      pauseCaptureForDamageCompleteModal: pageConfig.pauseCaptureForDamageCompleteModal,
+      showDamageSoftConfirmModal: pageConfig.showDamageSoftConfirmModal,
+      executeDamageCompletionAfterSoftConfirm: pageConfig.executeDamageCompletionAfterSoftConfirm,
+      showAuxDamageCompleteModal: pageConfig.showAuxDamageCompleteModal,
       handleDamageCompletedFlow: pageConfig.handleDamageCompletedFlow,
       continueModuleOneCapture: pageConfig.continueModuleOneCapture,
       continueDamageCapture: pageConfig.continueDamageCapture,
@@ -913,6 +917,49 @@ describe('流程路由矩阵 - 相机页出口', () => {
 
     expect(cameraCache.currentVehicleIndex).toBe(1)
     expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(getNavigationUrls()).toHaveLength(0)
+  })
+
+  test('ROUTE-M2-011 多车低于3张确认完成先软确认再走当前车辆交接', () => {
+    const cache = baseCache([
+      createVehicle(0, { damages: [createPhoto('/damage-0-0.jpg'), createPhoto('/damage-0-1.jpg')] }),
+      createVehicle(1, { damages: [] })
+    ])
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = 0
+    loadCameraPage(cache)
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        isNavigating: false,
+        showConfirmModal: false,
+        pendingPhoto: null,
+        damageCount: 2
+      }
+    })
+
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(cameraCache.currentVehicleIndex).toBe(0)
+    expect(cameraCache.vehicles[0].damages).toHaveLength(2)
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalTitle).toBe('车损照片较少')
+    expect(instance.data.damageCompleteConfirmText).toBe('确认完成')
+
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+
+    expect(cameraCache.currentVehicleIndex).toBe(0)
+    expect(cameraCache.vehicles[0].damages).toHaveLength(2)
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalTitle).toBe('')
+    expect(instance.data.damageCompleteConfirmText).toBe('下一辆车')
+
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+
+    expect(cameraCache.currentVehicleIndex).toBe(1)
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cameraCache.vehicles[0].damages).toHaveLength(2)
+    expect(cameraCache.vehicles[1].damages).toHaveLength(0)
     expect(getNavigationUrls()).toHaveLength(0)
   })
 

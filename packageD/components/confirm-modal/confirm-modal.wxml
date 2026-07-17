@@ -7,6 +7,7 @@
     </view>
     <!-- 文字内容区 -->
     <view class="modal-content">
+      <text wx:if="{{title}}" class="modal-title">{{title}}</text>
       <text class="modal-text">{{content}}</text>
     </view>
     <!-- 按钮区 -->

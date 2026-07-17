@@ -541,7 +541,7 @@ function getVehicleSummary(cache) {
     currentVehicleProgressText: vehicles.length > 1
       ? `${currentVehicleIndex + 1}/${vehicles.length} 辆`
       : '',
-    finishDamageText: hasNextVehicle ? '下一辆车' : '去预览',
+    finishDamageText: '完成本车拍摄',
     photoCounts,
     photoEntries: vehicles.flatMap((vehicle) => vehicle.photoEntries),
     completedVehicleCount: vehicles.filter((vehicle) => vehicle.isCoreComplete).length,
@@ -950,7 +950,7 @@ function getCurrentFlowContext(cache) {
       : '',
     hasNextVehicle,
     nextVehicleIndex: hasNextVehicle ? currentVehicleIndex + 1 : null,
-    finishDamageText: hasNextVehicle ? '下一辆车' : '去预览',
+    finishDamageText: '完成本车拍摄',
     damageCount: currentVehicle ? currentVehicle.damageCount : 0,
     fromPreview: !!(cache && cache.fromPreview),
     workflowState,

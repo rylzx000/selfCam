@@ -57,6 +57,7 @@
 | ROUTE-M2-008 | 模块二已有 5 张车损点击 `+` 拍第 6 张 | `mode=moduleTwo` | 点击 `+` 并确认照片 | 继续当前车辆 `damage` 拍摄，车损数量变 6，清理 `captureReturnStrategy` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-008` |
 | ROUTE-M2-009 | 删除第 3 张后点击 `+` 新增 | `mode=moduleTwo`，删除后剩 4 张 | 点击 `+` 并确认照片 | 继续当前车辆 `damage` 拍摄，车损数量变 5 且编号连续 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-009` |
 | ROUTE-M2-010 | 多车第二辆点击 `+` 新增车损 | `mode=moduleTwo`，第二辆车当前分组 | 点击第二辆车 `+` 并确认照片 | 继续第二辆车 `damage` 拍摄，不跳第一辆或最终预览 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-010` |
+| ROUTE-M2-011 | 多车当前车低于 3 张点击完成 | 相机页 `damage`，第一辆车已拍 2 张且仍有下一辆车 | 点击 `完成本车拍摄`，再点击 `确认完成`，再确认下一辆 | 先展示 `车损照片较少` 软确认；确认后仍按当前车辆交接进入下一辆车损，不串车 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-011` |
 
 ## 完整链路回归矩阵
 

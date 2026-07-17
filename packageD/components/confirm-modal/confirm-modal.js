@@ -8,6 +8,10 @@ Component({
       type: String,
       value: ''
     },
+    title: {
+      type: String,
+      value: ''
+    },
     image: {
       type: String,
       value: ''

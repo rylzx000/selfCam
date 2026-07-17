@@ -52,6 +52,19 @@ const DAMAGE_COMPLETE_NEXT_CONTENT = `\u672c\u8f66\u8f66\u635f\u7167\u7247\u5df2
 const DAMAGE_COMPLETE_PREVIEW_CONTENT = `\u672c\u8f66\u8f66\u635f\u7167\u7247\u5df2\u62cd\u6ee1 ${MAX_DAMAGES} \u5f20\uff0c\u8bf7\u524d\u5f80\u9884\u89c8\u786e\u8ba4\u7167\u7247\u3002`
 const DAMAGE_PARTIAL_NEXT_CONTENT = (count) => `\u672c\u8f66\u5df2\u62cd\u6444 ${count} \u5f20\u8f66\u635f\u7167\u7247\uff0c\u8bf7\u786e\u8ba4\u662f\u5426\u8fdb\u5165\u4e0b\u4e00\u8f86\u8f66\u7ee7\u7eed\u62cd\u6444\u3002`
 const DAMAGE_PARTIAL_PREVIEW_CONTENT = (count) => `\u672c\u8f66\u5df2\u62cd\u6444 ${count} \u5f20\u8f66\u635f\u7167\u7247\uff0c\u8bf7\u524d\u5f80\u9884\u89c8\u786e\u8ba4\u7167\u7247\u3002`
+const DAMAGE_FINISH_TEXT = '完成本车拍摄'
+const DAMAGE_COUNT_TEXT = (count) => `本车已拍 ${count} 张`
+const DAMAGE_READY_TIP_MIN_COUNT = 4
+const DAMAGE_READY_TIP = '已完成基础采集，可点击完成本车拍摄'
+const DAMAGE_SOFT_CONFIRM_MIN_COUNT = 3
+const DAMAGE_SOFT_CONFIRM_TITLE = '车损照片较少'
+const DAMAGE_SOFT_CONFIRM_CONTENT = '建议拍摄车损处远景、中景、近景照片。如现场情况简单，也可确认完成。'
+const DAMAGE_SOFT_CONFIRM_CANCEL_TEXT = '继续拍摄'
+const DAMAGE_SOFT_CONFIRM_CONFIRM_TEXT = '确认完成'
+const DAMAGE_COMPLETE_MODAL_TYPE = {
+  HANDOFF: 'handoff',
+  SOFT_CONFIRM: 'softConfirm'
+}
 const NEXT_VEHICLE_TEXT = '\u4e0b\u4e00\u8f86\u8f66'
 const VIEW_CAPTURED_TEXT = '\u67e5\u770b\u5df2\u62cd'
 const GO_PREVIEW_TEXT = '\u53bb\u9884\u89c8'
@@ -209,6 +222,10 @@ function computeResponsiveCameraLayout(info = {}) {
     ]),
     primaryTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 18 * uiScale]
+    ]),
+    damageCountTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
+      ['font-size', 13 * uiScale],
+      ['line-height', 17 * uiScale]
     ]),
     secondaryTextStyle: buildResponsiveStyle(needsResponsiveUiScale, [
       ['font-size', 16 * uiScale]
@@ -388,6 +405,18 @@ function buildDamageCompleteContent(damageCount, hasNextVehicle) {
     : DAMAGE_PARTIAL_PREVIEW_CONTENT(damageCount)
 }
 
+function buildDamageCountText(damageCount) {
+  return DAMAGE_COUNT_TEXT(Math.max(Number(damageCount) || 0, 0))
+}
+
+function buildGuideTipForStep(step, damageCount, fallbackTip = '') {
+  if (step === constants.SHOOT_STEP.DAMAGE && damageCount >= DAMAGE_READY_TIP_MIN_COUNT) {
+    return DAMAGE_READY_TIP
+  }
+
+  return fallbackTip || constants.GUIDE_TIPS[step] || ''
+}
+
 function buildCameraVehicleFields(flowContext = {}) {
   const vehicleType = flowContext.currentVehicleType || constants.VEHICLE_TYPE.TARGET
 
@@ -397,7 +426,7 @@ function buildCameraVehicleFields(flowContext = {}) {
     vehiclePlateNo: flowContext.currentVehiclePlateNo || '',
     vehiclePlateTheme: flowContext.currentVehiclePlateTheme || 'unknown',
     vehicleProgressText: flowContext.currentVehicleProgressText || '',
-    finishDamageText: flowContext.finishDamageText || '完成拍摄'
+    finishDamageText: DAMAGE_FINISH_TEXT
   }
 }
 
@@ -675,10 +704,11 @@ Page({
     vehiclePlateNo: '',
     vehiclePlateTheme: 'unknown',
     vehicleProgressText: '',
-    finishDamageText: '完成拍摄',
+    finishDamageText: DAMAGE_FINISH_TEXT,
     stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.LICENSE_PLATE),
     previewButtonText: '查看已拍',
     damageCount: 0,
+    damageCountText: buildDamageCountText(0),
     showConfirmModal: false,
     showDamageCompleteModal: false,
     showCaptureGuideModal: false,
@@ -690,6 +720,8 @@ Page({
     sceneGuideSeen: false,
     damageGuideSeen: false,
     cameraMounted: true,
+    damageCompleteModalTitle: '',
+    damageCompleteModalType: '',
     damageCompleteModalContent: '',
     damageCompleteConfirmText: '',
     damageCompleteCancelText: '',
@@ -2229,11 +2261,12 @@ Page({
       this.setData({
         ...vehicleFields,
         currentStep,
-        guideTip: flowContext.guideTip,
+        guideTip: buildGuideTipForStep(currentStep, damageCount, flowContext.guideTip),
         stepDisplayName: getStepDisplayName(currentStep),
         previewButtonText: getPreviewButtonText(cache),
         vehicleType: vehicleType || vehicleFields.vehicleType,
         damageCount,
+        damageCountText: buildDamageCountText(damageCount),
         sceneGuideSeen: captureGuideSeen.scene45,
         damageGuideSeen: captureGuideSeen.damage,
         damagePhaseLabel: currentStep === constants.SHOOT_STEP.DAMAGE
@@ -2259,10 +2292,11 @@ Page({
       this.setData({
         ...buildCameraVehicleFields(flowContext),
         currentStep: flowContext.currentStep,
-        guideTip: flowContext.guideTip,
+        guideTip: buildGuideTipForStep(flowContext.currentStep, damageCount, flowContext.guideTip),
         stepDisplayName: getStepDisplayName(flowContext.currentStep),
         previewButtonText: getPreviewButtonText(cache),
         damageCount,
+        damageCountText: buildDamageCountText(damageCount),
         sceneGuideSeen: captureGuideSeen.scene45,
         damageGuideSeen: captureGuideSeen.damage,
         damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE
@@ -2614,8 +2648,9 @@ Page({
       pendingPhoto: null,
       qualityHintText: '',
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      guideTip: constants.GUIDE_TIPS[constants.SHOOT_STEP.DAMAGE],
+      guideTip: buildGuideTipForStep(constants.SHOOT_STEP.DAMAGE, nextCache.currentDamageCount),
       damageCount: nextCache.currentDamageCount,
+      damageCountText: buildDamageCountText(nextCache.currentDamageCount),
       stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.DAMAGE),
       previewButtonText: getPreviewButtonText(nextCache),
       damageFrameState: 'normal',
@@ -2660,6 +2695,7 @@ Page({
       stepDisplayName: getStepDisplayName(cache.currentStep),
       guideTip: constants.GUIDE_TIPS[cache.currentStep],
       damageCount: 0,
+      damageCountText: buildDamageCountText(0),
       damageFrameState: 'normal',
       damagePhaseLabel: '',
       damageAreaRatioText: ''
@@ -2694,8 +2730,9 @@ Page({
       pendingPhoto: null,
       qualityHintText: '',
       currentStep: constants.SHOOT_STEP.DAMAGE,
-      guideTip: constants.GUIDE_TIPS[constants.SHOOT_STEP.DAMAGE],
+      guideTip: buildGuideTipForStep(constants.SHOOT_STEP.DAMAGE, damageCount),
       damageCount,
+      damageCountText: buildDamageCountText(damageCount),
       stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.DAMAGE),
       previewButtonText: getPreviewButtonText(cache),
       damageFrameState: 'normal',
@@ -2739,6 +2776,8 @@ Page({
       showDamageCompleteModal: false,
       showCaptureGuideModal: false,
       cameraMounted: false,
+      damageCompleteModalTitle: '',
+      damageCompleteModalType: '',
       damageCompleteModalContent: '',
       damageCompleteConfirmText: '',
       damageCompleteCancelText: '',
@@ -2746,8 +2785,9 @@ Page({
       pendingPhoto: null,
       qualityHintText: '',
       currentStep: nextFlowContext.currentStep,
-      guideTip: nextFlowContext.guideTip,
+      guideTip: buildGuideTipForStep(nextFlowContext.currentStep, 0, nextFlowContext.guideTip),
       damageCount: 0,
+      damageCountText: buildDamageCountText(0),
       plateFrameState: 'normal',
       plateDistanceHint: '',
       damageDistanceHint: '',
@@ -2766,6 +2806,8 @@ Page({
   closeDamageCompleteModal(extraData = {}) {
     this.setData({
       showDamageCompleteModal: false,
+      damageCompleteModalTitle: '',
+      damageCompleteModalType: '',
       damageCompleteModalContent: '',
       damageCompleteConfirmText: '',
       damageCompleteCancelText: '',
@@ -2779,6 +2821,30 @@ Page({
     this.stopAIDetectionLoop()
     this.stopAIFrameListener('damage_complete_modal')
     this.stopPlateBlink()
+  },
+
+  showDamageSoftConfirmModal(damageCount) {
+    this.isLeaving = false
+    this.pauseCaptureForDamageCompleteModal()
+    this.setData({
+      isNavigating: false,
+      showDamageCompleteModal: true,
+      showCaptureGuideModal: false,
+      damageCompleteModalTitle: DAMAGE_SOFT_CONFIRM_TITLE,
+      damageCompleteModalType: DAMAGE_COMPLETE_MODAL_TYPE.SOFT_CONFIRM,
+      damageCompleteModalContent: DAMAGE_SOFT_CONFIRM_CONTENT,
+      damageCompleteConfirmText: DAMAGE_SOFT_CONFIRM_CONFIRM_TEXT,
+      damageCompleteCancelText: DAMAGE_SOFT_CONFIRM_CANCEL_TEXT,
+      damageCompleteShowCancel: true,
+      damageCount,
+      damageCountText: buildDamageCountText(damageCount),
+      guideTip: buildGuideTipForStep(constants.SHOOT_STEP.DAMAGE, damageCount)
+    })
+  },
+
+  executeDamageCompletionAfterSoftConfirm(cache, flowContext) {
+    this.closeDamageCompleteModal()
+    this.handleDamageCompletedFlow(cache, flowContext)
   },
 
   showAuxDamageCompleteModal(cache, flowContext) {
@@ -2796,6 +2862,8 @@ Page({
       showDamageCompleteModal: true,
       showCaptureGuideModal: false,
       cameraMounted: false,
+      damageCompleteModalTitle: '',
+      damageCompleteModalType: DAMAGE_COMPLETE_MODAL_TYPE.HANDOFF,
       damageCompleteModalContent: buildDamageCompleteContent(damageCount, hasNextVehicle),
       damageCompleteConfirmText: hasNextVehicle ? NEXT_VEHICLE_TEXT : GO_PREVIEW_TEXT,
       damageCompleteCancelText: hasNextVehicle ? VIEW_CAPTURED_TEXT : '',
@@ -2812,6 +2880,11 @@ Page({
     }
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    if (this.data.damageCompleteModalType === DAMAGE_COMPLETE_MODAL_TYPE.SOFT_CONFIRM) {
+      this.executeDamageCompletionAfterSoftConfirm(cache, flowContext)
+      return
+    }
+
     if (flowContext.hasNextVehicle && Number.isInteger(flowContext.nextVehicleIndex)) {
       this.advanceToNextAuxVehicle(cache, flowContext)
       return
@@ -2830,6 +2903,19 @@ Page({
     }
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    if (this.data.damageCompleteModalType === DAMAGE_COMPLETE_MODAL_TYPE.SOFT_CONFIRM) {
+      this.closeDamageCompleteModal({
+        isNavigating: false,
+        cameraMounted: true
+      })
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: constants.SHOOT_STEP.DAMAGE
+      })
+      this.resumeAIDetectionAfterStepReady('damage_soft_confirm_continue')
+      return
+    }
+
     this.closeDamageCompleteModal()
     this.goToPreviewPage(cache, flowContext)
   },
@@ -2850,12 +2936,15 @@ Page({
       isNavigating: true,
       showConfirmModal: false,
       showCaptureGuideModal: false,
+      damageCompleteModalTitle: '',
+      damageCompleteModalType: '',
       cameraMounted: false,
       pendingPhoto: null,
       qualityHintText: '',
       currentStep: flowContext.currentStep,
-      guideTip: flowContext.guideTip,
+      guideTip: buildGuideTipForStep(flowContext.currentStep, damageCount, flowContext.guideTip),
       damageCount,
+      damageCountText: buildDamageCountText(damageCount),
       damageFrameState: 'normal',
       damagePhaseLabel: flowContext.currentStep === constants.SHOOT_STEP.DAMAGE ? this.getDamagePhaseLabel({ phase: 'SEEK' }) : '',
       damageAreaRatioText: ''
@@ -3238,7 +3327,9 @@ Page({
       showConfirmModal: false,
       pendingPhoto: null,
       qualityHintText: '',
+      guideTip: buildGuideTipForStep(constants.SHOOT_STEP.DAMAGE, currentVehicle.damages.length, updatedFlowContext.guideTip),
       damageCount: currentVehicle.damages.length,
+      damageCountText: buildDamageCountText(currentVehicle.damages.length),
       damageFrameState: 'normal',
       damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
       damageAreaRatioText: ''
@@ -3274,6 +3365,14 @@ Page({
       return
     }
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+    const currentVehicle = cache.vehicles && cache.vehicles[flowContext.currentVehicleIndex]
+    const damageCount = getVehicleDamageCount(currentVehicle)
+
+    if (damageCount < DAMAGE_SOFT_CONFIRM_MIN_COUNT) {
+      this.showDamageSoftConfirmModal(damageCount)
+      return
+    }
+
     this.handleDamageCompletedFlow(cache, flowContext)
   },
 
