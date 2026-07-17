@@ -34,6 +34,17 @@ const UPLOAD_COMPLETE_STATUSES = [
   'failed'
 ]
 
+const CAPTURE_RETURN_STRATEGIES = Object.values(constants.CAPTURE_RETURN_STRATEGY || {
+  CONTINUE_MODULE_ONE: 'continueModuleOne',
+  CONTINUE_DAMAGE: 'continueDamage',
+  RETURN_PREVIEW: 'returnPreview'
+})
+
+const CAPTURE_PREVIEW_SOURCES = Object.values(constants.CAPTURE_PREVIEW_SOURCE || {
+  MODULE_ONE: 'moduleOneCapture',
+  MODULE_TWO: 'moduleTwoCapture'
+})
+
 const TRANSIENT_CONTEXT_MAX_AGE_MS = 60 * 1000
 
 function nowIso() {
@@ -381,6 +392,10 @@ function hasRecoveryData(cache) {
   return hasVehicles(cache) || hasDocuments(cache)
 }
 
+function hasCapturePreviewSource(cache) {
+  return !!(cache && CAPTURE_PREVIEW_SOURCES.indexOf(cache.capturePreviewSource) >= 0)
+}
+
 function getLatestContextTimestamp(cache) {
   if (!cache) {
     return 0
@@ -412,8 +427,14 @@ function clearRetakeContextInPlace(cache) {
   return cache
 }
 
-function clearPreviewFlagsInPlace(cache) {
+function clearPreviewFlagsInPlace(cache, options = {}) {
+  const capturePreviewSource = cache.capturePreviewSource
   cache.fromPreview = false
+  delete cache.captureReturnStrategy
+  delete cache.capturePreviewSource
+  if (options.preserveCapturePreviewSource && CAPTURE_PREVIEW_SOURCES.indexOf(capturePreviewSource) >= 0) {
+    cache.capturePreviewSource = capturePreviewSource
+  }
   return cache
 }
 
@@ -449,7 +470,9 @@ function moveToPreviewState(cache, workflowState = 'PREVIEWING') {
 function moveToCapturingState(cache, options = {}) {
   clearRetakeContextInPlace(cache)
   if (!options.preservePreviewFlag) {
-    clearPreviewFlagsInPlace(cache)
+    clearPreviewFlagsInPlace(cache, {
+      preserveCapturePreviewSource: options.preserveCapturePreviewSource
+    })
   }
   alignMidContext(cache)
 
@@ -769,6 +792,32 @@ function sanitizeCurrentDamageCount(currentDamageCount, currentVehicle, tracker)
   return currentDamageCount
 }
 
+function sanitizeCaptureReturnStrategy(captureReturnStrategy, tracker) {
+  if (typeof captureReturnStrategy === 'undefined' || captureReturnStrategy === null || captureReturnStrategy === '') {
+    return undefined
+  }
+
+  if (CAPTURE_RETURN_STRATEGIES.indexOf(captureReturnStrategy) >= 0) {
+    return captureReturnStrategy
+  }
+
+  markIssue(tracker, 'capture_return_strategy_invalid')
+  return undefined
+}
+
+function sanitizeCapturePreviewSource(capturePreviewSource, tracker) {
+  if (typeof capturePreviewSource === 'undefined' || capturePreviewSource === null || capturePreviewSource === '') {
+    return undefined
+  }
+
+  if (CAPTURE_PREVIEW_SOURCES.indexOf(capturePreviewSource) >= 0) {
+    return capturePreviewSource
+  }
+
+  markIssue(tracker, 'capture_preview_source_invalid')
+  return undefined
+}
+
 function clearRetakeContext(cache) {
   const nextCache = cloneCache(cache)
   clearRetakeContextInPlace(nextCache)
@@ -864,7 +913,10 @@ function resolveSafeResumeCache(cache) {
     nextCache.currentStep = nextCache.retakeMode.photoType
     setWorkflowState(nextCache, 'RETAKING', nextCache.workflowState && nextCache.workflowState.updatedAt)
   } else if (nextCache.fromPreview && isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
-    moveToCapturingState(nextCache, { preservePreviewFlag: freshContext })
+    moveToCapturingState(nextCache, {
+      preservePreviewFlag: freshContext,
+      preserveCapturePreviewSource: hasCapturePreviewSource(nextCache)
+    })
     reasons.push('preview_to_capture')
   } else if (nextCache.fromPreview && !freshContext) {
     moveToPreviewState(nextCache)
@@ -887,6 +939,9 @@ function resolveSafeResumeCache(cache) {
     clearPreviewFlagsInPlace(nextCache)
     alignMidContext(nextCache)
     nextCache.currentStep = constants.SHOOT_STEP.PREVIEW
+  } else if (hasCapturePreviewSource(nextCache) && isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
+    moveToCapturingState(nextCache, { preserveCapturePreviewSource: true })
+    reasons.push('capture_preview_source_preserved')
   } else if (workflowState === 'PREVIEWING' || nextCache.currentStep === constants.SHOOT_STEP.PREVIEW) {
     clearRetakeContextInPlace(nextCache)
     clearPreviewFlagsInPlace(nextCache)
@@ -899,7 +954,9 @@ function resolveSafeResumeCache(cache) {
     alignMidContext(nextCache)
   } else if (hasVehicles(nextCache) && isShootStep(nextCache.currentStep)) {
     clearRetakeContextInPlace(nextCache)
-    clearPreviewFlagsInPlace(nextCache)
+    clearPreviewFlagsInPlace(nextCache, {
+      preserveCapturePreviewSource: hasCapturePreviewSource(nextCache)
+    })
     alignMidContext(nextCache)
     setWorkflowState(nextCache, 'CAPTURING', nextCache.workflowState && nextCache.workflowState.updatedAt)
   } else {
@@ -1361,6 +1418,8 @@ function repairCache(cache) {
   const albumSaveSummary = sanitizeAlbumSaveSummary(migrated.albumSaveSummary, tracker)
   const uploadSession = sanitizeUploadSession(migrated.uploadSession, tracker)
   const fromPreview = typeof migrated.fromPreview === 'boolean' ? migrated.fromPreview : false
+  const captureReturnStrategy = sanitizeCaptureReturnStrategy(migrated.captureReturnStrategy, tracker)
+  const capturePreviewSource = sanitizeCapturePreviewSource(migrated.capturePreviewSource, tracker)
   const sceneSupplementPromptShown = typeof migrated.sceneSupplementPromptShown === 'boolean'
     ? migrated.sceneSupplementPromptShown
     : false
@@ -1388,9 +1447,19 @@ function repairCache(cache) {
     albumSaveSummary,
     uploadSession,
     fromPreview,
+    captureReturnStrategy,
+    capturePreviewSource,
     sceneSupplementPromptShown,
     createdAt,
     updatedAt
+  }
+
+  if (typeof captureReturnStrategy === 'undefined') {
+    delete repairedCache.captureReturnStrategy
+  }
+
+  if (typeof capturePreviewSource === 'undefined') {
+    delete repairedCache.capturePreviewSource
   }
 
   const finalValidation = validateCache(repairedCache)

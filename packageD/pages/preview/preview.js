@@ -30,6 +30,15 @@ const SCENE_SUPPLEMENT_PROMPT_CONTENT = '是否补充其他现场环境或道路
 const ALBUM_SAVE_ALL_TIP = '是否保存全部图片至手机相册？建议保存，便于后续案件处理。'
 const ALBUM_SAVE_NEW_TIP = '是否保存新增图片至手机相册？建议保存，便于后续案件处理。'
 const AUTO_COMPLETE_DELAY_MS = 1500
+const CAPTURE_RETURN_STRATEGY = constants.CAPTURE_RETURN_STRATEGY || {
+  CONTINUE_MODULE_ONE: 'continueModuleOne',
+  CONTINUE_DAMAGE: 'continueDamage',
+  RETURN_PREVIEW: 'returnPreview'
+}
+const CAPTURE_PREVIEW_SOURCE = constants.CAPTURE_PREVIEW_SOURCE || {
+  MODULE_ONE: 'moduleOneCapture',
+  MODULE_TWO: 'moduleTwoCapture'
+}
 
 const TICKET_BLOCKED_MESSAGES = {
   COMPLETED: '照片已完成采集，请勿重复操作。',
@@ -390,6 +399,36 @@ function getCurrentPreviewReturnMode(data = {}) {
   if (data.isModuleTwoPreview) return 'moduleTwo'
   if (data.isModuleOnePreview) return 'moduleOne'
   return ''
+}
+
+function isModuleOneRequiredShootStep(step) {
+  return step === constants.SHOOT_STEP.SCENE_45
+    || step === constants.SHOOT_STEP.LICENSE_PLATE
+    || step === constants.SHOOT_STEP.VIN_CODE
+}
+
+function isTemporaryModuleOnePreview(cache = {}, data = {}) {
+  return !!(
+    data.isModuleOnePreview
+    && cache.capturePreviewSource === CAPTURE_PREVIEW_SOURCE.MODULE_ONE
+  )
+}
+
+function getModuleOneCaptureReturnStrategy(cache = {}, data = {}, nextStep = '', sourceStep = cache.currentStep) {
+  if (
+    isTemporaryModuleOnePreview({ ...cache, currentStep: sourceStep }, data)
+    && isModuleOneRequiredShootStep(nextStep)
+  ) {
+    return CAPTURE_RETURN_STRATEGY.CONTINUE_MODULE_ONE
+  }
+
+  return CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
+}
+
+function getDamageCaptureReturnStrategy(data = {}) {
+  return data.isModuleTwoPreview
+    ? CAPTURE_RETURN_STRATEGY.CONTINUE_DAMAGE
+    : CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
 }
 
 function isAuxPhotoEnabled(cache) {
@@ -1379,12 +1418,14 @@ Page({
       return
     }
 
+    const sourceStep = cache.currentStep
     cache.currentVehicleIndex = vehicle
     cache.currentStep = type === 'licensePlate'
       ? constants.SHOOT_STEP.LICENSE_PLATE
       : constants.SHOOT_STEP.VIN_CODE
     cache.fromPreview = true
     cache.previewReturnMode = getCurrentPreviewReturnMode(this.data)
+    cache.captureReturnStrategy = getModuleOneCaptureReturnStrategy(cache, this.data, cache.currentStep, sourceStep)
     storage.saveCache(cache)
     this.isLeaving = true
     wx.navigateTo({ url: '/packageD/pages/camera/camera' })
@@ -1415,6 +1456,7 @@ Page({
     cache.currentStep = constants.SHOOT_STEP.DAMAGE
     cache.fromPreview = true
     cache.previewReturnMode = getCurrentPreviewReturnMode(this.data)
+    cache.captureReturnStrategy = getDamageCaptureReturnStrategy(this.data)
     storage.saveCache(cache)
     this.isLeaving = true
     wx.navigateTo({ url: '/packageD/pages/camera/camera' })
@@ -1422,6 +1464,9 @@ Page({
 
   goToCameraWithCache(cache) {
     cache.previewReturnMode = getCurrentPreviewReturnMode(this.data)
+    if (!cache.captureReturnStrategy) {
+      cache.captureReturnStrategy = CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
+    }
     storage.saveCache(cache)
     this.isLeaving = true
     wx.navigateTo({ url: '/packageD/pages/camera/camera' })
@@ -1456,9 +1501,16 @@ Page({
       return
     }
 
+    const sourceStep = cache.currentStep
     if (sceneType === constants.SCENE_PHOTO_TYPE.SCENE_45) {
       cache.currentStep = constants.SHOOT_STEP.SCENE_45
       delete cache.sceneSupplementIndex
+      cache.captureReturnStrategy = getModuleOneCaptureReturnStrategy(
+        cache,
+        this.data,
+        constants.SHOOT_STEP.SCENE_45,
+        sourceStep
+      )
     } else {
       const supplements = cache.scenePhotos && Array.isArray(cache.scenePhotos.supplements)
         ? cache.scenePhotos.supplements
@@ -1477,6 +1529,7 @@ Page({
 
       cache.currentStep = constants.SHOOT_STEP.SCENE_SUPPLEMENT
       cache.sceneSupplementIndex = targetIndex
+      cache.captureReturnStrategy = CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
     }
 
     cache.fromPreview = true
@@ -1695,6 +1748,7 @@ Page({
       }
       delete cache.retakeMode
       cache.fromPreview = true
+      cache.captureReturnStrategy = CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
       if (previewReturnMode) {
         cache.previewReturnMode = previewReturnMode
       }
@@ -1717,6 +1771,7 @@ Page({
       damageIndex: photo.damage
     }
     cache.fromPreview = true
+    cache.captureReturnStrategy = CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
     if (previewReturnMode) {
       cache.previewReturnMode = previewReturnMode
     }

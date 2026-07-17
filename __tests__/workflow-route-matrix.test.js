@@ -14,6 +14,10 @@ function createPhoto(path) {
   }
 }
 
+function createDamages(count, prefix = '/damage') {
+  return Array.from({ length: count }, (_, index) => createPhoto(`${prefix}-${index}.jpg`))
+}
+
 function createVehicle(index, overrides = {}) {
   return {
     type: index === 0 ? '标的车' : `三者车${index}`,
@@ -107,6 +111,12 @@ function withPreviewReturn(cache, mode) {
   return nextCache
 }
 
+function withCaptureReturnStrategy(cache, strategy) {
+  const nextCache = clone(cache)
+  nextCache.captureReturnStrategy = strategy
+  return nextCache
+}
+
 function withRetakeMode(cache, photoType, vehicleIndex = 0, damageIndex = null) {
   const nextCache = clone(cache)
   nextCache.fromPreview = true
@@ -135,6 +145,10 @@ function expectNavigation(expectedUrl) {
 
 function expectNoLegacyPreviewWithoutMode() {
   expect(getNavigationUrls()).not.toContain(PREVIEW_BASE_URL)
+}
+
+function expectNavigateBackSince(callCount) {
+  expect(global.wx.navigateBack.mock.calls.length).toBeGreaterThan(callCount)
 }
 
 function expectNoNaturalNextStep(cache, forbiddenStep) {
@@ -226,7 +240,8 @@ describe('流程路由矩阵 - 相机页出口', () => {
       }),
       clearPreviewFlags: jest.fn((targetCache) => ({
         ...targetCache,
-        fromPreview: false
+        fromPreview: false,
+        captureReturnStrategy: undefined
       })),
       isRetakeMode: jest.fn(() => !!(cameraCache.retakeMode && cameraCache.retakeMode.enabled)),
       saveRetakenPhoto: jest.fn(saveRetakenPhoto),
@@ -387,6 +402,8 @@ describe('流程路由矩阵 - 相机页出口', () => {
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
       handleDamageCompletedFlow: pageConfig.handleDamageCompletedFlow,
+      continueModuleOneCapture: pageConfig.continueModuleOneCapture,
+      continueDamageCapture: pageConfig.continueDamageCapture,
       maybeShowCaptureGuide: jest.fn(),
       ...overrides
     }
@@ -559,7 +576,7 @@ describe('流程路由矩阵 - 相机页出口', () => {
         cache.currentStep = constants.SHOOT_STEP.DAMAGE
         return cache
       },
-      expectedStep: constants.SHOOT_STEP.DAMAGE,
+      expectedStep: constants.SHOOT_STEP.FINAL_PREVIEW,
       expectedUrl: `${PREVIEW_BASE_URL}?mode=final`
     }
   ]
@@ -665,6 +682,166 @@ describe('流程路由矩阵 - 相机页出口', () => {
     expectNoLegacyPreviewWithoutMode()
   })
 
+  test('ROUTE-M1-011 模块一临时查看已拍补45度空槽后继续车牌拍摄', () => {
+    const cache = withCaptureReturnStrategy(withPreviewReturn(singleVehicleModuleOneCache(), 'moduleOne'), 'continueModuleOne')
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.scenePhotos.scene45 = { status: 'pending' }
+    cache.vehicles[0].licensePlate = { status: 'pending' }
+    cache.vehicles[0].vinCode = { status: 'pending' }
+    loadCameraPage(cache)
+    const instance = createCameraInstance()
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cameraCache.currentVehicleIndex).toBe(0)
+    expect(cameraCache.fromPreview).toBe(false)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expect(getNavigationUrls()).toHaveLength(0)
+  })
+
+  test('ROUTE-M1-012 模块一临时查看已拍补车牌空槽后继续VIN拍摄', () => {
+    const cache = withCaptureReturnStrategy(withPreviewReturn(singleVehicleModuleOneCache(), 'moduleOne'), 'continueModuleOne')
+    cache.currentStep = constants.SHOOT_STEP.LICENSE_PLATE
+    cache.vehicles[0].licensePlate = { status: 'pending' }
+    cache.vehicles[0].vinCode = { status: 'pending' }
+    loadCameraPage(cache)
+    const instance = createCameraInstance()
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+    expect(cameraCache.currentVehicleIndex).toBe(0)
+    expect(cameraCache.fromPreview).toBe(false)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expect(getNavigationUrls()).toHaveLength(0)
+  })
+
+  test('ROUTE-M1-013 模块一临时查看已拍补VIN后按车辆顺序继续或进入预览', () => {
+    const nextVehicleCache = withCaptureReturnStrategy(withPreviewReturn(doubleVehicleModuleOneCache(), 'moduleOne'), 'continueModuleOne')
+    nextVehicleCache.currentVehicleIndex = 0
+    nextVehicleCache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    nextVehicleCache.vehicles[0].vinCode = { status: 'pending' }
+    nextVehicleCache.vehicles[1].licensePlate = { status: 'pending' }
+    nextVehicleCache.vehicles[1].vinCode = { status: 'pending' }
+    loadCameraPage(nextVehicleCache)
+    let instance = createCameraInstance()
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentVehicleIndex).toBe(1)
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(cameraCache.fromPreview).toBe(false)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expect(getNavigationUrls()).toHaveLength(0)
+
+    const finishedCache = withCaptureReturnStrategy(withPreviewReturn(singleVehicleModuleOneCache(), 'moduleOne'), 'continueModuleOne')
+    finishedCache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    finishedCache.vehicles[0].vinCode = { status: 'pending' }
+    loadCameraPage(finishedCache)
+    instance = createCameraInstance()
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleOne`)
+    expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ROUTE-M1-014 模块一正式预览补空槽后仍回模块一预览', () => {
+    const cache = withCaptureReturnStrategy(withPreviewReturn(singleVehicleModuleOneCache(), 'moduleOne'), 'returnPreview')
+    cache.currentStep = constants.SHOOT_STEP.SCENE_45
+    cache.scenePhotos.scene45 = { status: 'pending' }
+    loadCameraPage(cache)
+    const instance = createCameraInstance()
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleOne`)
+    expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ROUTE-M2-007 模块二已有5张车损重拍第3张后回模块二预览', () => {
+    const cache = withCaptureReturnStrategy(withRetakeMode(moduleTwoDamageCache(), constants.PHOTO_TYPE.DAMAGE, 0, 2), 'returnPreview')
+    cache.previewReturnMode = 'moduleTwo'
+    cache.vehicles[0].damages = createDamages(5, '/damage-retake')
+    loadCameraPage(cache, [{ route: 'packageD/pages/preview/preview' }])
+    global.wx.navigateBack.mockImplementationOnce(({ fail } = {}) => fail && fail({ errMsg: 'navigateBack:fail' }))
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        isNavigating: false,
+        showConfirmModal: false,
+        pendingPhoto: null
+      }
+    })
+
+    pageConfig.savePhoto.call(instance, createPhoto('/damage-retake-new-2.jpg'))
+
+    expect(cameraCache.vehicles[0].damages).toHaveLength(5)
+    expect(cameraCache.vehicles[0].damages[2].compressedPath).toBe('/damage-retake-new-2.jpg')
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleTwo`)
+    expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ROUTE-M2-008 模块二点击+拍第6张后继续当前车辆车损拍摄', () => {
+    const cache = withCaptureReturnStrategy(withPreviewReturn(moduleTwoDamageCache(), 'moduleTwo'), 'continueDamage')
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.vehicles[0].damages = createDamages(5, '/damage-add')
+    cache.currentDamageCount = 5
+    loadCameraPage(cache)
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        isNavigating: false,
+        showConfirmModal: true,
+        pendingPhoto: createPhoto('/damage-add-5.jpg')
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.vehicles[0].damages).toHaveLength(6)
+    expect(cameraCache.currentVehicleIndex).toBe(0)
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cameraCache.fromPreview).toBe(false)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expect(getNavigationUrls()).toHaveLength(0)
+  })
+
+  test('ROUTE-M2-010 多车第二辆点击+新增车损后继续第二辆车车损拍摄', () => {
+    const cache = withCaptureReturnStrategy(withPreviewReturn(baseCache([
+      createVehicle(0, { damages: createDamages(2, '/damage-v0') }),
+      createVehicle(1, { damages: createDamages(5, '/damage-v1') })
+    ]), 'moduleTwo'), 'continueDamage')
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = 1
+    cache.currentDamageCount = 5
+    loadCameraPage(cache)
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        isNavigating: false,
+        showConfirmModal: true,
+        pendingPhoto: createPhoto('/damage-v1-5.jpg')
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.vehicles[0].damages).toHaveLength(2)
+    expect(cameraCache.vehicles[1].damages).toHaveLength(6)
+    expect(cameraCache.currentVehicleIndex).toBe(1)
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cameraCache.fromPreview).toBe(false)
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
+    expect(getNavigationUrls()).toHaveLength(0)
+  })
+
   test('ROUTE-FINAL-005 最终预览重拍车损的navigateBack失败兜底回最终总预览', () => {
     const cache = withRetakeMode(finalPreviewCache(), constants.PHOTO_TYPE.DAMAGE, 0, 0)
     cache.previewReturnMode = 'final'
@@ -681,6 +858,28 @@ describe('流程路由矩阵 - 相机页出口', () => {
 
     pageConfig.savePhoto.call(instance, createPhoto('/retake-damage.jpg'))
 
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=final`)
+    expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ROUTE-FINAL-007 最终预览重拍已有车损后回最终总预览', () => {
+    const cache = withCaptureReturnStrategy(withRetakeMode(finalPreviewCache(), constants.PHOTO_TYPE.DAMAGE, 0, 0), 'returnPreview')
+    cache.previewReturnMode = 'final'
+    loadCameraPage(cache, [{ route: 'packageD/pages/preview/preview' }])
+    global.wx.navigateBack.mockImplementationOnce(({ fail } = {}) => fail && fail({ errMsg: 'navigateBack:fail' }))
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        isNavigating: false,
+        showConfirmModal: false,
+        pendingPhoto: null
+      }
+    })
+
+    pageConfig.savePhoto.call(instance, createPhoto('/damage-final-retake.jpg'))
+
+    expect(cameraCache.vehicles[0].damages[0].compressedPath).toBe('/damage-final-retake.jpg')
+    expect(cameraCache.captureReturnStrategy).toBeUndefined()
     expectNavigation(`${PREVIEW_BASE_URL}?mode=final`)
     expectNoLegacyPreviewWithoutMode()
   })
@@ -852,6 +1051,7 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
   let documents
   let compress
   let pageConfig
+  let cameraPageConfig
   let memoryStorage
   let actionSheetTapIndexes
 
@@ -867,6 +1067,50 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
         }
         if (callback) callback()
       }
+    }
+  }
+
+  function createCameraPageInstance(config, overrides = {}) {
+    const cache = storage.loadCache()
+    return {
+      ...config,
+      data: {
+        ...clone(config.data),
+        currentStep: cache && cache.currentStep,
+        isNavigating: false,
+        showConfirmModal: false,
+        showDamageCompleteModal: false,
+        showCaptureGuideModal: false,
+        pendingPhoto: null,
+        cameraMounted: true,
+        aiEnabled: true,
+        aiAvailable: true,
+        damageCount: 0,
+        ...overrides.data
+      },
+      isLeaving: false,
+      cameraInitialized: true,
+      detectTimer: null,
+      aiBusy: false,
+      pendingCameraInitResumeReason: '',
+      pendingCameraRemountReason: '',
+      cameraRestartTimer: null,
+      setData(updates, callback) {
+        this.data = {
+          ...this.data,
+          ...updates
+        }
+        if (callback) callback()
+      },
+      clearCameraRestartTimer: jest.fn(),
+      resetAIState: jest.fn(),
+      stopAIDetectionLoop: jest.fn(),
+      stopAIFrameListener: jest.fn(),
+      stopPlateBlink: jest.fn(),
+      resumeAIDetectionAfterStepReady: jest.fn(),
+      requestCameraRemountAfterStop: jest.fn(),
+      maybeShowCaptureGuide: jest.fn(),
+      ...overrides
     }
   }
 
@@ -908,6 +1152,70 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     return vehicle
   }
 
+  function buildModuleOneCaptureCache(step, options = {}) {
+    const cache = storage.initCache()
+    appendPreviewVehicle(cache, 0)
+    cache.currentStep = step
+    cache.currentVehicleIndex = options.vehicleIndex || 0
+    cache.scenePhotos.scene45 = createPhoto('/scene-45.jpg')
+    cache.vehicles[0].licensePlate = createPhoto('/plate-0.jpg')
+    cache.vehicles[0].vinCode = createPhoto('/vin-0.jpg')
+    cache.sceneSupplementPromptShown = true
+    cache.workflowState = {
+      current: 'CAPTURING',
+      updatedAt: cache.updatedAt
+    }
+
+    if (step === constants.SHOOT_STEP.SCENE_45) {
+      cache.scenePhotos.scene45 = { status: 'pending' }
+      cache.vehicles[0].licensePlate = { status: 'pending' }
+      cache.vehicles[0].vinCode = { status: 'pending' }
+    } else if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
+      cache.vehicles[0].licensePlate = { status: 'pending' }
+      cache.vehicles[0].vinCode = { status: 'pending' }
+    } else if (step === constants.SHOOT_STEP.VIN_CODE) {
+      cache.vehicles[0].vinCode = { status: 'pending' }
+    }
+
+    if (options.withSecondVehicle) {
+      appendPreviewVehicle(cache, 1, {
+        licensePlate: { status: 'pending' },
+        vinCode: { status: 'pending' }
+      })
+    }
+
+    if (options.safeResumePreviewing) {
+      cache.workflowState = {
+        current: 'PREVIEWING',
+        updatedAt: cache.updatedAt
+      }
+    }
+
+    return cache
+  }
+
+  function buildModuleTwoCaptureCache(vehicleIndex = 0) {
+    const cache = storage.initCache()
+    appendPreviewVehicle(cache, 0, {
+      damages: createDamages(5, '/damage-0')
+    })
+    if (vehicleIndex === 1) {
+      appendPreviewVehicle(cache, 1, {
+        damages: createDamages(2, '/damage-1')
+      })
+    }
+    cache.currentStep = constants.SHOOT_STEP.DAMAGE
+    cache.currentVehicleIndex = vehicleIndex
+    cache.currentDamageCount = cache.vehicles[vehicleIndex].damages.length
+    cache.scenePhotos.scene45 = createPhoto('/scene-45.jpg')
+    cache.sceneSupplementPromptShown = true
+    cache.workflowState = {
+      current: 'CAPTURING',
+      updatedAt: cache.updatedAt
+    }
+    return cache
+  }
+
   function loadPreviewPage(cache, options = {}) {
     storage.saveCache(cache)
     pageConfig = null
@@ -917,6 +1225,39 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     const page = createPreviewPageInstance(pageConfig)
     page.onLoad(options)
     return page
+  }
+
+  function loadCameraPageFromStorage(pages = [{ route: 'packageD/pages/camera/camera' }]) {
+    cameraPageConfig = null
+    global.getCurrentPages = jest.fn(() => pages)
+    jest.isolateModules(() => {
+      require('../packageD/pages/camera/camera')
+    })
+    return createCameraPageInstance(cameraPageConfig)
+  }
+
+  function enterTemporaryPreviewFromCamera(cache, mode) {
+    storage.saveCache(cache)
+    const cameraPage = loadCameraPageFromStorage()
+
+    cameraPage.onGoPreview()
+
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=${mode}`)
+    const previewPage = loadPreviewPage(storage.loadCache(), { mode })
+    previewPage.onShow()
+    return previewPage
+  }
+
+  function confirmCameraPhotoFromPreview(photoPath = '/tmp/confirmed.jpg') {
+    const cameraPage = loadCameraPageFromStorage([{ route: 'packageD/pages/preview/preview' }])
+    cameraPage.setData({
+      currentStep: storage.loadCache().currentStep,
+      showConfirmModal: true,
+      pendingPhoto: createPhoto(photoPath)
+    })
+
+    cameraPage.onConfirmPhoto()
+    return storage.loadCache()
   }
 
   beforeEach(() => {
@@ -932,7 +1273,9 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
       }))
     }))
     jest.doMock('../packageD/utils/env-config', () => ({
-      getAppEnvBadgeText: jest.fn(() => '')
+      getAppEnvBadgeText: jest.fn(() => ''),
+      getDebugConfig: jest.fn(() => ({ showAIPanel: false })),
+      getAiConfig: jest.fn(() => ({}))
     }))
     jest.doMock('../packageD/utils/runtime-logger', () => ({
       forceWarn: jest.fn(),
@@ -946,6 +1289,48 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     }))
     jest.doMock('../packageD/utils/upload-state', () => ({
       buildUploadOverlay: jest.fn(() => null)
+    }))
+    jest.doMock('../packageD/utils/photo-quality', () => ({
+      attachPhotoQualityMeta: jest.fn((photo) => photo),
+      buildQualityHintText: jest.fn(() => ''),
+      analyzePhotoQuality: jest.fn()
+    }))
+    jest.doMock('../packageD/utils/plate-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/damage-detector', () => jest.fn())
+    jest.doMock('../packageD/utils/frame-utils', () => ({
+      PlateFrameUtils: jest.fn(),
+      createVirtualCameraMapping: jest.fn(() => ({
+        sourceWidth: 400,
+        sourceHeight: 300,
+        targetWidth: 400,
+        targetHeight: 300,
+        mappingMode: 'legacy',
+        scale: 1,
+        scaleX: 1,
+        scaleY: 1,
+        offsetX: 0,
+        offsetY: 0
+      }))
+    }))
+    jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
+    jest.doMock('../packageD/utils/ai-config', () => ({
+      AI_FEATURES: {
+        enabled: false,
+        plateEnabled: true,
+        damageEnabled: true
+      },
+      AUTO_CAPTURE: {
+        LOW_QUALITY: 0.3,
+        DETECT_INTERVAL: 100,
+        COOLDOWN_MS: 1000,
+        STATUS_TEXT: {},
+        PLATE: {},
+        DAMAGE: {},
+        DAMAGE_FLOW: {
+          previewInterval: 100,
+          phase: {}
+        }
+      }
     }))
     jest.doMock('../packageD/utils/aux-photo-api', () => ({
       uploadPhoto: jest.fn()
@@ -987,11 +1372,14 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
       showModal: jest.fn(({ success }) => success && success({ confirm: true })),
       previewImage: jest.fn(),
       navigateTo: jest.fn(({ success } = {}) => success && success()),
+      navigateBack: jest.fn(({ success } = {}) => success && success()),
       redirectTo: jest.fn(({ success } = {}) => success && success()),
       reLaunch: jest.fn(({ success } = {}) => success && success())
     }
+    global.getCurrentPages = jest.fn(() => [])
     global.Page = jest.fn((config) => {
       pageConfig = config
+      cameraPageConfig = config
       return config
     })
 
@@ -1003,11 +1391,18 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
   afterEach(() => {
     delete global.wx
     delete global.Page
+    delete global.getCurrentPages
     jest.dontMock('../packageD/utils/compress')
     jest.dontMock('../packageD/utils/env-config')
     jest.dontMock('../packageD/utils/runtime-logger')
     jest.dontMock('../packageD/utils/workflow-page')
     jest.dontMock('../packageD/utils/upload-state')
+    jest.dontMock('../packageD/utils/photo-quality')
+    jest.dontMock('../packageD/utils/plate-detector')
+    jest.dontMock('../packageD/utils/damage-detector')
+    jest.dontMock('../packageD/utils/frame-utils')
+    jest.dontMock('../packageD/utils/damage-auto-capture-engine')
+    jest.dontMock('../packageD/utils/ai-config')
     jest.dontMock('../packageD/utils/aux-photo-api')
     jest.dontMock('../packageD/utils/album')
     jest.dontMock('../packageD/utils/permission')
@@ -1054,6 +1449,262 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
       url: PREVIEW_BASE_URL
     }))
     expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('LINK-M1-011 相机页查看已拍进入临时模块一预览后补45度应继续车牌拍摄', () => {
+    const previewPage = enterTemporaryPreviewFromCamera(
+      buildModuleOneCaptureCache(constants.SHOOT_STEP.SCENE_45, { safeResumePreviewing: true }),
+      'moduleOne'
+    )
+
+    expect(storage.loadCache().capturePreviewSource).toBe('moduleOneCapture')
+
+    previewPage.onTapModuleOneSceneSlot({
+      currentTarget: {
+        dataset: {
+          sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45,
+          completed: false
+        }
+      }
+    })
+
+    expect(storage.loadCache().captureReturnStrategy).toBe('continueModuleOne')
+
+    const nextCache = confirmCameraPhotoFromPreview('/scene-45-new.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(nextCache.currentVehicleIndex).toBe(0)
+    expect(nextCache.captureReturnStrategy).toBeUndefined()
+    expect(nextCache.capturePreviewSource).toBeUndefined()
+  })
+
+  test('LINK-M1-012 相机页查看已拍进入临时模块一预览后补车牌应继续VIN拍摄', () => {
+    const previewPage = enterTemporaryPreviewFromCamera(
+      buildModuleOneCaptureCache(constants.SHOOT_STEP.LICENSE_PLATE, { safeResumePreviewing: true }),
+      'moduleOne'
+    )
+
+    previewPage.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          type: constants.PHOTO_TYPE.LICENSE_PLATE,
+          completed: false
+        }
+      }
+    })
+
+    expect(storage.loadCache().captureReturnStrategy).toBe('continueModuleOne')
+
+    const nextCache = confirmCameraPhotoFromPreview('/plate-new.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+    expect(nextCache.currentVehicleIndex).toBe(0)
+    expect(nextCache.capturePreviewSource).toBeUndefined()
+  })
+
+  test('LINK-M1-013 相机页查看已拍进入临时模块一预览后补VIN应继续下一辆或进入预览', () => {
+    const previewPage = enterTemporaryPreviewFromCamera(
+      buildModuleOneCaptureCache(constants.SHOOT_STEP.VIN_CODE, {
+        withSecondVehicle: true,
+        safeResumePreviewing: true
+      }),
+      'moduleOne'
+    )
+
+    previewPage.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          type: constants.PHOTO_TYPE.VIN_CODE,
+          completed: false
+        }
+      }
+    })
+
+    let nextCache = confirmCameraPhotoFromPreview('/vin-new.jpg')
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(nextCache.capturePreviewSource).toBeUndefined()
+
+    const finalPreviewPage = enterTemporaryPreviewFromCamera(
+      buildModuleOneCaptureCache(constants.SHOOT_STEP.VIN_CODE, { safeResumePreviewing: true }),
+      'moduleOne'
+    )
+    finalPreviewPage.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          type: constants.PHOTO_TYPE.VIN_CODE,
+          completed: false
+        }
+      }
+    })
+
+    nextCache = confirmCameraPhotoFromPreview('/vin-final.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleOne`)
+    expect(nextCache.capturePreviewSource).toBeUndefined()
+  })
+
+  test('LINK-M1-014 模块一正式预览空槽补拍和已有照片重拍均回模块一预览', () => {
+    const cache = buildPreviewCache('moduleOne')
+    cache.scenePhotos.scene45 = { status: 'pending' }
+    const previewPage = loadPreviewPage(cache, { mode: 'moduleOne' })
+    previewPage.onShow()
+
+    previewPage.onTapModuleOneSceneSlot({
+      currentTarget: {
+        dataset: {
+          sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45,
+          completed: false
+        }
+      }
+    })
+
+    let navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    let nextCache = confirmCameraPhotoFromPreview('/scene-formal.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('moduleOne')
+    expectNavigateBackSince(navigateBackCalls)
+
+    const retakePage = loadPreviewPage(buildPreviewCache('moduleOne'), { mode: 'moduleOne' })
+    retakePage.setData({
+      showPreview: true,
+      currentPhoto: retakePage.data.allPhotos.find((photo) => photo.id === '0-licensePlate')
+    })
+    retakePage.onRetake()
+    navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    nextCache = confirmCameraPhotoFromPreview('/plate-retake.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('moduleOne')
+    expectNavigateBackSince(navigateBackCalls)
+  })
+
+  test('LINK-FINAL-001 最终预览模块一空槽和重拍必须回最终预览', () => {
+    const cache = buildPreviewCache('final')
+    cache.vehicles[0].vinCode = { status: 'pending' }
+    const previewPage = loadPreviewPage(cache, { mode: 'final' })
+    previewPage.onShow()
+
+    previewPage.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          type: constants.PHOTO_TYPE.VIN_CODE,
+          completed: false
+        }
+      }
+    })
+
+    let navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    let nextCache = confirmCameraPhotoFromPreview('/vin-final-preview.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expectNavigateBackSince(navigateBackCalls)
+
+    const retakePage = loadPreviewPage(buildPreviewCache('final'), { mode: 'final' })
+    retakePage.setData({
+      showPreview: true,
+      currentPhoto: retakePage.data.allPhotos.find((photo) => photo.id === 'scene-45')
+    })
+    retakePage.onRetake()
+    navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    nextCache = confirmCameraPhotoFromPreview('/scene-final-retake.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expectNavigateBackSince(navigateBackCalls)
+  })
+
+  test('LINK-M2-008 临时模块二预览新增车损继续当前车辆，重拍已有车损回模块二预览', () => {
+    const previewPage = enterTemporaryPreviewFromCamera(buildModuleTwoCaptureCache(1), 'moduleTwo')
+
+    expect(storage.loadCache().capturePreviewSource).toBe('moduleTwoCapture')
+
+    previewPage.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: 1
+        }
+      }
+    })
+
+    expect(storage.loadCache().captureReturnStrategy).toBe('continueDamage')
+
+    let nextCache = confirmCameraPhotoFromPreview('/damage-1-new.jpg')
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(nextCache.vehicles[1].damages).toHaveLength(3)
+    expect(nextCache.capturePreviewSource).toBeUndefined()
+
+    const retakePreviewPage = enterTemporaryPreviewFromCamera(buildModuleTwoCaptureCache(1), 'moduleTwo')
+    retakePreviewPage.setData({
+      showPreview: true,
+      currentPhoto: retakePreviewPage.data.allPhotos.find((photo) => photo.id === '1-damage-1')
+    })
+    retakePreviewPage.onRetake()
+    nextCache = confirmCameraPhotoFromPreview('/damage-1-retake.jpg')
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleTwo`)
+  })
+
+  test('LINK-M2-011 模块二正式预览新增继续车损，重拍回模块二预览', () => {
+    const previewPage = loadPreviewPage(buildPreviewCache('moduleTwo'), { mode: 'moduleTwo' })
+    previewPage.onShow()
+
+    previewPage.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: 0
+        }
+      }
+    })
+
+    let nextCache = confirmCameraPhotoFromPreview('/damage-formal-new.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(nextCache.vehicles[0].damages).toHaveLength(2)
+
+    const retakePage = loadPreviewPage(buildPreviewCache('moduleTwo'), { mode: 'moduleTwo' })
+    retakePage.setData({
+      showPreview: true,
+      currentPhoto: retakePage.data.allPhotos.find((photo) => photo.id === '0-damage-0')
+    })
+    retakePage.onRetake()
+    const navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    nextCache = confirmCameraPhotoFromPreview('/damage-formal-retake.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(nextCache.previewReturnMode).toBe('moduleTwo')
+    expectNavigateBackSince(navigateBackCalls)
+  })
+
+  test('LINK-FINAL-002 最终预览车损新增和重拍必须回最终预览', () => {
+    const previewPage = loadPreviewPage(buildPreviewCache('final'), { mode: 'final' })
+    previewPage.onShow()
+
+    previewPage.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: 0
+        }
+      }
+    })
+
+    let navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    let nextCache = confirmCameraPhotoFromPreview('/damage-final-new.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expectNavigateBackSince(navigateBackCalls)
+
+    const retakePage = loadPreviewPage(buildPreviewCache('final'), { mode: 'final' })
+    retakePage.setData({
+      showPreview: true,
+      currentPhoto: retakePage.data.allPhotos.find((photo) => photo.id === '0-damage-0')
+    })
+    retakePage.onRetake()
+    navigateBackCalls = global.wx.navigateBack.mock.calls.length
+    nextCache = confirmCameraPhotoFromPreview('/damage-final-retake.jpg')
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expectNavigateBackSince(navigateBackCalls)
   })
 
   test('ACCESS-M1-001 模块一删除45度后仍可从空槽位补拍并回模块一', () => {
@@ -1133,9 +1784,36 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.fromPreview).toBe(true)
     expect(cache.previewReturnMode).toBe('moduleTwo')
+    expect(cache.captureReturnStrategy).toBe('continueDamage')
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: CAMERA_URL
     }))
+  })
+
+  test('ROUTE-M2-009 模块二删除第3张后点击+新增照片按新增车损继续拍摄', () => {
+    const cache = buildPreviewCache('moduleTwo')
+    cache.vehicles[0].damages = createDamages(5, '/damage-delete-add')
+    const page = loadPreviewPage(cache, { mode: 'moduleTwo' })
+    page.setData({
+      showPreview: true,
+      currentPhoto: page.data.allPhotos.find((photo) => photo.id === '0-damage-2')
+    })
+
+    page.onDelete()
+    page.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: 0
+        }
+      }
+    })
+
+    const nextCache = storage.loadCache()
+    expect(page.data.vehicles[0].damages).toHaveLength(4)
+    expect(nextCache.currentVehicleIndex).toBe(0)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(nextCache.previewReturnMode).toBe('moduleTwo')
+    expect(nextCache.captureReturnStrategy).toBe('continueDamage')
   })
 
   test('ACCESS-M3-001 模块三删除驾驶证后仍展示证件上传入口', () => {
@@ -1267,6 +1945,7 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.fromPreview).toBe(true)
     expect(cache.previewReturnMode).toBe('final')
+    expect(cache.captureReturnStrategy).toBe('returnPreview')
   })
 
   test('ACCESS-FINAL-006 最终预览删除证件后仍展示证件上传入口', () => {
@@ -1416,6 +2095,7 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     expect(nextCache.currentVehicleIndex).toBe(1)
     expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(nextCache.previewReturnMode).toBe('moduleTwo')
+    expect(nextCache.captureReturnStrategy).toBe('continueDamage')
   })
 
   test('COMPLEX-PV-FINAL-003 最终预览连续删除现场车牌车损后三个补拍入口都保持final', () => {
@@ -1461,6 +2141,7 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     })
     expect(storage.loadCache().previewReturnMode).toBe('final')
     expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(storage.loadCache().captureReturnStrategy).toBe('returnPreview')
   })
 
   test('COMPLEX-PV-FINAL-004 最终预览连续删除两类证件后对应上传入口均恢复且不跳页', () => {

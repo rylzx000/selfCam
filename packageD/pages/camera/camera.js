@@ -37,6 +37,15 @@ const CONFIRM_USE_TEXT = '\u786e\u8ba4\u4f7f\u7528'
 const RETAKE_TEXT = '\u91cd\u65b0\u62cd\u6444'
 const MAX_DAMAGES = (constants.LIMITS && constants.LIMITS.MAX_DAMAGES) || 5
 const MAX_TOTAL_PHOTOS = (constants.LIMITS && constants.LIMITS.MAX_TOTAL_PHOTOS) || 50
+const CAPTURE_RETURN_STRATEGY = constants.CAPTURE_RETURN_STRATEGY || {
+  CONTINUE_MODULE_ONE: 'continueModuleOne',
+  CONTINUE_DAMAGE: 'continueDamage',
+  RETURN_PREVIEW: 'returnPreview'
+}
+const CAPTURE_PREVIEW_SOURCE = constants.CAPTURE_PREVIEW_SOURCE || {
+  MODULE_ONE: 'moduleOneCapture',
+  MODULE_TWO: 'moduleTwoCapture'
+}
 const DAMAGE_PHOTO_LIMIT_TIP = `最多${MAX_DAMAGES}张车损，请先删除`
 const TOTAL_PHOTO_LIMIT_TIP = `最多${MAX_TOTAL_PHOTOS}张，请先删除`
 const DAMAGE_COMPLETE_NEXT_CONTENT = `\u672c\u8f66\u8f66\u635f\u7167\u7247\u5df2\u62cd\u6ee1 ${MAX_DAMAGES} \u5f20\uff0c\u8bf7\u786e\u8ba4\u662f\u5426\u8fdb\u5165\u4e0b\u4e00\u8f86\u8f66\u7ee7\u7eed\u62cd\u6444\u3002`
@@ -454,6 +463,34 @@ function shouldOpenModuleOnePreview(cache = {}, flowContext = null) {
     || step === constants.SHOOT_STEP.MODULE_ONE_PREVIEW
 }
 
+function isModuleOneMainCaptureStep(step) {
+  return step === constants.SHOOT_STEP.SCENE_45
+    || step === constants.SHOOT_STEP.LICENSE_PLATE
+    || step === constants.SHOOT_STEP.VIN_CODE
+}
+
+function getCapturePreviewSource(cache = {}, flowContext = null) {
+  const step = flowContext?.currentStep || cache.currentStep
+  if (isModuleOneMainCaptureStep(step)) {
+    return CAPTURE_PREVIEW_SOURCE.MODULE_ONE
+  }
+  if (step === constants.SHOOT_STEP.DAMAGE) {
+    return CAPTURE_PREVIEW_SOURCE.MODULE_TWO
+  }
+  return ''
+}
+
+function setCapturePreviewSource(cache = {}, flowContext = null) {
+  const source = getCapturePreviewSource(cache, flowContext)
+  if (source) {
+    cache.capturePreviewSource = source
+    delete cache.captureReturnStrategy
+  } else {
+    delete cache.capturePreviewSource
+  }
+  return cache
+}
+
 function shouldUsePreviewReturnMode(cache = {}, flowContext = null) {
   return !!(
     hasExplicitPreviewReturnMode(cache)
@@ -525,10 +562,78 @@ function getPreviewReturnStep(cache = {}, flowContext = null) {
 function setPreviewReturnStep(cache = {}, flowContext = null) {
   const returnStep = getPreviewReturnStep(cache, flowContext)
   cache.currentStep = returnStep
+  cache.retakeMode = {
+    enabled: false,
+    vehicleIndex: null,
+    photoType: null,
+    damageIndex: null
+  }
   if (returnStep !== constants.SHOOT_STEP.DAMAGE) {
     cache.currentDamageCount = 0
   }
   return cache
+}
+
+function isCaptureReturnStrategy(cache = {}, strategy) {
+  return cache && cache.captureReturnStrategy === strategy
+}
+
+function clearCaptureReturnContext(cache = {}) {
+  cache.fromPreview = false
+  delete cache.captureReturnStrategy
+  delete cache.capturePreviewSource
+  return cache
+}
+
+function isCompletedPhoto(photo) {
+  return !!photo && photo.status === 'completed' && !!photo.compressedPath
+}
+
+function findNextModuleOneRequiredStep(cache = {}) {
+  const vehicles = Array.isArray(cache.vehicles) ? cache.vehicles : []
+  const scene45 = cache.scenePhotos && cache.scenePhotos.scene45
+
+  if (!isCompletedPhoto(scene45)) {
+    return {
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.SCENE_45
+    }
+  }
+
+  for (let index = 0; index < vehicles.length; index += 1) {
+    const vehicle = vehicles[index]
+    if (!isCompletedPhoto(vehicle && vehicle.licensePlate)) {
+      return {
+        currentVehicleIndex: index,
+        currentStep: constants.SHOOT_STEP.LICENSE_PLATE
+      }
+    }
+    if (!isCompletedPhoto(vehicle && vehicle.vinCode)) {
+      return {
+        currentVehicleIndex: index,
+        currentStep: constants.SHOOT_STEP.VIN_CODE
+      }
+    }
+  }
+
+  return null
+}
+
+function applyNextModuleOneRequiredStep(cache = {}) {
+  const nextStep = findNextModuleOneRequiredStep(cache)
+
+  if (!nextStep) {
+    cache.currentStep = constants.SHOOT_STEP.MODULE_ONE_PREVIEW
+    cache.currentDamageCount = 0
+    delete cache.sceneSupplementIndex
+    return false
+  }
+
+  cache.currentVehicleIndex = nextStep.currentVehicleIndex
+  cache.currentStep = nextStep.currentStep
+  cache.currentDamageCount = 0
+  delete cache.sceneSupplementIndex
+  return true
 }
 
 function getSystemInfoSnapshot() {
@@ -2412,6 +2517,7 @@ Page({
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+
     const previewUrl = getPreviewPageUrl(cache, flowContext)
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
     const hasPreviewInStack = pages.some((page) => page.route === 'packageD/pages/preview/preview')
@@ -2525,6 +2631,82 @@ Page({
         cache: nextCache,
         flowContext: nextFlowContext
       })
+    })
+  },
+
+  continueModuleOneCapture(cache, reason = 'continue_module_one_capture') {
+    const hasNextRequiredStep = applyNextModuleOneRequiredStep(cache)
+    clearCaptureReturnContext(cache)
+
+    if (!hasNextRequiredStep) {
+      storage.saveCache(cache)
+      this.navigateToModuleOnePreviewPage(cache)
+      return
+    }
+
+    storage.saveCache(cache)
+    const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+
+    this.isLeaving = false
+    this.resetAIState()
+    this.setData({
+      ...buildCameraVehicleFields(nextFlowContext),
+      isNavigating: false,
+      showConfirmModal: false,
+      showCaptureGuideModal: false,
+      pendingPhoto: null,
+      qualityHintText: '',
+      currentStep: cache.currentStep,
+      stepDisplayName: getStepDisplayName(cache.currentStep),
+      guideTip: constants.GUIDE_TIPS[cache.currentStep],
+      damageCount: 0,
+      damageFrameState: 'normal',
+      damagePhaseLabel: '',
+      damageAreaRatioText: ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: cache.currentStep
+      })
+      this.resumeAIDetectionAfterStepReady(reason)
+    })
+  },
+
+  continueDamageCapture(cache, flowContext, reason = 'continue_damage_capture') {
+    clearCaptureReturnContext(cache)
+    storage.saveCache(cache)
+    const nextFlowContext = cacheSelectors.getCurrentFlowContext(cache)
+    const currentVehicle = cache.vehicles && cache.vehicles[nextFlowContext.currentVehicleIndex]
+    const damageCount = getVehicleDamageCount(currentVehicle)
+
+    if (damageCount >= MAX_DAMAGES) {
+      this.handleDamageCompletedFlow(cache, nextFlowContext)
+      return
+    }
+
+    this.isLeaving = false
+    this.resetAIState()
+    this.setData({
+      ...buildCameraVehicleFields(nextFlowContext || flowContext),
+      isNavigating: false,
+      showConfirmModal: false,
+      showCaptureGuideModal: false,
+      pendingPhoto: null,
+      qualityHintText: '',
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      guideTip: constants.GUIDE_TIPS[constants.SHOOT_STEP.DAMAGE],
+      damageCount,
+      stepDisplayName: getStepDisplayName(constants.SHOOT_STEP.DAMAGE),
+      previewButtonText: getPreviewButtonText(cache),
+      damageFrameState: 'normal',
+      damagePhaseLabel: this.getDamagePhaseLabel({ phase: 'SEEK' }),
+      damageAreaRatioText: ''
+    }, () => {
+      workflowPage.syncPageWorkflowState(this, workflow.STATES.CAPTURING, {
+        page: 'camera',
+        step: constants.SHOOT_STEP.DAMAGE
+      })
+      this.resumeAIDetectionAfterStepReady(reason)
     })
   },
 
@@ -2838,6 +3020,10 @@ Page({
         status: 'completed',
         sceneType: constants.SCENE_PHOTO_TYPE.SCENE_45
       }
+      if (isCaptureReturnStrategy(cache, CAPTURE_RETURN_STRATEGY.CONTINUE_MODULE_ONE)) {
+        this.continueModuleOneCapture(cache, 'confirm_scene_45_continue_module_one')
+        return
+      }
       if (flowContext.fromPreview) {
         setPreviewReturnStep(cache, flowContext)
         storage.saveCache(cache)
@@ -2909,6 +3095,10 @@ Page({
         isManualInput: true,
         isNewEnergy: false
       }
+      if (isCaptureReturnStrategy(cache, CAPTURE_RETURN_STRATEGY.CONTINUE_MODULE_ONE)) {
+        this.continueModuleOneCapture(cache, 'confirm_license_plate_continue_module_one')
+        return
+      }
       if (flowContext.fromPreview) {
         setPreviewReturnStep(cache, flowContext)
         storage.saveCache(cache)
@@ -2946,6 +3136,10 @@ Page({
         status: 'completed',
         recognizedText: '',
         isManualInput: true
+      }
+      if (isCaptureReturnStrategy(cache, CAPTURE_RETURN_STRATEGY.CONTINUE_MODULE_ONE)) {
+        this.continueModuleOneCapture(cache, 'confirm_vin_continue_module_one')
+        return
       }
       if (flowContext.fromPreview) {
         setPreviewReturnStep(cache, flowContext)
@@ -3022,8 +3216,15 @@ Page({
       captureTrigger: pendingPhoto.captureTrigger
     })
 
+    if (isCaptureReturnStrategy(cache, CAPTURE_RETURN_STRATEGY.CONTINUE_DAMAGE)) {
+      this.continueDamageCapture(cache, updatedFlowContext, 'confirm_damage_continue_strategy')
+      return
+    }
+
     if (updatedFlowContext.fromPreview) {
-      this.handleDamageCompletedFlow(cache, updatedFlowContext)
+      setPreviewReturnStep(cache, updatedFlowContext)
+      storage.saveCache(cache)
+      this.goToPreviewPage(cache, updatedFlowContext)
       return
     }
 
@@ -3293,6 +3494,10 @@ Page({
         })
       }
       return
+    }
+
+    if (cache) {
+      storage.saveCache(setCapturePreviewSource(cache, flowContext))
     }
 
     const previewUrl = getPreviewPageUrl(cache, flowContext)

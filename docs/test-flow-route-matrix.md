@@ -13,12 +13,16 @@
 
 ## 核心路由规则
 
-- 从模块预览进入拍摄，拍完后必须回原模块预览。
+- 从模块正式预览进入补拍或重拍，拍完后按动作语义返回原模块预览或继续当前采集流程。
 - 从最终预览进入重拍，拍完后必须回最终总预览。
 - 查看已拍必须进入当前流程对应预览页，不进入无 `mode` 的老预览页。
-- 删除后补拍不应恢复自然流程下一步，应回当前来源预览。
+- 模块一自然拍摄中临时查看已拍后补必拍空槽，应继续模块一下一项未拍必拍项；正式预览补空槽才回模块一预览。
+- 模块二点击已有车损重拍应回预览；点击 `+` 新增车损应继续当前车辆车损拍摄。
+- 删除后补拍需按入口动作区分：正式模块一空槽回预览，模块二删除后点击 `+` 新增车损继续车损拍摄。
 - 只有首次自然拍摄流程才允许进入下一拍摄步骤。
 - 新三模块流程不应跳转 `/packageD/pages/preview/preview` 无 `mode`。
+- `capturePreviewSource` 用于标记拍摄页“查看已拍”形成的临时预览来源，`captureReturnStrategy` 用于标记本次进入相机后的返回策略；字段名保留英文是为了兼容代码字段和机器可读状态。
+- 预览页 `onLoad` / `onShow` / `loadData` / safe resume 不得过早清理临时预览来源，否则空槽或 `+` 点击无法区分临时预览、正式预览和最终预览。
 
 ## 模块一测试矩阵
 
@@ -34,6 +38,10 @@
 | ROUTE-M1-008 | VIN 拍摄页查看已拍 | 相机页 `vinCode` | 点击查看已拍 | 进入 `mode=moduleOne`，不得进入无 mode 老预览 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-008` |
 | ROUTE-M1-009 | 现场补充照片补拍完成 | 相机页 `sceneSupplement` | 确认照片 | 返回 `mode=moduleOne`，不再次弹补充提示 | 已覆盖路由，提示需现有预览测试补充观察 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-009` |
 | ROUTE-M1-010 | 双车模块一自然流程 | 相机页 `vinCode` | 依次确认两辆车 VIN | 标的车 VIN 后进入三者车车牌，三者车 VIN 后进入 `mode=moduleOne` | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-010` |
+| ROUTE-M1-011 | 模块一临时查看已拍补 45 度空槽 | 相机页自然流程点击查看已拍进入 `mode=moduleOne` | 点击 45 度空槽并确认照片 | 继续进入首辆车 `licensePlate`，清理 `captureReturnStrategy` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-011` |
+| ROUTE-M1-012 | 模块一临时查看已拍补车牌空槽 | 相机页自然流程点击查看已拍进入 `mode=moduleOne` | 点击车牌空槽并确认照片 | 继续进入同车 `vinCode`，清理 `captureReturnStrategy` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-012` |
+| ROUTE-M1-013 | 模块一临时查看已拍补 VIN 后继续下一车 | 相机页自然流程点击查看已拍进入 `mode=moduleOne`，存在下一辆车未拍 | 点击当前车 VIN 空槽并确认照片 | 继续下一辆车 `licensePlate`，全部完成时进入 `mode=moduleOne` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-013` |
+| ROUTE-M1-014 | 模块一正式预览补空槽 | `mode=moduleOne` 正式预览 | 点击空槽并确认照片 | 返回 `mode=moduleOne`，不继续自然拍摄 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M1-014` |
 
 ## 模块二测试矩阵
 
@@ -45,6 +53,25 @@
 | ROUTE-M2-004 | 从最终预览补拍车损 | `mode=final` | 确认照片 | 返回 `mode=final` | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-004` |
 | ROUTE-M2-005 | 多车当前车完成后拍下一辆 | 相机页 `damage` | 弹层确认下一辆 | 留在相机页并切到下一车 `damage` | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-005` |
 | ROUTE-M2-006 | 多车当前车完成后查看已拍 | 相机页 `damage` | 弹层点击查看已拍 | 进入 `mode=moduleTwo` | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-006` |
+| ROUTE-M2-007 | 模块二已有 5 张车损重拍第 3 张 | `mode=moduleTwo` | 点击第 3 张重拍并确认照片 | 返回 `mode=moduleTwo`，替换第 3 张 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-007` |
+| ROUTE-M2-008 | 模块二已有 5 张车损点击 `+` 拍第 6 张 | `mode=moduleTwo` | 点击 `+` 并确认照片 | 继续当前车辆 `damage` 拍摄，车损数量变 6，清理 `captureReturnStrategy` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-008` |
+| ROUTE-M2-009 | 删除第 3 张后点击 `+` 新增 | `mode=moduleTwo`，删除后剩 4 张 | 点击 `+` 并确认照片 | 继续当前车辆 `damage` 拍摄，车损数量变 5 且编号连续 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-009` |
+| ROUTE-M2-010 | 多车第二辆点击 `+` 新增车损 | `mode=moduleTwo`，第二辆车当前分组 | 点击第二辆车 `+` 并确认照片 | 继续第二辆车 `damage` 拍摄，不跳第一辆或最终预览 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-M2-010` |
+
+## 完整链路回归矩阵
+
+旧 `ROUTE-M1-011` 只预置了 `captureReturnStrategy=continueModuleOne` 后直接确认照片，能证明相机页拿到策略后会继续车牌，但没有覆盖“相机页点击查看已拍 → 预览页生命周期与 safe resume → 点击空槽 / 加号 / 重拍 → 回相机确认照片”的真实链路。因此本轮补充 `LINK-*` 用例，专门防止临时预览来源在预览页加载时被过早清理。
+
+| 用例ID | 场景 | 完整链路 | 期望跳转 / 期望状态 | 自动化覆盖状态 | Jest 文件 / 用例名 |
+|---|---|---|---|---|---|
+| LINK-M1-011 | 模块一临时预览补 45 度空槽 | 相机页 45 度 → 查看已拍 → `mode=moduleOne` → 点击 45 度空槽 → 确认照片 | 继续首辆车 `licensePlate`，清理临时上下文 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M1-011` |
+| LINK-M1-012 | 模块一临时预览补车牌空槽 | 相机页车牌 → 查看已拍 → `mode=moduleOne` → 点击车牌空槽 → 确认照片 | 继续同车 `vinCode`，清理临时上下文 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M1-012` |
+| LINK-M1-013 | 模块一临时预览补 VIN 空槽 | 相机页 VIN → 查看已拍 → `mode=moduleOne` → 点击 VIN 空槽 → 确认照片 | 有下一辆车时继续下一车车牌；全部完成后进入 `moduleOne` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M1-013` |
+| LINK-M1-014 | 模块一正式预览补空槽 / 重拍 | `mode=moduleOne` 正式预览 → 点击空槽或已有照片 → 确认照片 | 返回当前 `moduleOne` 预览，不继续自然流程 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M1-014` |
+| LINK-FINAL-001 | 最终预览补模块一空槽 / 重拍 | `mode=final` → 点击 45 度 / 车牌 / VIN 空槽或已有照片 → 确认照片 | 返回 `final`，不进入模块一自然流程 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-FINAL-001` |
+| LINK-M2-008 | 模块二临时预览新增 / 重拍车损 | 相机页车损 → 查看已拍 → `mode=moduleTwo` → 点击 `+` 或已有车损 → 确认照片 | 新增继续当前车辆 `damage`；重拍返回 `moduleTwo` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M2-008` |
+| LINK-M2-011 | 模块二正式预览新增 / 重拍车损 | `mode=moduleTwo` 正式预览 → 点击 `+` 或已有车损 → 确认照片 | 新增继续当前车辆 `damage`；重拍返回 `moduleTwo` | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-M2-011` |
+| LINK-FINAL-002 | 最终预览新增 / 重拍车损 | `mode=final` → 点击 `+` 或已有车损 → 确认照片 | 返回 `final`，不进入模块二自然车损流程 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `LINK-FINAL-002` |
 
 ## 模块三测试矩阵
 
@@ -66,6 +93,7 @@
 | ROUTE-FINAL-004 | 从最终预览重拍 VIN | `mode=final` | 确认照片 | 返回 `mode=final`，不得进入车损 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-FINAL-004` |
 | ROUTE-FINAL-005 | 从最终预览重拍车损 | `mode=final` | 重拍保存且 navigateBack 失败 | 兜底返回 `mode=final` | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-FINAL-005` |
 | ROUTE-FINAL-006 | 从最终预览重拍证件 | `mode=final` | 证件来源选择保存 | 停留最终总预览证件上下文 | 已覆盖入口状态，需真机验证拍照弹层 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-FINAL-006` |
+| ROUTE-FINAL-007 | 最终预览重拍已有车损 | `mode=final`，已有车损照片 | 点击已有车损重拍并确认照片 | 返回 `mode=final`，不得进入模块二车损拍摄 | 本轮补充 | `__tests__/workflow-route-matrix.test.js` / `ROUTE-FINAL-007` |
 
 ## 异常与兜底跳转矩阵
 

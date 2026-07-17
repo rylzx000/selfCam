@@ -29,6 +29,17 @@ const PHOTO_TYPE = {
   DAMAGE: 'damage'
 }
 
+const CAPTURE_RETURN_STRATEGY = {
+  CONTINUE_MODULE_ONE: 'continueModuleOne',
+  CONTINUE_DAMAGE: 'continueDamage',
+  RETURN_PREVIEW: 'returnPreview'
+}
+
+const CAPTURE_PREVIEW_SOURCE = {
+  MODULE_ONE: 'moduleOneCapture',
+  MODULE_TWO: 'moduleTwoCapture'
+}
+
 const SCENE_PHOTO_TYPE = {
   SCENE_45: 'scene45',
   SUPPLEMENT: 'sceneSupplement'
@@ -91,6 +102,8 @@ module.exports = {
   SHOOT_STEP,
   SHOOT_SEQUENCE,
   PHOTO_TYPE,
+  CAPTURE_RETURN_STRATEGY,
+  CAPTURE_PREVIEW_SOURCE,
   SCENE_PHOTO_TYPE,
   VEHICLE_TYPE,
   LIMITS,
