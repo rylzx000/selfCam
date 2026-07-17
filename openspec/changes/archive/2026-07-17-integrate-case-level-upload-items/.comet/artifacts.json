@@ -4,5 +4,6 @@
   "openspec_tasks": "openspec/changes/integrate-case-level-upload-items/tasks.md",
   "openspec_delta_spec": "openspec/changes/integrate-case-level-upload-items/specs/backend-integration/spec.md",
   "handoff_context": "openspec/changes/integrate-case-level-upload-items/.comet/handoff/design-context.json",
-  "handoff_markdown": "openspec/changes/integrate-case-level-upload-items/.comet/handoff/design-context.md"
+  "handoff_markdown": "openspec/changes/integrate-case-level-upload-items/.comet/handoff/design-context.md",
+  "archive_directory": "openspec/changes/archive/2026-07-17-integrate-case-level-upload-items"
 }

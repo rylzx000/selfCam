@@ -2,11 +2,12 @@
 change: integrate-case-level-upload-items
 design-doc: docs/superpowers/specs/2026-07-13-case-level-upload-items-design.md
 base-ref: 1d3fdeb03648ff98ce2f29d9cc444a3758f87438
+archived-with: 2026-07-17-integrate-case-level-upload-items
 ---
 
 # 案件级拍照项接入 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 按任务执行。步骤使用 checkbox（`- [ ]`）跟踪。  
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 按任务执行。步骤使用 checkbox（`- [x]`）跟踪。
 > **项目约束:** 本轮不要自动 commit，不要 push，不要切换或创建分支；如需提交，必须回到主流程让用户确认。
 
 **Goal:** 接入后端 `init.caseUploadItems[]`，让现场 45 度和现场补充照片在最终总预览页统一上传，并保持车辆级上传逻辑不变。
@@ -15,6 +16,7 @@ base-ref: 1d3fdeb03648ff98ce2f29d9cc444a3758f87438
 
 **Tech Stack:** 微信小程序 CommonJS 模块、Jest 单测、OpenSpec/Comet change、Markdown 接口文档。
 
+archived-with: 2026-07-17-integrate-case-level-upload-items
 ---
 
 ## 文件职责
@@ -42,7 +44,7 @@ base-ref: 1d3fdeb03648ff98ce2f29d9cc444a3758f87438
 - Modify: `packageD/utils/aux-photo-mapper.js`
 - Test: `__tests__/aux-photo-mapper.test.js`
 
-- [ ] **Step 1: 写 mapper 测试**
+- [x] **Step 1: 写 mapper 测试**
 
 在 `__tests__/aux-photo-mapper.test.js` 增加或保留以下覆盖点，确保 `caseUploadItems[]` 被解析为数组和 by-photoType 映射：
 
@@ -72,12 +74,12 @@ test('preserves backend case-level scene upload item metadata when provided', ()
 })
 ```
 
-- [ ] **Step 2: 运行 mapper 测试，确认当前行为**
+- [x] **Step 2: 运行 mapper 测试，确认当前行为**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/aux-photo-mapper.test.js`  
 Expected: 如果已支持则 PASS；如果缺 `caseUploadItemsByPhotoType` 则 FAIL，进入 Step 3。
 
-- [ ] **Step 3: 实现最小 mapper 逻辑**
+- [x] **Step 3: 实现最小 mapper 逻辑**
 
 在 `packageD/utils/aux-photo-mapper.js` 中复用现有 `normalizeUploadItem` 和 `buildUploadItemsByPhotoType`，增加：
 
@@ -100,7 +102,7 @@ cache.caseUploadItemsByPhotoType = buildUploadItemsByPhotoType(cache.caseUploadI
 
 不要把 `caseUploadItems` 写入任何车辆，也不要改 `vehicles[].uploadItems[]` 的映射方式。
 
-- [ ] **Step 4: 复跑 mapper 测试**
+- [x] **Step 4: 复跑 mapper 测试**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/aux-photo-mapper.test.js`  
 Expected: PASS。
@@ -111,7 +113,7 @@ Expected: PASS。
 - Modify: `packageD/utils/upload-state.js`
 - Test: `__tests__/upload-state.test.js`
 
-- [ ] **Step 1: 写队列测试**
+- [x] **Step 1: 写队列测试**
 
 在 `__tests__/upload-state.test.js` 覆盖以下行为：
 
@@ -168,12 +170,12 @@ test('throws explicit case upload item error when scene photo exists without bac
 })
 ```
 
-- [ ] **Step 2: 运行 upload-state 测试，确认失败点**
+- [x] **Step 2: 运行 upload-state 测试，确认失败点**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/upload-state.test.js`  
 Expected: 新增案件级用例在实现前 FAIL。
 
-- [ ] **Step 3: 增加案件级工具函数**
+- [x] **Step 3: 增加案件级工具函数**
 
 在 `packageD/utils/upload-state.js` 中增加常量和错误构造：
 
@@ -215,7 +217,7 @@ function getCaseUploadItem(cache, photoType) {
 }
 ```
 
-- [ ] **Step 4: 让 buildUploadItem 支持无 vehicleId 项**
+- [x] **Step 4: 让 buildUploadItem 支持无 vehicleId 项**
 
 把 `buildUploadItem` 扩展为支持 `includeVehicleId = true`：
 
@@ -271,7 +273,7 @@ function buildUploadItem({
 
 车辆级调用不传 `includeVehicleId`，保持默认行为。
 
-- [ ] **Step 5: 加入 scene45 和 supplements 队列**
+- [x] **Step 5: 加入 scene45 和 supplements 队列**
 
 在 `buildUploadItems(cache)` 进入车辆循环前调用案件级构建函数：
 
@@ -327,7 +329,7 @@ function pushCaseScenePhotos(result, cache) {
 pushCaseScenePhotos(result, cache)
 ```
 
-- [ ] **Step 6: 复跑 upload-state 测试**
+- [x] **Step 6: 复跑 upload-state 测试**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/upload-state.test.js`  
 Expected: PASS，且车辆级原有队列用例未变。
@@ -338,7 +340,7 @@ Expected: PASS，且车辆级原有队列用例未变。
 - Modify: `packageD/utils/aux-photo-api.js`
 - Test: `__tests__/aux-photo-api.test.js`
 
-- [ ] **Step 1: 写 API payload 和校验测试**
+- [x] **Step 1: 写 API payload 和校验测试**
 
 在 `__tests__/aux-photo-api.test.js` 增加：
 
@@ -432,12 +434,12 @@ test('returns explicit error when case-level uploadItemId is missing', async () 
 })
 ```
 
-- [ ] **Step 2: 运行 API 测试，确认失败点**
+- [x] **Step 2: 运行 API 测试，确认失败点**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/aux-photo-api.test.js`  
 Expected: 新案件级用例在实现前 FAIL。
 
-- [ ] **Step 3: 实现案件级判定和参数校验**
+- [x] **Step 3: 实现案件级判定和参数校验**
 
 在 `packageD/utils/aux-photo-api.js` 增加：
 
@@ -475,7 +477,7 @@ if (!isCaseLevel && !metadata.vehicleId) {
 
 车辆级错误语义保持现有 `AUX_PHOTO_UPLOAD_PARAM_INVALID`。
 
-- [ ] **Step 4: request body 排除案件级 vehicleId**
+- [x] **Step 4: request body 排除案件级 vehicleId**
 
 修改 `buildUploadBase64Payload(metadata, fileBase64)`：
 
@@ -499,7 +501,7 @@ function buildUploadBase64Payload(metadata, fileBase64) {
 
 不要修改 `UPLOAD_PHOTO_BASE64_PATH`。
 
-- [ ] **Step 5: 复跑 API 测试**
+- [x] **Step 5: 复跑 API 测试**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/aux-photo-api.test.js`  
 Expected: PASS，且已有车辆级上传请求仍包含 `vehicleId`。
@@ -510,7 +512,7 @@ Expected: PASS，且已有车辆级上传请求仍包含 `vehicleId`。
 - Modify: `packageD/pages/document/document.js`
 - Test: `__tests__/document-upload-entry.test.js`
 
-- [ ] **Step 1: 改写 document 入口测试**
+- [x] **Step 1: 改写 document 入口测试**
 
 将旧用例从“创建 uploadSession 并返回 preview”改为“直接安全跳转 preview，不创建 uploadSession”：
 
@@ -538,12 +540,12 @@ test('redirects legacy document submit to preview without creating upload sessio
 
 如果现有 `storage.initCache()` 的 `uploadSession` 默认值不是 `null`，断言改为 `expect(savedCache.uploadSession).toBeFalsy()`，但不要允许出现 `phase: 'uploading'` 的新会话。
 
-- [ ] **Step 2: 运行 document 测试，确认失败点**
+- [x] **Step 2: 运行 document 测试，确认失败点**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/document-upload-entry.test.js`  
 Expected: 当前仍调用 `uploadState.createUploadSession(cache)` 时 FAIL。
 
-- [ ] **Step 3: 修改 onSubmit**
+- [x] **Step 3: 修改 onSubmit**
 
 在 `packageD/pages/document/document.js` 的 `onSubmit` 中删除或绕开：
 
@@ -578,7 +580,7 @@ onSubmit() {
 
 保留文件，不删除旧 document 页面。
 
-- [ ] **Step 4: 复跑 document 测试**
+- [x] **Step 4: 复跑 document 测试**
 
 Run: `npm test -- --runInBand --runTestsByPath __tests__/document-upload-entry.test.js`  
 Expected: PASS。
@@ -589,7 +591,7 @@ Expected: PASS。
 - Modify: `docs/辅助拍照微信小程序接口对接文档.md`
 - Modify: `openspec/changes/integrate-case-level-upload-items/tasks.md`
 
-- [ ] **Step 1: 更新接口文档**
+- [x] **Step 1: 更新接口文档**
 
 在接口文档中补充“最小化接口改造”说明：
 
@@ -614,16 +616,16 @@ Expected: PASS。
 
 不要加入暂不实现的 `missingItems` 方案。
 
-- [ ] **Step 2: 勾选 OpenSpec tasks**
+- [x] **Step 2: 勾选 OpenSpec tasks**
 
-实现和验证通过后，在 `openspec/changes/integrate-case-level-upload-items/tasks.md` 将已完成项从 `- [ ]` 改为 `- [x]`。只勾选本轮实际完成并验证的任务。
+实现和验证通过后，在 `openspec/changes/integrate-case-level-upload-items/tasks.md` 将已完成项从 `- [x]` 改为 `- [x]`。只勾选本轮实际完成并验证的任务。
 
 ### Task 6: 集成验证
 
 **Files:**
 - Check only
 
-- [ ] **Step 1: 语法检查**
+- [x] **Step 1: 语法检查**
 
 Run:
 
@@ -635,7 +637,7 @@ node --check packageD\pages\document\document.js
 
 Expected: 每条命令退出码 0。
 
-- [ ] **Step 2: 相关 Jest**
+- [x] **Step 2: 相关 Jest**
 
 Run:
 
@@ -645,7 +647,7 @@ npm test -- --runInBand --runTestsByPath __tests__/upload-state.test.js __tests_
 
 Expected: 4 个测试文件全部 PASS。
 
-- [ ] **Step 3: OpenSpec 严格校验**
+- [x] **Step 3: OpenSpec 严格校验**
 
 Run:
 
@@ -655,7 +657,7 @@ openspec validate --all --strict
 
 Expected: PASS。
 
-- [ ] **Step 4: diff 空白检查**
+- [x] **Step 4: diff 空白检查**
 
 Run:
 
@@ -665,7 +667,7 @@ git diff --check
 
 Expected: 无输出，退出码 0。
 
-- [ ] **Step 5: 最终人工核对**
+- [x] **Step 5: 最终人工核对**
 
 确认以下点全部成立后再汇总：
 

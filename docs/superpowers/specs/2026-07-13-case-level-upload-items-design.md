@@ -2,6 +2,8 @@
 comet_change: integrate-case-level-upload-items
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-07-17-integrate-case-level-upload-items
+status: final
 ---
 
 # 案件级拍照项接入设计
