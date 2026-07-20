@@ -133,6 +133,7 @@
 | COMPLEX-PV-M2-001 | 模块二多车删除第二车中间车损后补拍 | `mode=moduleTwo`，第二车 3 张车损 | 删除第二车中间车损后点击添加车损 | 进入相机 `damage`，车辆索引为 1，`previewReturnMode=moduleTwo` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `COMPLEX-PV-M2-001` |
 | COMPLEX-PV-FINAL-003 | 最终预览连续删除现场、车牌、车损 | `mode=final` | 连续删除 45 度、车牌、车损后分别点击空入口 | 三个入口分别进入对应拍摄步骤，均保持 `previewReturnMode=final` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `COMPLEX-PV-FINAL-003` |
 | COMPLEX-PV-FINAL-004 | 最终预览连续删除两类证件 | `mode=final`，驾驶证和行驶证均有照片 | 连续删除驾驶证、行驶证 | 两类证件上传入口均恢复，且不发生页面跳转 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `COMPLEX-PV-FINAL-004` |
+| COMPLEX-PV-FINAL-005 | 最终预览全局乱序删除多类空槽 | `mode=final`，两车且含现场补充、第二车车牌/VIN/车损/证件 | 连续删除 45 度、现场补充、第二车车牌、第二车 VIN、第二车车损和证件后分别触发补拍/上传入口 | 各入口仍保持 `previewReturnMode=final` 或停留 final，不进入模块一、模块二或模块三预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `COMPLEX-PV-FINAL-005` |
 
 ## 暂未覆盖或需真机验证的场景
 

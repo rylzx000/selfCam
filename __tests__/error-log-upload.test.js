@@ -107,6 +107,7 @@ describe('runtimeLogger backend error upload', () => {
   test('uploads whitelisted error logs with ticket and flat safe payload', () => {
     setupRuntimeLoggerTest()
     const runtimeLogger = require('../packageD/utils/runtime-logger')
+    const { CLIENT_VERSION } = require('../packageD/utils/aux-photo-api')
 
     runtimeLogger.forceError('ai_model', 'session_create_failed', {
       step: 'damage',
@@ -135,7 +136,7 @@ describe('runtimeLogger backend error upload', () => {
       ticket: 'AUX202606150001',
       errorCode: 'AI_MODEL_SESSION_CREATE_FAILED',
       errorMessage: '模型会话创建失败',
-      appVersion: '1.5.1',
+      appVersion: CLIENT_VERSION,
       envVersion: 'trial',
       sdkVersion: '3.15.1',
       networkType: 'wifi',

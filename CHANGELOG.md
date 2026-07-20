@@ -18,11 +18,17 @@
 
 - 归档 `optimize-damage-capture-completion` OpenSpec change，并同步 `camera-capture` 主规格。
 - 同步弹窗清单、流程路由矩阵、测试用例和相关 PRD/UI/技术文档。
+- 新增 `docs/destructive-stress-test-coverage.md`，集中索引破坏性、异常、乱序、恢复、边界、接口失败和系统 API 失败测试覆盖与缺口。
+- 新增 `add-lightweight-quality-guards` OpenSpec / Comet change，记录轻量质量门禁与破坏性压测首批用例范围。
 
 ### 测试
 
 - 补充 0/1/2 张软确认、继续拍摄、确认完成、3 张直接完成、4 张提示、多车不串车、10 张上限和页面文案测试。
-- 已通过相关 Jest、JS 语法检查、OpenSpec strict validation 和 Comet verify/archive。
+- 新增轻量质量门禁，覆盖流程矩阵一致性、无 `mode` 老预览跳转、当前主流程过期文案、分包素材大小和 OpenSpec/Comet 临时产物。
+- 补强模块二低数量软确认防重复推进、最终预览全局乱序删除补拍和上传中断恢复测试。
+- 修复跟随 `CLIENT_VERSION` 的过期测试断言，并补齐 `ai-config` mock 的 `AI_FEATURES` 导出结构。
+- 模块二完成入口优化此前已通过相关 Jest、JS 语法检查、OpenSpec strict validation 和 Comet verify/archive。
+- 本轮轻量质量门禁、破坏性压测首批用例和过期测试修复已通过相关 JS 语法检查与全量 Jest（36 个测试套件、500 个用例）；OpenSpec strict validation 和 e2e 未在本轮重跑。
 
 ### 版本
 

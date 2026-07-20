@@ -505,6 +505,61 @@ describe('preview upload overlay flow', () => {
     expect(auxPhotoApi.uploadPhoto.mock.calls[0][0].id).toBe('vehicle0-vin')
   })
 
+  test('STRESS-UPLOAD-RESUME-001 restores interrupted uploading item to pending and skips successful photos', async () => {
+    const cache = saveReadyPreviewCache('mock-2')
+    const session = uploadState.createUploadSession(cache)
+    const successItem = {
+      ...session.items[0],
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1,
+      uploadRecordId: 'vehicle0-licensePlate-record',
+      photoId: 'vehicle0-licensePlate-photo'
+    }
+    const interruptedItem = {
+      ...session.items[1],
+      status: uploadState.UPLOAD_ITEM_STATUS.UPLOADING,
+      attempts: 1,
+      startedAt: '2026-05-26T00:00:00.000Z'
+    }
+    const pendingItem = {
+      ...session.items[2],
+      status: uploadState.UPLOAD_ITEM_STATUS.PENDING,
+      attempts: 0
+    }
+    cache.uploadSession = uploadState.recalculateSession({
+      ...session,
+      items: [successItem, interruptedItem, pendingItem]
+    })
+    storage.saveCache(cache)
+
+    const page = loadPreviewPage()
+    await page.uploadFlowPromise
+
+    const nextCache = storage.loadCache()
+    expect(auxPhotoApi.uploadPhoto.mock.calls.map(([item]) => item.id)).toEqual([
+      interruptedItem.id,
+      pendingItem.id
+    ])
+    expect(nextCache.uploadSession.phase).toBe(uploadState.UPLOAD_PHASE.READY)
+    expect(nextCache.uploadSession.uploaded).toBe(3)
+    expect(nextCache.uploadSession.items[0]).toEqual(expect.objectContaining({
+      id: successItem.id,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1,
+      uploadRecordId: 'vehicle0-licensePlate-record'
+    }))
+    expect(nextCache.uploadSession.items[1]).toEqual(expect.objectContaining({
+      id: interruptedItem.id,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 2
+    }))
+    expect(nextCache.uploadSession.items[2]).toEqual(expect.objectContaining({
+      id: pendingItem.id,
+      status: uploadState.UPLOAD_ITEM_STATUS.SUCCESS,
+      attempts: 1
+    }))
+  })
+
   test('complete failure retries complete without reuploading photos', async () => {
     saveReadyPreviewCache('mock-2')
     auxPhotoApi.complete

@@ -1550,6 +1550,88 @@ describe('camera AI detection start timing', () => {
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('finish_damage_next_vehicle')
   })
 
+  test('STRESS-M2-SOFT-001 damage soft confirm ignores repeated finish before handoff and advances to next vehicle once', () => {
+    cache = {
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      currentVehicleIndex: 0,
+      currentStep: constants.SHOOT_STEP.DAMAGE,
+      currentDamageCount: 2,
+      vehicles: [
+        {
+          type: '标的车',
+          vehicleRoleName: '标的车',
+          licenseNo: '京A12345',
+          damages: [
+            { compressedPath: '/tmp/damage-1.jpg' },
+            { compressedPath: '/tmp/damage-2.jpg' }
+          ]
+        },
+        {
+          type: '三者车',
+          vehicleRoleName: '三者车',
+          licenseNo: '京B12345',
+          damages: []
+        }
+      ]
+    }
+    const instance = createPageInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.DAMAGE,
+        showConfirmModal: false,
+        showDamageCompleteModal: false,
+        pendingPhoto: null,
+        damageCount: 2,
+        isNavigating: false,
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onFinishDamage.call(instance)
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalType).toBe('softConfirm')
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+
+    pageConfig.onDamageCompleteModalCancel.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(instance.data.showDamageCompleteModal).toBe(false)
+    expect(instance.data.isNavigating).toBe(false)
+    expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('damage_soft_confirm_continue')
+
+    pageConfig.onFinishDamage.call(instance)
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+    pageConfig.onFinishDamage.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(0)
+    expect(instance.data.showDamageCompleteModal).toBe(true)
+    expect(instance.data.damageCompleteModalType).toBe('handoff')
+    expect(instance.data.damageCompleteConfirmText).toBe('下一辆车')
+    expect(storage.saveCache).not.toHaveBeenCalled()
+
+    pageConfig.onDamageCompleteModalConfirm.call(instance)
+
+    expect(cache.currentVehicleIndex).toBe(1)
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(cache.currentDamageCount).toBe(0)
+    expect(storage.saveCache).toHaveBeenCalledTimes(1)
+    expect(storage.saveCache).toHaveBeenCalledWith(expect.objectContaining({
+      currentVehicleIndex: 1,
+      currentStep: constants.SHOOT_STEP.DAMAGE
+    }))
+    expect(instance.data.vehicleRoleName).toBe('三者车')
+    expect(instance.data.vehiclePlateNo).toBe('京B12345')
+    expect(instance.data.vehicleProgressText).toBe('2/2 辆')
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+  })
+
   test.each([0, 1, 2])('damage finish with %s photos shows soft confirm and confirm completes current vehicle', (damageTotal) => {
     cache = {
       currentVehicleIndex: 0,

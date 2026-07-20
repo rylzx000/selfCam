@@ -50,6 +50,11 @@ describe('camera responsive layout', () => {
     }))
     jest.doMock('../packageD/utils/damage-auto-capture-engine', () => jest.fn())
     jest.doMock('../packageD/utils/ai-config', () => ({
+      AI_FEATURES: {
+        enabled: false,
+        plateEnabled: false,
+        damageEnabled: false
+      },
       AUTO_CAPTURE: {
         LOW_QUALITY: 0.3,
         STATUS_TEXT: {}

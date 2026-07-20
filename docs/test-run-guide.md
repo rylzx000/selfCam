@@ -20,6 +20,33 @@ node --check packageD/pages/camera/camera.js
 npm test -- --runInBand __tests__/camera-ai-start.test.js
 ```
 
+新增静态质量门禁可单独运行：
+
+```powershell
+npm test -- --runInBand __tests__/quality-guards.test.js
+```
+
+该门禁覆盖以下只读检测：
+
+- 流程矩阵一致性：读取 `docs/test-flow-route-matrix.md` 和 `__tests__/workflow-route-matrix.test.js`，要求已声明自动化覆盖的矩阵 ID 能在 Jest 文件中找到；明确 `需真机`、`抽测`、`暂未覆盖`、`不覆盖` 的行不强制。
+- 无 `mode` 老预览跳转：扫描 `packageD/pages/**/*.js`、`packageD/pages/**/*.wxml`、`packageD/utils/**/*.js`，覆盖字符串字面量、`PREVIEW_PAGE_URL` 和 `previewUrl` 变量跳转；`previewUrl` 仅在最近有效赋值来自 `getPreviewPageUrl(...)` 时放行，只允许 `moduleOne`、`moduleTwo`、`moduleThree`、`final` 四类新三阶段预览模式。
+- 过期文案：扫描当前三阶段主流程页面、`packageD/utils/ai-config.js`、`PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 和 `PRDS/查勘采集助手三阶段采集流程说明.md`，用正则匹配旧自动拍照提示、身份证作为当前采集项、带 `12123` 的证件叫法和过期车损数量变体；AI 专项文档、AI 状态枚举和 AI 调试/日志说明中的自动拍照状态文案属于允许范围。
+- 包体素材：扫描 `packageD/assets`，图片阈值为 500KB，并禁止 `.zip`、`.tmp`、`.psd`、`.sketch`、原始大图和 `.tmp-*` 临时文件进入分包素材目录。
+- OpenSpec / Comet 临时产物：扫描 `openspec/changes` 下 active change 和 archive change，禁止 `.tmp-*`、`*.tmp`、zip 临时包、明显临时目录或编辑器备份文件；正常 `.comet.yaml`、`.openspec.yaml`、`.comet/*.jsonl` 和 skill snapshot 元数据不受影响。
+
+破坏性/异常/乱序/恢复/边界类覆盖地图见 `docs/destructive-stress-test-coverage.md`。本轮第一批新增或补强的轻量 Jest 用例建议在统一验证阶段按需执行：
+
+```powershell
+node --check __tests__/camera-ai-start.test.js
+node --check __tests__/workflow-route-matrix.test.js
+node --check __tests__/preview-upload-overlay.test.js
+npm test -- --runInBand __tests__/module-one-preview.test.js __tests__/camera-ai-start.test.js __tests__/workflow-route-matrix.test.js __tests__/preview-upload-overlay.test.js __tests__/upload-state.test.js
+```
+
+这些用例重点覆盖模块一现场补充一次性弹层、模块二少于 3 张车损软确认防重复推进、最终预览全局乱序删除补拍、上传中断恢复和完成失败重试。
+
+仍需微信开发者工具或真机验证的场景：相机权限、真实拍照文件写入、`wx.chooseMedia` 弹层、真机返回栈、真实相册权限、模型推理效果和连续拍摄性能。
+
 微信开发者工具验证时，建议用 `ticket=mock-2&reportNo=MOCK_REGIST_NO` 跑完整主流程：开始页进入模块一、模块一预览、模块二多车车损、模块三证件信息、最终预览、上传成功和完成页。
 
 ## v1.4.9 新增测试目标

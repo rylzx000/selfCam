@@ -86,6 +86,7 @@ describe('aux-photo api', () => {
     })
 
     const result = await api.init('AUX_REAL_001')
+    const { CLIENT_VERSION } = api
 
     expect(result.data.ticket).toBe('AUX_REAL_001')
     expect(global.wx.request).toHaveBeenCalledWith(expect.objectContaining({
@@ -94,7 +95,7 @@ describe('aux-photo api', () => {
       timeout: 5000,
       data: {
         ticket: 'AUX_REAL_001',
-        clientVersion: '1.5.3'
+        clientVersion: CLIENT_VERSION
       }
     }))
   })

@@ -2219,4 +2219,153 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(global.wx.redirectTo).not.toHaveBeenCalled()
   })
+
+  test('COMPLEX-PV-FINAL-005 最终预览全局乱序删除后各补拍入口都保持final', async () => {
+    const cache = buildPreviewCache('final')
+    cache.scenePhotos.supplements = [createPhoto('/supplement-0.jpg')]
+    appendPreviewVehicle(cache, 1, {
+      damages: [createPhoto('/damage-1-0.jpg')],
+      documents: [
+        createVehicleDocument('driver_license', 'front_page', '/driver-1-front.jpg')
+      ]
+    })
+    const page = loadPreviewPage(cache, { mode: 'final' })
+
+    ;['scene-45', 'scene-supplement-0', '1-licensePlate', '1-vinCode', '1-damage-0'].forEach((photoId) => {
+      page.setData({
+        showPreview: true,
+        currentPhoto: page.data.allPhotos.find((photo) => photo.id === photoId)
+      })
+      page.onDelete()
+    })
+    page.confirmDeleteDrivingLicenseDocument(1, 'front_page', 'driver_license')
+
+    const scene45Slot = page.data.moduleOneSummary.sceneSlots.find((slot) => (
+      slot.sceneType === constants.SCENE_PHOTO_TYPE.SCENE_45
+    ))
+    const supplementSlot = page.data.moduleOneSummary.sceneSlots.find((slot) => (
+      slot.sceneType === constants.SCENE_PHOTO_TYPE.SUPPLEMENT && slot.completed === false
+    ))
+    const secondVehicle = page.data.moduleOneSummary.vehicles[1]
+    const documentItems = page.data.vehicles[1].vehicleDocumentPreview.displayItems
+
+    expect(page.data.isFinalPreview).toBe(true)
+    expect(scene45Slot.completed).toBe(false)
+    expect(supplementSlot).toEqual(expect.objectContaining({
+      completed: false
+    }))
+    expect(secondVehicle.hasLicensePlate).toBe(false)
+    expect(secondVehicle.hasVinCode).toBe(false)
+    expect(page.data.vehicles[1].damages).toHaveLength(0)
+    expect(documentItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'upload',
+        docType: 'driver_license',
+        uploaded: false
+      })
+    ]))
+
+    global.wx.navigateTo.mockClear()
+    global.wx.redirectTo.mockClear()
+    page.setData({
+      activeDrivingLicenseVehicleIndex: 1,
+      activeDrivingLicenseDocType: 'driver_license'
+    })
+    await page.chooseDrivingLicenseImage('front_page', 'camera', 'driver_license')
+
+    expect(page.data.isFinalPreview).toBe(true)
+    expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).not.toHaveBeenCalledWith(expect.objectContaining({
+      url: PREVIEW_BASE_URL
+    }))
+
+    global.wx.navigateTo.mockClear()
+    page.onTapModuleOneSceneSlot({
+      currentTarget: {
+        dataset: {
+          sceneType: scene45Slot.sceneType,
+          completed: false
+        }
+      }
+    })
+    let nextCache = storage.loadCache()
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.SCENE_45)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: CAMERA_URL
+    }))
+
+    global.wx.navigateTo.mockClear()
+    page.onTapModuleOneSceneSlot({
+      currentTarget: {
+        dataset: {
+          sceneType: supplementSlot.sceneType,
+          supplementIndex: supplementSlot.supplementIndex,
+          completed: false
+        }
+      }
+    })
+    nextCache = storage.loadCache()
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.SCENE_SUPPLEMENT)
+    expect(nextCache.sceneSupplementIndex).toBe(supplementSlot.supplementIndex)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: CAMERA_URL
+    }))
+
+    global.wx.navigateTo.mockClear()
+    page.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 1,
+          type: constants.PHOTO_TYPE.LICENSE_PLATE,
+          completed: false
+        }
+      }
+    })
+    nextCache = storage.loadCache()
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.LICENSE_PLATE)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: CAMERA_URL
+    }))
+
+    global.wx.navigateTo.mockClear()
+    page.onTapModuleOneVehicleSlot({
+      currentTarget: {
+        dataset: {
+          vehicle: 1,
+          type: constants.PHOTO_TYPE.VIN_CODE,
+          completed: false
+        }
+      }
+    })
+    nextCache = storage.loadCache()
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.VIN_CODE)
+    expect(nextCache.previewReturnMode).toBe('final')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: CAMERA_URL
+    }))
+
+    global.wx.navigateTo.mockClear()
+    page.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: 1
+        }
+      }
+    })
+    nextCache = storage.loadCache()
+    expect(nextCache.currentVehicleIndex).toBe(1)
+    expect(nextCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(nextCache.captureReturnStrategy).toBe('returnPreview')
+    expect(nextCache.previewReturnMode).toBe('final')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: CAMERA_URL
+    }))
+    expectNoLegacyPreviewWithoutMode()
+  })
 })
