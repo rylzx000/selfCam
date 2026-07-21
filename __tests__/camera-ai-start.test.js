@@ -403,6 +403,48 @@ describe('camera AI detection start timing', () => {
     expect(instance.resumeAIDetectionAfterStepReady).toHaveBeenCalledWith('test_damage_cache')
   })
 
+  test.each([
+    ['moduleOnePreview', '/packageD/pages/preview/preview?mode=moduleOne'],
+    ['moduleThree', '/packageD/pages/preview/preview?mode=moduleThree'],
+    ['finalPreview', '/packageD/pages/preview/preview?mode=final'],
+    ['preview', '/packageD/pages/preview/preview?mode=moduleOne']
+  ])('redirects preview step %s away from camera on cache load', (currentStep, expectedUrl) => {
+    cache.currentStep = currentStep
+    const instance = createPageInstance()
+
+    pageConfig.loadCacheData.call(instance, 'resume_guard')
+
+    expect(instance.isLeaving).toBe(true)
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: expectedUrl
+    })
+    expect(instance.resumeAIDetectionAfterStepReady).not.toHaveBeenCalled()
+  })
+
+  test('unknown currentStep confirmation does not save pending photo as damage', () => {
+    cache.currentStep = 'moduleThreePanel'
+    cache.vehicles[0].damages = []
+    const instance = createPageInstance({
+      data: {
+        currentStep: 'moduleThreePanel',
+        showConfirmModal: true,
+        pendingPhoto: { compressedPath: '/tmp/unknown-step.jpg' },
+        aiEnabled: true,
+        aiAvailable: true
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cache.vehicles[0].damages).toHaveLength(0)
+    expect(runtimeLogger.warn).toHaveBeenCalledWith('camera', 'invalid_confirm_step_redirect', expect.objectContaining({
+      currentStep: 'moduleThreePanel'
+    }))
+    expect(global.wx.redirectTo).toHaveBeenCalledWith({
+      url: '/packageD/pages/preview/preview?mode=moduleOne'
+    })
+  })
+
   test('camera page does not reference frozen AI model URL constants', () => {
     const fs = require('fs')
     const cameraSource = fs.readFileSync(require.resolve('../packageD/pages/camera/camera'), 'utf8')
@@ -424,9 +466,10 @@ describe('camera AI detection start timing', () => {
     const path = require('path')
     const cameraWxml = fs.readFileSync(path.resolve(__dirname, '../packageD/pages/camera/camera.wxml'), 'utf8')
 
-    expect(cameraWxml).toContain('{{vehicleRoleName}}')
+    expect(cameraWxml).toContain('stepDisplayName : vehicleRoleName')
     expect(cameraWxml).toContain('{{vehiclePlateNo}}')
     expect(cameraWxml).toContain('vehicle-plate-{{vehiclePlateTheme}}')
+    expect(cameraWxml).toContain("'现场照片' : '当前车辆'")
     expect(cameraWxml).toContain('{{vehicleProgressText}}')
     expect(cameraWxml).toContain('{{finishDamageText}}')
   })

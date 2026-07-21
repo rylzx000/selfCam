@@ -485,6 +485,7 @@ Page({
     vehicles: [],
     documents: [],
     totalPhotoCount: 0,
+    maxTotalPhotos: constants.LIMITS.MAX_TOTAL_PHOTOS,
     progress: {
       step1: 0,
       step2: 0,

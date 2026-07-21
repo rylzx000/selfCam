@@ -380,6 +380,15 @@ function isShootStep(step) {
   ].indexOf(step) >= 0
 }
 
+function isPreviewCheckpointStep(step) {
+  return [
+    constants.SHOOT_STEP.MODULE_ONE_PREVIEW,
+    constants.SHOOT_STEP.MODULE_THREE,
+    constants.SHOOT_STEP.FINAL_PREVIEW,
+    constants.SHOOT_STEP.PREVIEW
+  ].indexOf(step) >= 0
+}
+
 function hasVehicles(cache) {
   return !!cache && Array.isArray(cache.vehicles) && cache.vehicles.length > 0
 }
@@ -946,7 +955,9 @@ function resolveSafeResumeCache(cache) {
     clearRetakeContextInPlace(nextCache)
     clearPreviewFlagsInPlace(nextCache)
     alignMidContext(nextCache)
-    nextCache.currentStep = constants.SHOOT_STEP.PREVIEW
+    nextCache.currentStep = isPreviewCheckpointStep(nextCache.currentStep)
+      ? nextCache.currentStep
+      : constants.SHOOT_STEP.PREVIEW
     setWorkflowState(nextCache, 'PREVIEWING', nextCache.workflowState && nextCache.workflowState.updatedAt)
   } else if (workflowState === 'DOCUMENTING' && hasDocuments(nextCache) && freshContext) {
     clearRetakeContextInPlace(nextCache)

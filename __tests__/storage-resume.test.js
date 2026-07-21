@@ -20,6 +20,33 @@ describe('storage safe resume and fault injection', () => {
     return vehicle
   }
 
+  function loadActualIndexPage() {
+    let indexPageConfig = null
+    delete require.cache[require.resolve('../packageD/pages/index/index')]
+    global.Page = jest.fn((config) => {
+      indexPageConfig = config
+      return config
+    })
+    require('../packageD/pages/index/index')
+    return indexPageConfig
+  }
+
+  function createAuxPreviewCache(currentStep, vehicleIndex = 1) {
+    const cache = storage.initCache()
+    cache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-2'
+    }
+    cache.vehicles.push(createCompletedVehicle(0, 1), createCompletedVehicle(1, 1))
+    cache.currentVehicleIndex = vehicleIndex
+    cache.currentStep = currentStep
+    cache.workflowState = {
+      current: 'PREVIEWING',
+      updatedAt: cache.updatedAt
+    }
+    return cache
+  }
+
   beforeEach(() => {
     jest.useRealTimers()
     jest.resetModules()
@@ -48,6 +75,7 @@ describe('storage safe resume and fault injection', () => {
   afterEach(() => {
     jest.useRealTimers()
     delete global.wx
+    delete global.Page
   })
 
   test('returns null for missing cache even when using safe resume entry', () => {
@@ -200,5 +228,23 @@ describe('storage safe resume and fault injection', () => {
     expect(persisted.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(persisted.workflowState.current).toBe('CAPTURING')
     expect(persisted.fromPreview).toBe(true)
+  })
+
+  test.each([
+    ['moduleOnePreview', '/packageD/pages/preview/preview?mode=moduleOne', 0],
+    ['moduleThree', '/packageD/pages/preview/preview?mode=moduleThree', 1],
+    ['finalPreview', '/packageD/pages/preview/preview?mode=final', 1]
+  ])('real safe resume keeps %s checkpoint so index restores preview mode', (currentStep, expectedUrl, vehicleIndex) => {
+    const indexPage = loadActualIndexPage()
+    const cache = createAuxPreviewCache(currentStep, vehicleIndex)
+    memoryStorage[storage.STORAGE_KEY] = JSON.stringify(cache)
+
+    const safeCache = indexPage.getResumableAuxPhotoCache.call(indexPage, 'mock-2')
+    const persisted = JSON.parse(memoryStorage[storage.STORAGE_KEY])
+
+    expect(safeCache.currentStep).toBe(currentStep)
+    expect(persisted.currentStep).toBe(currentStep)
+    expect(safeCache.currentVehicleIndex).toBe(vehicleIndex)
+    expect(indexPage.getAuxPhotoResumeUrl.call(indexPage, safeCache)).toBe(expectedUrl)
   })
 })

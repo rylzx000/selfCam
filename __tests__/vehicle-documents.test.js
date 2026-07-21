@@ -331,4 +331,56 @@ describe('vehicle document cache support', () => {
     ])
     expect(preview.displayItems.every((item) => item.type === 'document')).toBe(true)
   })
+
+  test('shows all collected driver license sides regardless of current selection', () => {
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections = {
+      driver_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC,
+      driving_license: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }
+    vehicle.documents = [
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.ELECTRONIC)
+    ]
+
+    const preview = documents.buildVehicleDocumentPreview(vehicle)
+
+    expect(preview.displayItems.map((item) => item.label)).toEqual([
+      '驾驶证-正页',
+      '驾驶证-副页',
+      '驾驶证',
+      '行驶证'
+    ])
+    expect(preview.displayItems.filter((item) => item.docType === documents.DOCUMENT_TYPES.DRIVER_LICENSE)).toHaveLength(3)
+  })
+
+  test('shows all collected driving license sides and keeps remaining sides after one deletion', () => {
+    createCacheWithVehicles(1)
+    storage.saveVehicleDocument(0, buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE))
+    storage.saveVehicleDocument(0, buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE))
+    storage.saveVehicleDocument(0, buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.ELECTRONIC))
+    storage.setVehicleDocumentSelection(0, documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SELECTIONS.ELECTRONIC)
+
+    let vehicle = storage.loadCache().vehicles[0]
+    expect(documents.buildVehicleDocumentPreview(vehicle).displayItems.map((item) => item.label)).toEqual([
+      '驾驶证',
+      '行驶证-正页',
+      '行驶证-副页',
+      '行驶证'
+    ])
+
+    storage.deleteVehicleDocument(
+      0,
+      documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+      documents.DOCUMENT_SIDES.FRONT_PAGE
+    )
+
+    vehicle = storage.loadCache().vehicles[0]
+    expect(documents.buildVehicleDocumentPreview(vehicle).displayItems.map((item) => item.label)).toEqual([
+      '驾驶证',
+      '行驶证-副页',
+      '行驶证'
+    ])
+  })
 })

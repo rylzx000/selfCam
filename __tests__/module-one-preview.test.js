@@ -786,4 +786,100 @@ describe('module one preview flow', () => {
       url: '/packageD/pages/camera/camera'
     }))
   })
+
+  test.each([
+    ['标的车', 0],
+    ['三者车', 1]
+  ])('final preview keeps visible damage add entry after deleting identity and damage photos for %s', (label, vehicleIndex) => {
+    const cache = buildModuleOneCache({ withScene45: true, withSecondVehicle: true })
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
+    cache.vehicles[vehicleIndex].licensePlate = { status: 'pending' }
+    cache.vehicles[vehicleIndex].vinCode = { status: 'pending' }
+    cache.vehicles[vehicleIndex].damages = []
+
+    const page = loadPreviewPageWithCache(cache, { mode: 'final' })
+    const vehicle = page.data.vehicles[vehicleIndex]
+    const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
+    const damageAddCondition = wxml.match(/<!-- 添加车损 -->[\s\S]*?<view wx:if="\{\{([^"]+)"/)[1]
+
+    expect(page.data.isFinalPreview).toBe(true)
+    expect(vehicle.licensePlate.status).toBe('pending')
+    expect(vehicle.vinCode.status).toBe('pending')
+    expect(vehicle.damages).toHaveLength(0)
+    expect(damageAddCondition).toContain('isFinalPreview && totalPhotoCount < maxTotalPhotos')
+    expect(damageAddCondition).toContain("!isFinalPreview && item.licensePlate.status === 'completed' && item.vinCode.status === 'completed'")
+
+    page.onAddDamage({
+      currentTarget: {
+        dataset: {
+          vehicle: vehicleIndex
+        }
+      }
+    })
+
+    const updatedCache = storage.loadCache()
+    expect(updatedCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+    expect(updatedCache.currentVehicleIndex).toBe(vehicleIndex)
+    expect(updatedCache.previewReturnMode).toBe('final')
+    expect(updatedCache.captureReturnStrategy).toBe('returnPreview')
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test('module three and final preview show all collected document sides in fixed order', () => {
+    const cache = buildModuleOneCache({ withScene45: true })
+    cache.vehicles[0].documentSelections = {
+      driver_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC,
+      driving_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    }
+    cache.vehicles[0].documents = [
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.FRONT_PAGE,
+        compressedPath: '/driver-front.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.BACK_PAGE,
+        compressedPath: '/driver-back.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+        compressedPath: '/driver-electronic.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.FRONT_PAGE,
+        compressedPath: '/driving-front.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.BACK_PAGE,
+        compressedPath: '/driving-back.jpg'
+      },
+      {
+        docType: documents.DOCUMENT_TYPES.DRIVING_LICENSE,
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+        compressedPath: '/driving-electronic.jpg'
+      }
+    ]
+
+    const moduleThreePage = loadPreviewPageWithCache(cache, { mode: 'moduleThree' })
+    const finalCache = storage.loadCache()
+    finalCache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
+    const finalPage = loadPreviewPageWithCache(finalCache, { mode: 'final' })
+    const expectedLabels = [
+      '驾驶证-正页',
+      '驾驶证-副页',
+      '驾驶证',
+      '行驶证-正页',
+      '行驶证-副页',
+      '行驶证'
+    ]
+
+    expect(moduleThreePage.data.vehicles[0].vehicleDocumentPreview.displayItems.map((item) => item.label)).toEqual(expectedLabels)
+    expect(finalPage.data.vehicles[0].vehicleDocumentPreview.displayItems.map((item) => item.label)).toEqual(expectedLabels)
+  })
 })

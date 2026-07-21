@@ -3,14 +3,14 @@
 
   <view class="info-area" style="{{cameraLayout.infoAreaStyle}}">
     <view class="vehicle-info" style="{{cameraLayout.vehicleCardStyle}}">
-      <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">当前车辆</text>
+      <text class="vehicle-label" style="{{cameraLayout.labelTextStyle}}">{{currentStep === 'scene45' || currentStep === 'sceneSupplement' ? '现场照片' : '当前车辆'}}</text>
       <view class="vehicle-main">
-        <text class="vehicle-role" style="{{cameraLayout.primaryTextStyle}}">{{vehicleRoleName}}</text>
+        <text class="vehicle-role" style="{{cameraLayout.primaryTextStyle}}">{{currentStep === 'scene45' || currentStep === 'sceneSupplement' ? stepDisplayName : vehicleRoleName}}</text>
       </view>
-      <text class="vehicle-plate vehicle-plate-{{vehiclePlateTheme}}">{{vehiclePlateNo}}</text>
+      <text wx:if="{{currentStep !== 'scene45' && currentStep !== 'sceneSupplement'}}" class="vehicle-plate vehicle-plate-{{vehiclePlateTheme}}">{{vehiclePlateNo}}</text>
     </view>
 
-    <view wx:if="{{currentStep !== 'damage'}}" class="step-info" style="{{cameraLayout.cardStyle}}">
+    <view wx:if="{{currentStep !== 'damage' && currentStep !== 'scene45' && currentStep !== 'sceneSupplement'}}" class="step-info" style="{{cameraLayout.cardStyle}}">
       <text class="step-label" style="{{cameraLayout.labelTextStyle}}">拍摄步骤</text>
       <text class="step-name" style="{{cameraLayout.secondaryTextStyle}}">{{stepDisplayName}}</text>
     </view>

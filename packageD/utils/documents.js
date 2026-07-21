@@ -319,6 +319,14 @@ function getVehicleDocumentSides(selection) {
     : [DOCUMENT_SIDES.FRONT_PAGE, DOCUMENT_SIDES.BACK_PAGE]
 }
 
+function getVehicleDocumentDisplaySides() {
+  return [
+    DOCUMENT_SIDES.FRONT_PAGE,
+    DOCUMENT_SIDES.BACK_PAGE,
+    DOCUMENT_SIDES.ELECTRONIC
+  ]
+}
+
 function isVehicleDocumentComplete(vehicle, docType) {
   const selection = getVehicleDocumentSelection(vehicle, docType)
 
@@ -340,10 +348,7 @@ function isAllVehicleDocumentsComplete(vehicle) {
 }
 
 function buildVehicleDocumentItems(vehicle, docType) {
-  const selection = getVehicleDocumentSelection(vehicle, docType)
-  const sides = getVehicleDocumentSides(selection)
-
-  return sides
+  return getVehicleDocumentDisplaySides()
     .map((docSide) => getVehicleDocumentBySide(vehicle, docType, docSide))
     .filter(Boolean)
     .map((document) => {

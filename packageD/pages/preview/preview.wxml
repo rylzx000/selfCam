@@ -209,7 +209,7 @@
         </block>
 
         <!-- 添加车损 -->
-        <view wx:if="{{(isModuleTwoPreview || (item.licensePlate.status === 'completed' && item.vinCode.status === 'completed')) && (!item.damages || item.damages.length < 10)}}"
+        <view wx:if="{{((isFinalPreview && totalPhotoCount < maxTotalPhotos) || isModuleTwoPreview || (!isFinalPreview && item.licensePlate.status === 'completed' && item.vinCode.status === 'completed')) && (!item.damages || item.damages.length < 10)}}"
               class="photo-item"
               style="{{previewLayout.photoItemStyle}}"
               bindtap="onAddDamage"

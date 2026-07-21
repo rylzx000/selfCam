@@ -435,7 +435,7 @@ function getStepDisplayName(step) {
     return '整车45度'
   }
   if (step === constants.SHOOT_STEP.SCENE_SUPPLEMENT) {
-    return '现场补充照片'
+    return '补充照片'
   }
   if (step === constants.SHOOT_STEP.LICENSE_PLATE) {
     return '拍摄车牌号'
@@ -557,6 +557,49 @@ function getPreviewPageUrl(cache = {}, flowContext = null) {
   return step === constants.SHOOT_STEP.DAMAGE
     ? '/packageD/pages/preview/preview?mode=moduleTwo'
     : '/packageD/pages/preview/preview'
+}
+
+function isPreviewWorkflowState(flowContext = {}) {
+  return flowContext.workflowState === workflow.STATES.PREVIEWING
+    || flowContext.workflowState === 'PREVIEWING'
+}
+
+function isValidCaptureStep(step) {
+  return step === constants.SHOOT_STEP.SCENE_45
+    || step === constants.SHOOT_STEP.SCENE_SUPPLEMENT
+    || step === constants.SHOOT_STEP.LICENSE_PLATE
+    || step === constants.SHOOT_STEP.VIN_CODE
+    || step === constants.SHOOT_STEP.DAMAGE
+}
+
+function getResumeRedirectUrl(cache = {}, flowContext = null) {
+  const step = flowContext?.currentStep || cache.currentStep
+
+  if (step === constants.SHOOT_STEP.MODULE_ONE_PREVIEW) {
+    return '/packageD/pages/preview/preview?mode=moduleOne'
+  }
+
+  if (step === constants.SHOOT_STEP.MODULE_THREE) {
+    return '/packageD/pages/preview/preview?mode=moduleThree'
+  }
+
+  if (step === constants.SHOOT_STEP.FINAL_PREVIEW) {
+    return '/packageD/pages/preview/preview?mode=final'
+  }
+
+  if (step === constants.SHOOT_STEP.PREVIEW) {
+    return '/packageD/pages/preview/preview?mode=moduleOne'
+  }
+
+  if (step === constants.SHOOT_STEP.DAMAGE && isPreviewWorkflowState(flowContext)) {
+    return '/packageD/pages/preview/preview?mode=moduleTwo'
+  }
+
+  if (!isValidCaptureStep(step)) {
+    return step ? '/packageD/pages/preview/preview?mode=moduleOne' : '/packageD/pages/index/index'
+  }
+
+  return ''
 }
 
 function hasExplicitPreviewReturnMode(cache = {}) {
@@ -2223,12 +2266,17 @@ Page({
       return
     }
 
-    if (!flowContext.hasRetakeContext && flowContext.currentStep === constants.SHOOT_STEP.PREVIEW) {
+    const resumeRedirectUrl = !flowContext.hasRetakeContext
+      ? getResumeRedirectUrl(cache, flowContext)
+      : ''
+
+    if (resumeRedirectUrl) {
       runtimeLogger.info('camera', 'safe_resume_redirect_preview', {
+        currentStep: flowContext.currentStep,
         workflowState: flowContext.workflowState
       })
       this.isLeaving = true
-      wx.redirectTo({ url: '/packageD/pages/preview/preview' })
+      wx.redirectTo({ url: resumeRedirectUrl })
       return
     }
 
@@ -3091,6 +3139,21 @@ Page({
     if (!cache || !pendingPhoto) return
 
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)
+
+    if (!isValidCaptureStep(flowContext.currentStep)) {
+      runtimeLogger.warn('camera', 'invalid_confirm_step_redirect', {
+        currentStep: flowContext.currentStep,
+        currentVehicleIndex: flowContext.currentVehicleIndex
+      })
+      this.setData({
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: ''
+      })
+      this.isLeaving = true
+      wx.redirectTo({ url: getResumeRedirectUrl(cache, flowContext) || '/packageD/pages/preview/preview?mode=moduleOne' })
+      return
+    }
 
     if (isTotalPhotoLimitReached(cache)) {
       showTotalPhotoLimitToast()

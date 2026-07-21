@@ -367,11 +367,42 @@ Page({
 
     const currentState = workflow.inferStateFromCache(cache)
 
-    if (currentState === workflow.STATES.PREVIEWING || cache.currentStep === constants.SHOOT_STEP.PREVIEW) {
-      return PREVIEW_PAGE_URL
+    const previewResumeUrl = this.getAuxPhotoPreviewResumeUrl(cache, currentState)
+    if (previewResumeUrl) {
+      return previewResumeUrl
     }
 
     return CAMERA_PAGE_URL
+  },
+
+  getAuxPhotoPreviewResumeUrl(cache = {}, currentState = '') {
+    const currentStep = cache.currentStep
+
+    if (currentStep === constants.SHOOT_STEP.MODULE_ONE_PREVIEW) {
+      return `${PREVIEW_PAGE_URL}?mode=moduleOne`
+    }
+
+    if (currentStep === constants.SHOOT_STEP.MODULE_THREE) {
+      return `${PREVIEW_PAGE_URL}?mode=moduleThree`
+    }
+
+    if (currentStep === constants.SHOOT_STEP.FINAL_PREVIEW) {
+      return `${PREVIEW_PAGE_URL}?mode=final`
+    }
+
+    if (currentStep === constants.SHOOT_STEP.PREVIEW) {
+      return PREVIEW_PAGE_URL
+    }
+
+    if (currentStep === constants.SHOOT_STEP.DAMAGE && currentState === workflow.STATES.PREVIEWING) {
+      return `${PREVIEW_PAGE_URL}?mode=moduleTwo`
+    }
+
+    if (currentState === workflow.STATES.PREVIEWING) {
+      return PREVIEW_PAGE_URL
+    }
+
+    return ''
   },
 
   isCompletedUploadSession(uploadSession) {

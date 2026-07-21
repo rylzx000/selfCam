@@ -29,6 +29,8 @@ describe('index start permission flow', () => {
         VIN_CODE: 'vinCode',
         DAMAGE: 'damage',
         MODULE_ONE_PREVIEW: 'moduleOnePreview',
+        MODULE_THREE: 'moduleThree',
+        FINAL_PREVIEW: 'finalPreview',
         PREVIEW: 'preview'
       }
     }
@@ -308,6 +310,63 @@ describe('index start permission flow', () => {
     expect(existingCache.vehicles[0].licensePlate.status).toBe('completed')
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
       url: '/packageD/pages/camera/camera'
+    }))
+  })
+
+  test.each([
+    ['scene45', 'CAPTURING', '/packageD/pages/camera/camera', 0],
+    ['licensePlate', 'CAPTURING', '/packageD/pages/camera/camera', 1],
+    ['vinCode', 'CAPTURING', '/packageD/pages/camera/camera', 1],
+    ['damage', 'CAPTURING', '/packageD/pages/camera/camera', 1],
+    ['moduleOnePreview', 'PREVIEWING', '/packageD/pages/preview/preview?mode=moduleOne', 0],
+    ['damage', 'PREVIEWING', '/packageD/pages/preview/preview?mode=moduleTwo', 1],
+    ['moduleThree', 'PREVIEWING', '/packageD/pages/preview/preview?mode=moduleThree', 1],
+    ['finalPreview', 'PREVIEWING', '/packageD/pages/preview/preview?mode=final', 1]
+  ])('resumes same ticket %s step to %s without overwriting vehicle index', async (currentStep, workflowState, expectedUrl, vehicleIndex) => {
+    const existingCache = {
+      auxPhoto: {
+        enabled: true,
+        ticket: 'mock-2'
+      },
+      vehicles: [
+        {
+          licensePlate: { status: 'completed', compressedPath: '/tmp/plate-0.jpg' },
+          vinCode: { status: 'completed', compressedPath: '/tmp/vin-0.jpg' },
+          damages: []
+        },
+        {
+          licensePlate: { status: 'pending' },
+          vinCode: { status: 'pending' },
+          damages: []
+        }
+      ],
+      currentVehicleIndex: vehicleIndex,
+      currentStep,
+      workflowState: {
+        current: workflowState
+      }
+    }
+    storage.loadCacheForResume.mockReturnValue(existingCache)
+    permission.ensureStartCapturePermissions.mockResolvedValue({
+      cameraGranted: true,
+      albumGranted: true
+    })
+    auxPhotoApi.init.mockResolvedValue({
+      success: true,
+      data: {
+        ticket: 'mock-2',
+        ticketStatus: 'OPENED'
+      }
+    })
+    bootstrap.getTicket.mockReturnValue('mock-2')
+
+    await pageConfig.onStart.call(pageConfig)
+
+    expect(auxPhotoMapper.buildCacheFromInit).not.toHaveBeenCalled()
+    expect(storage.saveCache).not.toHaveBeenCalled()
+    expect(existingCache.currentVehicleIndex).toBe(vehicleIndex)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: expectedUrl
     }))
   })
 
