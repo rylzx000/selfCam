@@ -1,0 +1,9 @@
+{
+  "openspec_proposal": "openspec/changes/add-lightweight-quality-guards/proposal.md",
+  "openspec_design": "openspec/changes/add-lightweight-quality-guards/design.md",
+  "openspec_tasks": "openspec/changes/add-lightweight-quality-guards/tasks.md",
+  "openspec_delta_spec": "openspec/changes/add-lightweight-quality-guards/specs/quality-and-tests/spec.md",
+  "build_tasks_complete": "openspec/changes/add-lightweight-quality-guards/tasks.md",
+  "verification_report": "docs/superpowers/reports/2026-07-21-add-lightweight-quality-guards-verify.md",
+  "archive_directory": "openspec/changes/archive/2026-07-21-add-lightweight-quality-guards"
+}
