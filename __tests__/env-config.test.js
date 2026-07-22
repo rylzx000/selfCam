@@ -291,7 +291,7 @@ describe('env-config', () => {
       wxEnvVersion: 'trial',
       envVersion: 'trial',
       appEnv: 'pilot',
-      baseUrl: 'https://onlineclaim2.chinalife-p.com.cn/onlineclaim/rest/',
+      baseUrl: 'https://videoclaimtest.chinalife-p.com.cn/onlineclaim/rest/',
       requestEnabled: true
     }))
   })
@@ -464,7 +464,7 @@ describe('env-config', () => {
       envVersion: 'release',
       appEnv: 'prod',
       requestEnabled: true,
-      baseUrl: 'https://videoclaimpage.chinalife-p.com.cn/onlineclaim/rest/',
+      baseUrl: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/',
       mockEnabled: false,
       requestTimeoutMs: 5000
     }))

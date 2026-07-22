@@ -140,11 +140,11 @@
   },
   pilot: {
     modelHost: 'https://onlineclaim2.chinalife-p.com.cn/video/model',
-    auxPhotoHost: 'https://onlineclaim2.chinalife-p.com.cn/onlineclaim/rest/'
+    auxPhotoHost: 'https://videoclaimtest.chinalife-p.com.cn/onlineclaim/rest/'
   },
   prod: {
     modelHost: 'https://videoclaimpage.chinalife-p.com.cn/video/model',
-    auxPhotoHost: 'https://videoclaimpage.chinalife-p.com.cn/onlineclaim/rest/'
+    auxPhotoHost: 'https://videoclaim.chinalife-p.com.cn/onlineclaim/rest/'
   }
 }
 ```
