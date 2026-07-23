@@ -4,6 +4,29 @@
 
 ---
 
+## [v1.5.6] - 2026-07-23
+
+### 修复
+
+- 修复模块一最后一张 VIN 照片确认后进入模块一预览，再进入模块二车损拍摄时，旧相机页卸载把 VIN 临时照片误保存为车损照片的问题。
+- 相机页在直接跳转预览前清理 `showConfirmModal`、`pendingPhoto` 和 `qualityHintText`，避免离页时二次保存临时照片。
+- 模块一预览进入车损拍摄前清理一次性拍摄上下文，避免旧补拍/重拍返回策略影响新车损流程。
+
+### 文档
+
+- 归档 `fix-vin-pending-photo-damage-contamination` OpenSpec / Comet hotfix change。
+- 同步版本说明，记录 VIN 临时态清理和车损污染防护。
+
+### 测试
+
+- 补充 VIN 确认后旧相机页卸载不得污染 `damages` 的生命周期回归用例。
+- 补充确认跳转前临时态清理、模块二入口上下文清理和上传层不得从 VIN 生成 `DAMAGE` 上传项的防护测试。
+- 已通过相关 JS 语法检查、流程路由矩阵、上传状态测试、全量 Jest 兜底和 Comet verify/archive。
+
+### 版本
+
+- `package.json`、`package-lock.json`、`VERSION.md` 和辅助拍照请求 `CLIENT_VERSION` 提升到 `1.5.6`。
+
 ## [v1.5.5] - 2026-07-21
 
 ### 修复
@@ -763,4 +786,4 @@
 
 ---
 
-*最后更新：2026-05-27*
+*最后更新：2026-07-23*

@@ -106,6 +106,44 @@ describe('upload state', () => {
     }))
   })
 
+  test('does not build DAMAGE upload items from VIN photo path or localPhotoId', () => {
+    const emptyDamageCache = createAuxCache()
+    emptyDamageCache.vehicles[0].vinCode = {
+      status: 'completed',
+      compressedPath: '/tmp/vin-final.jpg',
+      localPhotoId: 'vin-final-id',
+      compressedSize: 102
+    }
+    emptyDamageCache.vehicles[0].damages = []
+
+    const emptyDamageItems = uploadState.buildUploadItems(emptyDamageCache)
+      .filter((item) => item.photoType === 'DAMAGE')
+    expect(emptyDamageItems).toHaveLength(0)
+
+    const realDamageCache = createAuxCache()
+    realDamageCache.vehicles[0].vinCode = {
+      status: 'completed',
+      compressedPath: '/tmp/vin-final.jpg',
+      localPhotoId: 'vin-final-id',
+      compressedSize: 102
+    }
+    realDamageCache.vehicles[0].damages = [{
+      compressedPath: '/tmp/damage-real.jpg',
+      localPhotoId: 'damage-real-id',
+      compressedSize: 103
+    }]
+
+    const realDamageItems = uploadState.buildUploadItems(realDamageCache)
+      .filter((item) => item.photoType === 'DAMAGE')
+    expect(realDamageItems).toHaveLength(1)
+    expect(realDamageItems[0]).toEqual(expect.objectContaining({
+      filePath: '/tmp/damage-real.jpg',
+      clientPhotoId: 'damage-real-id'
+    }))
+    expect(realDamageItems.map((item) => item.filePath)).not.toContain('/tmp/vin-final.jpg')
+    expect(realDamageItems.map((item) => item.clientPhotoId)).not.toContain('vin-final-id')
+  })
+
   test('builds case-level scene45 upload item without vehicleId', () => {
     const cache = createAuxCache()
     cache.caseUploadItems = [

@@ -2544,6 +2544,18 @@ Page({
     }, CAMERA_REMOUNT_FALLBACK_MS)
   },
 
+  clearPendingPhotoConfirmState() {
+    if (!this.data.showConfirmModal && !this.data.pendingPhoto && !this.data.qualityHintText) {
+      return
+    }
+
+    this.setData({
+      showConfirmModal: false,
+      pendingPhoto: null,
+      qualityHintText: ''
+    })
+  },
+
   navigateToPreviewPage(cache) {
     this.clearCameraRestartTimer()
     this.pendingCameraInitResumeReason = ''
@@ -2552,6 +2564,15 @@ Page({
       storage.saveCache(storage.clearPreviewFlags(cache))
     }
 
+    if (typeof this.clearPendingPhotoConfirmState === 'function') {
+      this.clearPendingPhotoConfirmState()
+    } else {
+      this.setData({
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: ''
+      })
+    }
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     wx.navigateTo({
@@ -2578,6 +2599,15 @@ Page({
       storage.saveCache(storage.clearPreviewFlags(cache))
     }
 
+    if (typeof this.clearPendingPhotoConfirmState === 'function') {
+      this.clearPendingPhotoConfirmState()
+    } else {
+      this.setData({
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: ''
+      })
+    }
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     wx.navigateTo({
@@ -2596,6 +2626,15 @@ Page({
       storage.saveCache(storage.clearPreviewFlags(cache))
     }
 
+    if (typeof this.clearPendingPhotoConfirmState === 'function') {
+      this.clearPendingPhotoConfirmState()
+    } else {
+      this.setData({
+        showConfirmModal: false,
+        pendingPhoto: null,
+        qualityHintText: ''
+      })
+    }
     this.isLeaving = true
     this.closeDamageCompleteModal({ isNavigating: true })
     const flowContext = cacheSelectors.getCurrentFlowContext(cache)

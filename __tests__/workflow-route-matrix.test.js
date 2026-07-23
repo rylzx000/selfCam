@@ -398,6 +398,7 @@ describe('流程路由矩阵 - 相机页出口', () => {
       navigateToPreviewPage: pageConfig.navigateToPreviewPage,
       navigateToModuleOnePreviewPage: pageConfig.navigateToModuleOnePreviewPage,
       navigateBackToPreviewPage: pageConfig.navigateBackToPreviewPage,
+      clearPendingPhotoConfirmState: pageConfig.clearPendingPhotoConfirmState,
       goToPreviewPage: pageConfig.goToPreviewPage,
       advanceToNextAuxVehicle: pageConfig.advanceToNextAuxVehicle,
       closeDamageCompleteModal: pageConfig.closeDamageCompleteModal,
@@ -682,6 +683,30 @@ describe('流程路由矩阵 - 相机页出口', () => {
 
     expect(cameraCache.currentVehicleIndex).toBe(1)
     expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleOne`)
+    expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ROUTE-M1-015 VIN最后一张确认进入模块一预览前清理确认临时态', () => {
+    const cache = singleVehicleModuleOneCache()
+    cache.currentStep = constants.SHOOT_STEP.VIN_CODE
+    cache.vehicles[0].vinCode = { status: 'pending' }
+    loadCameraPage(cache)
+    const instance = createCameraInstance({
+      data: {
+        currentStep: constants.SHOOT_STEP.VIN_CODE,
+        showConfirmModal: true,
+        pendingPhoto: createPhoto('/vin-final.jpg'),
+        qualityHintText: '请保持VIN清晰'
+      }
+    })
+
+    pageConfig.onConfirmPhoto.call(instance)
+
+    expect(cameraCache.currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(instance.data.showConfirmModal).toBe(false)
+    expect(instance.data.pendingPhoto).toBeNull()
+    expect(instance.data.qualityHintText).toBe('')
     expectNavigation(`${PREVIEW_BASE_URL}?mode=moduleOne`)
     expectNoLegacyPreviewWithoutMode()
   })
@@ -1329,7 +1354,8 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      getSessionId: jest.fn(() => 'test-session')
+      getSessionId: jest.fn(() => 'test-session'),
+      endSession: jest.fn()
     }))
     jest.doMock('../packageD/utils/workflow-page', () => ({
       syncPageWorkflowState: jest.fn()
@@ -1457,6 +1483,17 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
 
   test('ROUTE-M2-001 模块一预览确认进入车损拍摄直接打开相机车损步骤', () => {
     const page = loadPreviewPage(buildPreviewCache('moduleOne'), { mode: 'moduleOne' })
+    const staleCache = storage.loadCache()
+    staleCache.fromPreview = true
+    staleCache.captureReturnStrategy = 'returnPreview'
+    staleCache.sceneSupplementIndex = 1
+    staleCache.retakeMode = {
+      enabled: false,
+      vehicleIndex: 0,
+      photoType: constants.PHOTO_TYPE.VIN_CODE,
+      damageIndex: null
+    }
+    storage.saveCache(staleCache)
 
     page.onConfirmModuleOneHandoff()
 
@@ -1464,10 +1501,60 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     expect(cache.currentVehicleIndex).toBe(0)
     expect(cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(cache.fromPreview).toBe(false)
+    expect(cache.captureReturnStrategy).toBeUndefined()
+    expect(cache.sceneSupplementIndex).toBeUndefined()
+    expect(cache.retakeMode).toEqual({
+      enabled: false,
+      vehicleIndex: null,
+      photoType: null,
+      damageIndex: null
+    })
     expect(global.wx.reLaunch).toHaveBeenCalledWith(expect.objectContaining({
       url: CAMERA_URL
     }))
     expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('LINK-M2-011 VIN确认后旧相机页卸载不得把VIN图保存为车损', () => {
+    const vinPhoto = {
+      ...createPhoto('/tmp/vin-final.jpg'),
+      localPhotoId: 'vin-final-id'
+    }
+    const captureCache = buildModuleOneCaptureCache(constants.SHOOT_STEP.VIN_CODE)
+    captureCache.vehicles[0].damages = []
+    storage.saveCache(captureCache)
+    const oldCameraPage = loadCameraPageFromStorage([{ route: 'packageD/pages/camera/camera' }])
+    oldCameraPage.cancelPlateHintClear = jest.fn()
+    oldCameraPage.destroyDetectors = jest.fn()
+    oldCameraPage.setData({
+      currentStep: constants.SHOOT_STEP.VIN_CODE,
+      showConfirmModal: true,
+      pendingPhoto: vinPhoto,
+      qualityHintText: '请保持VIN清晰'
+    })
+
+    oldCameraPage.onConfirmPhoto()
+    expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
+    expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: `${PREVIEW_BASE_URL}?mode=moduleOne`
+    }))
+
+    const previewPage = loadPreviewPage(storage.loadCache(), { mode: 'moduleOne' })
+    previewPage.onConfirmModuleOneHandoff()
+    expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
+
+    oldCameraPage.onUnload()
+    const nextCache = storage.loadCache()
+    const damagePaths = nextCache.vehicles[0].damages.map((photo) => photo && photo.compressedPath)
+    const damageLocalPhotoIds = nextCache.vehicles[0].damages.map((photo) => photo && photo.localPhotoId)
+    expect(nextCache.vehicles[0].damages).toHaveLength(0)
+    expect(damagePaths).not.toContain('/tmp/vin-final.jpg')
+    expect(damageLocalPhotoIds).not.toContain('vin-final-id')
+
+    const newDamageCameraPage = loadCameraPageFromStorage([{ route: 'packageD/pages/camera/camera' }])
+    newDamageCameraPage.loadCacheData('enter_damage_after_module_one')
+    expect(newDamageCameraPage.data.damageCount).toBe(0)
+    expect(newDamageCameraPage.data.damageCountText).toBe('本车已拍 0 张')
   })
 
   const documentCases = [

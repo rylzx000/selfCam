@@ -431,6 +431,20 @@ function getDamageCaptureReturnStrategy(data = {}) {
     : CAPTURE_RETURN_STRATEGY.RETURN_PREVIEW
 }
 
+function clearModuleTwoDamageEntryContext(cache = {}) {
+  cache.fromPreview = false
+  delete cache.captureReturnStrategy
+  delete cache.capturePreviewSource
+  delete cache.sceneSupplementIndex
+  cache.retakeMode = {
+    enabled: false,
+    vehicleIndex: null,
+    photoType: null,
+    damageIndex: null
+  }
+  return cache
+}
+
 function isAuxPhotoEnabled(cache) {
   return !!(cache && cache.auxPhoto && cache.auxPhoto.enabled === true)
 }
@@ -1625,7 +1639,7 @@ Page({
     cache.currentDamageCount = Array.isArray(cache.vehicles && cache.vehicles[0] && cache.vehicles[0].damages)
       ? cache.vehicles[0].damages.length
       : 0
-    cache.fromPreview = false
+    clearModuleTwoDamageEntryContext(cache)
     cache.workflowState = {
       current: workflow.STATES.CAPTURING,
       updatedAt: new Date().toISOString()
