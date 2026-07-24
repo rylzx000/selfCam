@@ -216,7 +216,7 @@ const STORAGE_KEY = 'selfcam_car_damage_photos_cache'
 
 ### 车辆级单证结构
 
-`v1.3.5` 在每辆车对象上增加通用单证结构，当前用于行驶证，后续可扩展驾驶证、身份证、银行卡等类型：
+`v1.3.5` 在每辆车对象上增加通用单证结构，当前主流程用于驾驶证和行驶证；身份证不在本阶段采集范围内：
 
 ```js
 {
@@ -767,13 +767,15 @@ retakeMode = {
 
 这与 `storage.checkVehicleComplete()` 的“至少 1 张车损即完整”存在差异，是当前实现现状。
 
-### 4. 行驶证完成态
+### 4. 驾驶证 / 行驶证完成态
 
-行驶证完成态由 `packageD/utils/documents.js` 统一判断：
+驾驶证和行驶证完成态由 `packageD/utils/documents.js` 统一判断：
 
-- `documentSelections.driving_license === 'physical'`：必须同时存在 `front_page` 和 `back_page`。
-- `documentSelections.driving_license === 'electronic'`：必须存在 `electronic`。
-- 切换实体/电子模式只更新 `documentSelections`，不删除 `documents[]` 中已上传图片。
+- 电子证件 `electronic` 存在，或实物正页 `front_page` + 副页 `back_page` 同时存在，即该证件类型完成。
+- `documentSelections` 只表示最近一次成功上传方式，不作为完成态唯一来源。
+- 打开证件面板或切换实体/电子模式不写入 `documentSelections`；只有上传成功后才按上传 side 写入 `electronic` 或 `physical`。
+- 预览页始终展示已上传证件照片；无照片时展示整体入口，只有电子证件时不展示实物入口，实物正副页齐全时不展示电子入口。
+- 若电子证件已存在且实物链路已开始但正副页未齐全，提交态仍视为完成，但预览页继续展示缺失实物侧 `+`，点击后打开实物证件面板补齐。
 
 ### 5. 提交前弹窗顺序
 
@@ -975,4 +977,4 @@ npm run test:e2e:full
 
 - 保存时按 `docType + docSide` 查找旧记录，存在则替换，不存在则追加。
 - 删除时按 `docType + docSide` 移除记录并同步缓存。
-- 删除或替换后由 `packageD/utils/documents.js` 重新计算当前车辆行驶证完成态。
+- 删除或替换后由 `packageD/utils/documents.js` 重新按实际照片矩阵计算当前车辆驾驶证 / 行驶证完成态和缺失侧补拍入口。

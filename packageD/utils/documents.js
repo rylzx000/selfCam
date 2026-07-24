@@ -327,15 +327,18 @@ function getVehicleDocumentDisplaySides() {
   ]
 }
 
+function getVehicleDocumentModeBySide(docSide) {
+  return docSide === DOCUMENT_SIDES.ELECTRONIC
+    ? DOCUMENT_SELECTIONS.ELECTRONIC
+    : DOCUMENT_SELECTIONS.PHYSICAL
+}
+
 function isVehicleDocumentComplete(vehicle, docType) {
-  const selection = getVehicleDocumentSelection(vehicle, docType)
+  const hasElectronic = !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.ELECTRONIC)
+  const hasFrontPage = !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.FRONT_PAGE)
+  const hasBackPage = !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.BACK_PAGE)
 
-  if (selection === DOCUMENT_SELECTIONS.ELECTRONIC) {
-    return !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.ELECTRONIC)
-  }
-
-  return !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.FRONT_PAGE)
-    && !!getVehicleDocumentBySide(vehicle, docType, DOCUMENT_SIDES.BACK_PAGE)
+  return hasElectronic || (hasFrontPage && hasBackPage)
 }
 
 function isDrivingLicenseComplete(vehicle) {
@@ -410,21 +413,58 @@ function buildVehicleDocumentGroup(vehicle, docType) {
 
 function buildVehicleDocumentDisplayItems(vehicle, docType) {
   const items = buildVehicleDocumentItems(vehicle, docType)
-
-  if (items.length > 0) {
-    return items.map((item) => ({
-      ...item,
-      type: 'document',
-      uploaded: true
-    }))
+  const toDocumentItem = (document) => ({
+    ...document,
+    type: 'document',
+    uploaded: true
+  })
+  const buildUploadItem = (docSide) => {
+    const uploadMeta = buildVehicleDocumentUploadMeta(vehicle, docType, docSide)
+    return {
+      type: 'upload',
+      docType,
+      docSide,
+      label: getVehicleDocumentLabel(docType, docSide),
+      documentMode: getVehicleDocumentModeBySide(docSide),
+      ...uploadMeta,
+      uploaded: false
+    }
   }
 
-  return [{
-    type: 'upload',
-    docType,
-    label: DOCUMENT_BASE_LABELS[docType] || '证件',
-    uploaded: false
-  }]
+  if (items.length === 0) {
+    return [{
+      type: 'upload',
+      docType,
+      label: DOCUMENT_BASE_LABELS[docType] || '证件',
+      uploaded: false
+    }]
+  }
+
+  const frontPage = items.find((item) => item.docSide === DOCUMENT_SIDES.FRONT_PAGE)
+  const backPage = items.find((item) => item.docSide === DOCUMENT_SIDES.BACK_PAGE)
+  const electronic = items.find((item) => item.docSide === DOCUMENT_SIDES.ELECTRONIC)
+
+  if (frontPage && !backPage) {
+    return [
+      toDocumentItem(frontPage),
+      buildUploadItem(DOCUMENT_SIDES.BACK_PAGE),
+      ...(electronic ? [toDocumentItem(electronic)] : [])
+    ]
+  }
+
+  if (!frontPage && backPage) {
+    return [
+      buildUploadItem(DOCUMENT_SIDES.FRONT_PAGE),
+      toDocumentItem(backPage),
+      ...(electronic ? [toDocumentItem(electronic)] : [])
+    ]
+  }
+
+  if (electronic || (frontPage && backPage)) {
+    return items.map(toDocumentItem)
+  }
+
+  return items.map(toDocumentItem)
 }
 
 function buildVehicleDocumentPreview(vehicle) {
@@ -474,6 +514,7 @@ module.exports = {
   normalizeVehicleDocuments,
   getVehicleDocuments,
   getVehicleDocumentSelection,
+  getVehicleDocumentModeBySide,
   getDrivingLicenseSelection,
   getDrivingLicenseDocumentBySide,
   getVehicleDocumentBySide,

@@ -207,6 +207,24 @@ describe('vehicle document cache support', () => {
     expect(documents.isDrivingLicenseComplete(vehicle)).toBe(true)
   })
 
+  test('treats electronic or complete physical documents as finished regardless of current selection', () => {
+    const physicalVehicle = storage.createVehicle(0)
+    physicalVehicle.documentSelections.driver_license = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    physicalVehicle.documents = [
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE)
+    ]
+
+    const electronicVehicle = storage.createVehicle(0)
+    electronicVehicle.documentSelections.driver_license = documents.DOCUMENT_SELECTIONS.PHYSICAL
+    electronicVehicle.documents = [
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.ELECTRONIC)
+    ]
+
+    expect(documents.isVehicleDocumentComplete(physicalVehicle, documents.DOCUMENT_TYPES.DRIVER_LICENSE)).toBe(true)
+    expect(documents.isVehicleDocumentComplete(electronicVehicle, documents.DOCUMENT_TYPES.DRIVER_LICENSE)).toBe(true)
+  })
+
   test('switching physical and electronic mode keeps uploaded documents', () => {
     createCacheWithVehicles(1)
     storage.saveVehicleDocument(0, buildDrivingLicenseDocument(documents.DRIVING_LICENSE_SIDES.FRONT_PAGE))
@@ -285,6 +303,78 @@ describe('vehicle document cache support', () => {
     ])
   })
 
+  test.each([
+    ['空状态', [], false, ['upload:overall']],
+    ['只有电子证件', ['electronic'], true, ['document:electronic']],
+    ['只有实物正页', ['front_page'], false, ['document:front_page', 'upload:back_page']],
+    ['只有实物副页', ['back_page'], false, ['upload:front_page', 'document:back_page']],
+    ['实物正副页齐全', ['front_page', 'back_page'], true, ['document:front_page', 'document:back_page']],
+    ['电子证件加实物正页', ['electronic', 'front_page'], true, ['document:front_page', 'upload:back_page', 'document:electronic']],
+    ['电子证件加实物副页', ['electronic', 'back_page'], true, ['upload:front_page', 'document:back_page', 'document:electronic']],
+    ['三张齐全', ['electronic', 'front_page', 'back_page'], true, ['document:front_page', 'document:back_page', 'document:electronic']]
+  ])('驾驶证/行驶证采集矩阵：%s', (_name, sides, isComplete, expectedDisplay) => {
+    [
+      documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+      documents.DOCUMENT_TYPES.DRIVING_LICENSE
+    ].forEach((docType) => {
+      const vehicle = storage.createVehicle(0)
+      vehicle.documentSelections[docType] = sides.some((side) => side !== documents.DOCUMENT_SIDES.ELECTRONIC)
+        ? documents.DOCUMENT_SELECTIONS.PHYSICAL
+        : documents.DOCUMENT_SELECTIONS.ELECTRONIC
+      vehicle.documents = sides.map((docSide) => buildVehicleDocument(docType, docSide))
+
+      const preview = documents.buildVehicleDocumentPreview(vehicle)
+      const group = preview.groups.find((item) => item.docType === docType)
+      const displayItems = preview.displayItems.filter((item) => item.docType === docType)
+
+      expect(group.isComplete).toBe(isComplete)
+      expect(displayItems.map((item) => `${item.type}:${item.docSide || 'overall'}`)).toEqual(expectedDisplay)
+    })
+  })
+
+  test('builds side-level upload entries only for incomplete physical document sides', () => {
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections = {
+      driver_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC,
+      driving_license: documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    }
+    vehicle.documents = [
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVER_LICENSE, documents.DOCUMENT_SIDES.BACK_PAGE),
+      buildVehicleDocument(documents.DOCUMENT_TYPES.DRIVING_LICENSE, documents.DOCUMENT_SIDES.FRONT_PAGE)
+    ]
+
+    const preview = documents.buildVehicleDocumentPreview(vehicle)
+    const driverFrontUpload = preview.displayItems.find((item) => (
+      item.docType === documents.DOCUMENT_TYPES.DRIVER_LICENSE
+        && item.docSide === documents.DOCUMENT_SIDES.FRONT_PAGE
+    ))
+    const drivingBackUpload = preview.displayItems.find((item) => (
+      item.docType === documents.DOCUMENT_TYPES.DRIVING_LICENSE
+        && item.docSide === documents.DOCUMENT_SIDES.BACK_PAGE
+    ))
+
+    expect(preview.displayItems.map((item) => `${item.type}:${item.label}`)).toEqual([
+      'upload:驾驶证-正页',
+      'document:驾驶证-副页',
+      'document:行驶证-正页',
+      'upload:行驶证-副页'
+    ])
+    expect(driverFrontUpload).toEqual(expect.objectContaining({
+      type: 'upload',
+      uploaded: false,
+      documentMode: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }))
+    expect(drivingBackUpload).toEqual(expect.objectContaining({
+      type: 'upload',
+      uploaded: false,
+      documentMode: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }))
+    expect(preview.displayItems.filter((item) => item.type === 'upload').map((item) => item.docSide)).toEqual([
+      documents.DOCUMENT_SIDES.FRONT_PAGE,
+      documents.DOCUMENT_SIDES.BACK_PAGE
+    ])
+  })
+
   test('builds flat electronic document display labels without electronic prefix', () => {
     const vehicle = storage.createVehicle(0)
     vehicle.documentSelections = {
@@ -304,8 +394,11 @@ describe('vehicle document cache support', () => {
 
     const preview = documents.buildVehicleDocumentPreview(vehicle)
 
-    expect(preview.displayItems.map((item) => item.label)).toEqual(['驾驶证', '行驶证'])
-    expect(preview.displayItems.every((item) => item.type === 'document')).toBe(true)
+    expect(preview.displayItems.map((item) => `${item.type}:${item.label}`)).toEqual([
+      'document:驾驶证',
+      'document:行驶证'
+    ])
+    expect(preview.displayItems.some((item) => item.type === 'upload')).toBe(false)
   })
 
   test('builds flat physical document display labels in one row order', () => {
@@ -323,13 +416,16 @@ describe('vehicle document cache support', () => {
 
     const preview = documents.buildVehicleDocumentPreview(vehicle)
 
-    expect(preview.displayItems.map((item) => item.label)).toEqual([
-      '驾驶证-正页',
-      '驾驶证-副页',
-      '行驶证-正页',
-      '行驶证-副页'
+    expect(preview.displayItems.map((item) => `${item.type}:${item.label}`)).toEqual([
+      'document:驾驶证-正页',
+      'document:驾驶证-副页',
+      'document:行驶证-正页',
+      'document:行驶证-副页'
     ])
-    expect(preview.displayItems.every((item) => item.type === 'document')).toBe(true)
+    expect(preview.displayItems.some((item) => (
+      item.type === 'upload'
+        && item.docSide === documents.DOCUMENT_SIDES.ELECTRONIC
+    ))).toBe(false)
   })
 
   test('shows all collected driver license sides regardless of current selection', () => {
@@ -379,6 +475,7 @@ describe('vehicle document cache support', () => {
     vehicle = storage.loadCache().vehicles[0]
     expect(documents.buildVehicleDocumentPreview(vehicle).displayItems.map((item) => item.label)).toEqual([
       '驾驶证',
+      '行驶证-正页',
       '行驶证-副页',
       '行驶证'
     ])

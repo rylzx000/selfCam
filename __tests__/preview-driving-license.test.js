@@ -89,6 +89,24 @@ describe('preview page driving license flow', () => {
     return vehicle
   }
 
+  function buildVehicleDocumentRecord(docType, docSide, path = `/tmp/${docType}-${docSide}.jpg`) {
+    const labelMap = docType === documents.DOCUMENT_TYPES.DRIVER_LICENSE
+      ? documents.DRIVER_LICENSE_LABELS
+      : documents.DRIVING_LICENSE_LABELS
+
+    return {
+      id: `${docType}-${docSide}`,
+      docType,
+      docSide,
+      label: labelMap[docSide],
+      sourceType: 'album',
+      tempFilePath: path,
+      compressedPath: path,
+      createdAt: 1000,
+      updatedAt: 1000
+    }
+  }
+
   beforeEach(() => {
     jest.resetModules()
     memoryStorage = {}
@@ -207,6 +225,66 @@ describe('preview page driving license flow', () => {
     expect(album.saveConfirmedPhotoToAlbum).not.toHaveBeenCalled()
   })
 
+  test('keeps physical back page upload entry after uploading electronic document then front page', async () => {
+    actionSheetTapIndexes = [0, 0]
+    const page = loadPreviewPageWithVehicles(1)
+
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE
+        }
+      }
+    })
+
+    await page.onTapDrivingLicenseSlot({
+      currentTarget: {
+        dataset: {
+          docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+          side: documents.DOCUMENT_SIDES.ELECTRONIC,
+          uploaded: false,
+          uploadable: true
+        }
+      }
+    })
+
+    page.onSwitchDrivingLicenseMode({
+      currentTarget: {
+        dataset: { mode: documents.DOCUMENT_SELECTIONS.PHYSICAL }
+      }
+    })
+
+    await page.onTapDrivingLicenseSlot({
+      currentTarget: {
+        dataset: {
+          docType: documents.DOCUMENT_TYPES.DRIVER_LICENSE,
+          side: documents.DOCUMENT_SIDES.FRONT_PAGE,
+          uploaded: false,
+          uploadable: true
+        }
+      }
+    })
+    page.onCloseDrivingLicensePanel()
+
+    const vehicle = storage.loadCache().vehicles[0]
+    const driverItems = page.data.vehicles[0].vehicleDocumentPreview.displayItems.filter((item) => (
+      item.docType === documents.DOCUMENT_TYPES.DRIVER_LICENSE
+    ))
+
+    expect(vehicle.documentSelections.driver_license).toBe(documents.DOCUMENT_SELECTIONS.PHYSICAL)
+    expect(driverItems.map((item) => `${item.type}:${item.docSide}`)).toEqual([
+      `document:${documents.DOCUMENT_SIDES.FRONT_PAGE}`,
+      `upload:${documents.DOCUMENT_SIDES.BACK_PAGE}`,
+      `document:${documents.DOCUMENT_SIDES.ELECTRONIC}`
+    ])
+    expect(driverItems.find((item) => item.docSide === documents.DOCUMENT_SIDES.BACK_PAGE)).toEqual(expect.objectContaining({
+      type: 'upload',
+      documentMode: documents.DOCUMENT_SELECTIONS.PHYSICAL,
+      uploaded: false
+    }))
+  })
+
   test('opens missing document slot directly in custom panel without electronic or physical native sheet', () => {
     const page = loadPreviewPageWithVehicles(1)
 
@@ -221,11 +299,166 @@ describe('preview page driving license flow', () => {
 
     const vehicle = storage.loadCache().vehicles[0]
     expect(global.wx.showActionSheet).not.toHaveBeenCalled()
-    expect(vehicle.documentSelections.driver_license).toBe(documents.DOCUMENT_SELECTIONS.ELECTRONIC)
+    expect(vehicle.documentSelections.driver_license).toBe(documents.DOCUMENT_SELECTIONS.PHYSICAL)
     expect(page.data.showDrivingLicensePanel).toBe(true)
     expect(page.data.drivingLicenseMode).toBe(documents.DOCUMENT_SELECTIONS.ELECTRONIC)
     expect(page.data.activeDrivingLicenseDocType).toBe(documents.DOCUMENT_TYPES.DRIVER_LICENSE)
     expect(page.data.activeDrivingLicenseSlots).toHaveLength(1)
+  })
+
+  test.each([
+    [
+      '驾驶证正页',
+      'driver_license',
+      'front_page',
+      ['back_page']
+    ],
+    [
+      '驾驶证副页',
+      'driver_license',
+      'back_page',
+      ['front_page']
+    ],
+    [
+      '驾驶证电子+正页后的副页',
+      'driver_license',
+      'back_page',
+      ['electronic', 'front_page']
+    ],
+    [
+      '驾驶证电子+副页后的正页',
+      'driver_license',
+      'front_page',
+      ['electronic', 'back_page']
+    ],
+    [
+      '行驶证正页',
+      'driving_license',
+      'front_page',
+      ['back_page']
+    ],
+    [
+      '行驶证副页',
+      'driving_license',
+      'back_page',
+      ['front_page']
+    ],
+    [
+      '行驶证电子+正页后的副页',
+      'driving_license',
+      'back_page',
+      ['electronic', 'front_page']
+    ],
+    [
+      '行驶证电子+副页后的正页',
+      'driving_license',
+      'front_page',
+      ['electronic', 'back_page']
+    ]
+  ])('opens %s partial-missing upload entry in physical document panel', (
+    _label,
+    docType,
+    missingSide,
+    remainingSides
+  ) => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections[docType] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    vehicle.documents = remainingSides.map((docSide) => buildVehicleDocumentRecord(docType, docSide))
+    cache.vehicles.push(vehicle)
+    const page = loadPreviewPageWithCache(cache)
+    const uploadEntry = page.data.vehicles[0].vehicleDocumentPreview.displayItems.find((item) => (
+      item.type === 'upload'
+        && item.docType === docType
+        && item.docSide === missingSide
+    ))
+
+    expect(uploadEntry).toEqual(expect.objectContaining({
+      uploaded: false,
+      documentMode: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }))
+    expect(page.data.vehicles[0].vehicleDocumentPreview.displayItems.filter((item) => (
+      item.type === 'upload'
+        && item.docType === docType
+    ))).toEqual([expect.objectContaining({
+      docSide: missingSide
+    })])
+
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          docType: uploadEntry.docType,
+          docSide: uploadEntry.docSide,
+          documentMode: uploadEntry.documentMode
+        }
+      }
+    })
+
+    expect(global.wx.showActionSheet).not.toHaveBeenCalled()
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).not.toHaveBeenCalled()
+    expect(page.data.showDrivingLicensePanel).toBe(true)
+    expect(page.data.drivingLicenseMode).toBe(documents.DOCUMENT_SELECTIONS.PHYSICAL)
+    expect(page.data.activeDrivingLicenseDocType).toBe(docType)
+    expect(page.data.activeDrivingLicenseSlots.map((slot) => slot.docSide)).toEqual([
+      documents.DOCUMENT_SIDES.FRONT_PAGE,
+      documents.DOCUMENT_SIDES.BACK_PAGE
+    ])
+  })
+
+  test.each([
+    ['驾驶证电子证件', 'driver_license'],
+    ['行驶证电子证件', 'driving_license']
+  ])('%s已完成时不展示实物正页或副页补拍入口', (_label, docType) => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections[docType] = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    vehicle.documents = [buildVehicleDocumentRecord(docType, documents.DOCUMENT_SIDES.ELECTRONIC)]
+    cache.vehicles.push(vehicle)
+
+    const page = loadPreviewPageWithCache(cache)
+    const docEntries = page.data.vehicles[0].vehicleDocumentPreview.displayItems.filter((item) => (
+      item.docType === docType
+    ))
+
+    expect(docEntries).toEqual([
+      expect.objectContaining({
+        type: 'document',
+        docSide: documents.DOCUMENT_SIDES.ELECTRONIC,
+        uploaded: true
+      })
+    ])
+    expect(page.data.vehicles[0].vehicleDocumentPreview.groups.find((group) => group.docType === docType).isComplete).toBe(true)
+  })
+
+  test.each([
+    ['驾驶证实物证件', 'driver_license'],
+    ['行驶证实物证件', 'driving_license']
+  ])('%s正副页齐全时不展示电子证件补拍入口', (_label, docType) => {
+    const cache = storage.initCache()
+    const vehicle = storage.createVehicle(0)
+    vehicle.documentSelections[docType] = documents.DOCUMENT_SELECTIONS.PHYSICAL
+    vehicle.documents = [
+      buildVehicleDocumentRecord(docType, documents.DOCUMENT_SIDES.FRONT_PAGE),
+      buildVehicleDocumentRecord(docType, documents.DOCUMENT_SIDES.BACK_PAGE)
+    ]
+    cache.vehicles.push(vehicle)
+
+    const page = loadPreviewPageWithCache(cache)
+    const docEntries = page.data.vehicles[0].vehicleDocumentPreview.displayItems.filter((item) => (
+      item.docType === docType
+    ))
+
+    expect(docEntries.map((item) => `${item.type}:${item.docSide}`)).toEqual([
+      `document:${documents.DOCUMENT_SIDES.FRONT_PAGE}`,
+      `document:${documents.DOCUMENT_SIDES.BACK_PAGE}`
+    ])
+    expect(docEntries.some((item) => (
+      item.type === 'upload'
+        && item.docSide === documents.DOCUMENT_SIDES.ELECTRONIC
+    ))).toBe(false)
+    expect(page.data.vehicles[0].vehicleDocumentPreview.groups.find((group) => group.docType === docType).isComplete).toBe(true)
   })
 
   test('switches document panel between electronic and physical modes before choosing source', () => {
@@ -243,6 +476,7 @@ describe('preview page driving license flow', () => {
     expect(page.data.activeDrivingLicenseSlots.map((slot) => slot.docSide)).toEqual([
       documents.DOCUMENT_SIDES.ELECTRONIC
     ])
+    expect(storage.loadCache().vehicles[0].documentSelections.driving_license).toBe(documents.DOCUMENT_SELECTIONS.PHYSICAL)
 
     page.onSwitchDrivingLicenseMode({
       currentTarget: {

@@ -113,12 +113,19 @@
 | ACCESS-M1-002 | 模块一删除车牌号 | `mode=moduleOne` | 删除后点击车牌空槽位 | 进入相机 `licensePlate`，`previewReturnMode=moduleOne` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M1-002` |
 | ACCESS-M2-001 | 模块二删除最后一张车损 | `mode=moduleTwo` | 删除后点击车损空入口 | 进入相机 `damage`，`previewReturnMode=moduleTwo` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M2-001` |
 | ACCESS-M3-001 | 模块三删除驾驶证 | `mode=moduleThree` | 删除后查看证件区 | 驾驶证上传入口重新出现 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-001` |
+| ACCESS-M3-002 | 模块三驾驶证只剩实物副页后补录正页 | `mode=moduleThree`，驾驶证仅剩实物副页 | 点击驾驶证正页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-002` |
+| ACCESS-M3-003 | 模块三驾驶证只剩实物正页后补录副页 | `mode=moduleThree`，驾驶证仅剩实物正页 | 点击驾驶证副页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-003` |
+| ACCESS-M3-004 | 模块三驾驶证电子证件完成态 | `mode=moduleThree`，驾驶证只剩电子证件 | 查看证件区 | 电子驾驶证视为已完成，不展示实物正页/副页 `+` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-004` |
+| ACCESS-M3-005 | 模块三驾驶证电子 + 实物正页后补录副页 | `mode=moduleThree`，驾驶证已有电子证件和实物正页 | 点击驾驶证副页 `+` | 提交态保持已完成，仍打开实物证件面板补副页，停留模块三预览上下文 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-005` |
 | ACCESS-FINAL-001 | 最终预览删除唯一 45 度 | `mode=final` | 删除后查看现场环境区 | 现场环境区不消失，45 度空槽位可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-001` |
 | ACCESS-FINAL-002 | 最终预览删除 45 度但仍有补充照片 | `mode=final` | 删除后查看现场环境区 | 45 度空槽位仍可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-002` |
 | ACCESS-FINAL-003 | 最终预览删除现场补充照片 | `mode=final` | 删除后查看现场环境区 | 补充现场照片空入口仍可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-003` |
 | ACCESS-FINAL-004 | 最终预览删除车牌号 | `mode=final` | 删除后点击车牌空槽位 | 进入相机 `licensePlate`，`previewReturnMode=final` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-004` |
 | ACCESS-FINAL-005 | 最终预览删除最后一张车损 | `mode=final` | 删除后点击车损空入口 | 进入相机 `damage`，`previewReturnMode=final` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-005` |
 | ACCESS-FINAL-006 | 最终预览删除证件 | `mode=final` | 删除后查看证件区 | 对应证件上传入口重新出现 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-006` |
+| ACCESS-FINAL-007 | 最终预览行驶证只剩实物副页后补录正页 | `mode=final`，行驶证仅剩实物副页 | 点击行驶证正页 `+` | 打开证件弹层并默认实物证件，停留最终预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-007` |
+| ACCESS-FINAL-008 | 最终预览行驶证实物正副页完成态 | `mode=final`，行驶证实物正页 + 副页齐全 | 查看证件区 | 行驶证视为已完成，不展示电子行驶证 `+`，完成状态保持已完成 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-008` |
+| ACCESS-FINAL-009 | 最终预览行驶证电子 + 实物副页后补录正页 | `mode=final`，行驶证已有电子证件和实物副页 | 点击行驶证正页 `+` | 提交态保持已完成，仍打开实物证件面板补正页，停留最终预览上下文 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-009` |
 
 ## 复杂组合跳转矩阵
 
@@ -138,7 +145,7 @@
 ## 暂未覆盖或需真机验证的场景
 
 - 微信原生相机权限、真机拍照文件写入、`wx.chooseMedia` 实际弹层交互需要微信开发者工具或真机验证。
-- 证件实物正页和副页在自动化中各抽一侧覆盖路由，另一侧建议在真机 smoke 中抽测。
+- 证件实物单侧缺失补拍入口、电子证件完成态和实物正副页完成态已覆盖模块三和最终预览；仍建议在真机 smoke 中抽测真实点击区域。
 - 模块一现场补充提示“只出现一次”已有预览页逻辑约束，本矩阵只断言补拍返回路由；弹层显示可结合现有模块一预览用例继续补强。
 - 删除后入口可达性测试会覆盖静态渲染契约和交互状态，但微信小程序真实渲染仍建议用开发者工具 smoke 抽测。
 - 复杂组合矩阵主要覆盖缓存状态、车辆索引和页面路由，不替代真机连续拍照、返回栈和文件系统 smoke。

@@ -1,7 +1,7 @@
 const envConfig = require('./env-config')
 const auxPhotoMock = require('./aux-photo-mock')
 
-const CLIENT_VERSION = '1.5.6'
+const CLIENT_VERSION = '1.5.7'
 const INIT_PATH = '/onlineclaim/AuxPhotoService/init'
 const UPLOAD_PHOTO_BASE64_PATH = '/onlineclaim/AuxPhotoService/uploadPhotoBase64'
 const COMPLETE_PATH = '/onlineclaim/AuxPhotoService/complete'

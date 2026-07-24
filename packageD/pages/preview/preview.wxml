@@ -254,7 +254,9 @@
                       style="{{previewLayout.photoItemStyle}}"
                       bindtap="onOpenDrivingLicensePanel"
                       data-vehicle="{{vehicleIndex}}"
-                      data-doc-type="{{documentItem.docType}}">
+                      data-doc-type="{{documentItem.docType}}"
+                      data-doc-side="{{documentItem.docSide}}"
+                      data-document-mode="{{documentItem.documentMode}}">
                   <view class="thumb upload-license-thumb" style="{{previewLayout.thumbStyle}}">
                     <view class="plus-circle" style="{{previewLayout.plusCircleStyle}}">+</view>
                   </view>

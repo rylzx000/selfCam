@@ -52,6 +52,13 @@ function readFinalSceneMarkup() {
   return wxml.slice(start, end)
 }
 
+function readDocumentUploadMarkup() {
+  const wxml = require('fs').readFileSync('packageD/pages/preview/preview.wxml', 'utf8')
+  const start = wxml.indexOf('bindtap="onOpenDrivingLicensePanel"')
+  const end = wxml.indexOf('<view class="thumb upload-license-thumb"', start)
+  return wxml.slice(start, end)
+}
+
 function baseCache(vehicles = [createVehicle(0)]) {
   return {
     currentVehicleIndex: 0,
@@ -1583,6 +1590,188 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
       url: PREVIEW_BASE_URL
     }))
     expectNoLegacyPreviewWithoutMode()
+  })
+
+  test('ACCESS-DOC-WXML-001 证件缺失补拍入口携带侧别和目标面板模式', () => {
+    const uploadMarkup = readDocumentUploadMarkup()
+
+    expect(uploadMarkup).toContain('data-doc-side="{{documentItem.docSide}}"')
+    expect(uploadMarkup).toContain('data-document-mode="{{documentItem.documentMode}}"')
+  })
+
+  const documentEntryModes = ['moduleThree', 'final']
+  const documentEntryTypes = ['driver_license', 'driving_license']
+  const documentEntryStates = [
+    ['F', ['front_page'], 'back_page'],
+    ['B', ['back_page'], 'front_page'],
+    ['E+F', ['electronic', 'front_page'], 'back_page'],
+    ['E+B', ['electronic', 'back_page'], 'front_page']
+  ]
+  const partialDocumentEntryCases = documentEntryModes.flatMap((mode) => (
+    documentEntryTypes.flatMap((docType) => (
+      documentEntryStates.map(([state, remainingSides, missingSide]) => [
+        `ACCESS-DOC-${mode}-${docType}-${state}`,
+        mode,
+        docType,
+        missingSide,
+        remainingSides
+      ])
+    ))
+  ))
+
+  function expectMissingDocumentEntryOpensPhysicalPanel(page, mode, docType, missingSide) {
+    const uploadEntry = page.data.vehicles[0].vehicleDocumentPreview.displayItems.find((item) => (
+      item.type === 'upload'
+        && item.docType === docType
+        && item.docSide === missingSide
+    ))
+
+    expect(uploadEntry).toEqual(expect.objectContaining({
+      uploaded: false,
+      documentMode: documents.DOCUMENT_SELECTIONS.PHYSICAL
+    }))
+    expect(page.data.vehicles[0].vehicleDocumentPreview.displayItems.filter((item) => (
+      item.type === 'upload'
+        && item.docType === docType
+    ))).toEqual([expect.objectContaining({
+      docSide: missingSide
+    })])
+
+    global.wx.navigateTo.mockClear()
+    global.wx.redirectTo.mockClear()
+    global.wx.reLaunch.mockClear()
+    page.onOpenDrivingLicensePanel({
+      currentTarget: {
+        dataset: {
+          vehicle: 0,
+          docType: uploadEntry.docType,
+          docSide: uploadEntry.docSide,
+          documentMode: uploadEntry.documentMode
+        }
+      }
+    })
+
+    expect(mode === 'final' ? page.data.isFinalPreview : page.data.isModuleThreePreview).toBe(true)
+    expect(page.data.showDrivingLicensePanel).toBe(true)
+    expect(page.data.drivingLicenseMode).toBe(documents.DOCUMENT_SELECTIONS.PHYSICAL)
+    expect(page.data.activeDrivingLicenseDocType).toBe(docType)
+    expect(page.data.activeDrivingLicenseSlots.map((slot) => slot.docSide)).toEqual([
+      documents.DOCUMENT_SIDES.FRONT_PAGE,
+      documents.DOCUMENT_SIDES.BACK_PAGE
+    ])
+    expect(global.wx.navigateTo).not.toHaveBeenCalled()
+    expect(global.wx.redirectTo).not.toHaveBeenCalled()
+    expect(global.wx.reLaunch).not.toHaveBeenCalled()
+    expectNoLegacyPreviewWithoutMode()
+  }
+
+  test.each(partialDocumentEntryCases)('%s 部分缺失证件入口打开正确面板且保持当前预览', (
+    _id,
+    mode,
+    docType,
+    missingSide,
+    remainingSides
+  ) => {
+    const cache = buildPreviewCache(mode)
+    cache.vehicles[0].documentSelections[docType] = remainingSides.includes('electronic')
+      ? documents.DOCUMENT_SELECTIONS.ELECTRONIC
+      : documents.DOCUMENT_SELECTIONS.PHYSICAL
+    cache.vehicles[0].documents = remainingSides.map((docSide) => (
+      createVehicleDocument(docType, docSide, `/${docType}-${docSide}.jpg`)
+    ))
+    const page = loadPreviewPage(cache, { mode })
+
+    expectMissingDocumentEntryOpensPhysicalPanel(page, mode, docType, missingSide)
+  })
+
+  const deletedDocumentEntryStates = [
+    ['delete-to-F', ['front_page', 'back_page'], 'back_page', 'back_page'],
+    ['delete-to-B', ['front_page', 'back_page'], 'front_page', 'front_page'],
+    ['delete-to-E+F', ['electronic', 'front_page', 'back_page'], 'back_page', 'back_page'],
+    ['delete-to-E+B', ['electronic', 'front_page', 'back_page'], 'front_page', 'front_page']
+  ]
+  const deletedDocumentEntryCases = documentEntryModes.flatMap((mode) => (
+    documentEntryTypes.flatMap((docType) => (
+      deletedDocumentEntryStates.map(([state, initialSides, deletedSide, missingSide]) => [
+        `ACCESS-DOC-DELETE-${mode}-${docType}-${state}`,
+        mode,
+        docType,
+        initialSides,
+        deletedSide,
+        missingSide
+      ])
+    ))
+  ))
+
+  test.each(deletedDocumentEntryCases)('%s 删除后缺失证件入口打开正确面板且保持当前预览', (
+    _id,
+    mode,
+    docType,
+    initialSides,
+    deletedSide,
+    missingSide
+  ) => {
+    const cache = buildPreviewCache(mode)
+    cache.vehicles[0].documentSelections[docType] = initialSides.includes('electronic')
+      ? documents.DOCUMENT_SELECTIONS.ELECTRONIC
+      : documents.DOCUMENT_SELECTIONS.PHYSICAL
+    cache.vehicles[0].documents = initialSides.map((docSide) => (
+      createVehicleDocument(docType, docSide, `/${docType}-${docSide}.jpg`)
+    ))
+    const page = loadPreviewPage(cache, { mode })
+
+    page.confirmDeleteDrivingLicenseDocument(0, deletedSide, docType)
+
+    expectMissingDocumentEntryOpensPhysicalPanel(page, mode, docType, missingSide)
+  })
+
+  test('ACCESS-M3-004 模块三驾驶证只有电子证件时视为完成且不展示实物补拍入口', () => {
+    const cache = buildPreviewCache('moduleThree')
+    cache.vehicles[0].documentSelections.driver_license = documents.DOCUMENT_SELECTIONS.ELECTRONIC
+    cache.vehicles[0].documents = [
+      createVehicleDocument('driver_license', 'electronic', '/driver-electronic.jpg')
+    ]
+    const page = loadPreviewPage(cache, { mode: 'moduleThree' })
+    const displayItems = page.data.vehicles[0].vehicleDocumentPreview.displayItems
+      .filter((item) => item.docType === 'driver_license')
+    const group = page.data.vehicles[0].vehicleDocumentPreview.groups
+      .find((item) => item.docType === 'driver_license')
+
+    expect(page.data.isModuleThreePreview).toBe(true)
+    expect(group.isComplete).toBe(true)
+    expect(displayItems).toEqual([
+      expect.objectContaining({
+        type: 'document',
+        docSide: 'electronic',
+        uploaded: true
+      })
+    ])
+    expect(displayItems.some((item) => item.type === 'upload')).toBe(false)
+  })
+
+  test('ACCESS-FINAL-008 最终预览行驶证实物正副页齐全时不展示电子证件入口', () => {
+    const cache = buildPreviewCache('final')
+    cache.vehicles[0].documentSelections.driving_license = documents.DOCUMENT_SELECTIONS.PHYSICAL
+    cache.vehicles[0].documents = [
+      createVehicleDocument('driving_license', 'front_page', '/driving-front.jpg'),
+      createVehicleDocument('driving_license', 'back_page', '/driving-back.jpg')
+    ]
+    const page = loadPreviewPage(cache, { mode: 'final' })
+    const displayItems = page.data.vehicles[0].vehicleDocumentPreview.displayItems
+      .filter((item) => item.docType === 'driving_license')
+    const group = page.data.vehicles[0].vehicleDocumentPreview.groups
+      .find((item) => item.docType === 'driving_license')
+
+    expect(page.data.isFinalPreview).toBe(true)
+    expect(group.isComplete).toBe(true)
+    expect(displayItems.map((item) => `${item.type}:${item.docSide}`)).toEqual([
+      'document:front_page',
+      'document:back_page'
+    ])
+    expect(displayItems.some((item) => (
+      item.type === 'upload'
+        && item.docSide === 'electronic'
+    ))).toBe(false)
   })
 
   test('LINK-M1-011 相机页查看已拍进入临时模块一预览后补45度应继续车牌拍摄', () => {

@@ -466,6 +466,14 @@ function getVehicleDocumentPanelMode(vehicle, docType) {
   return vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
 }
 
+function getVehicleDocumentPanelModeBySide(docSide) {
+  return docSide === vehicleDocuments.DOCUMENT_SIDES.ELECTRONIC
+    ? vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+    : docSide === vehicleDocuments.DOCUMENT_SIDES.FRONT_PAGE || docSide === vehicleDocuments.DOCUMENT_SIDES.BACK_PAGE
+      ? vehicleDocuments.DOCUMENT_SELECTIONS.PHYSICAL
+      : ''
+}
+
 function buildHandoffProgress(items) {
   return items.map((text) => ({ text }))
 }
@@ -1077,19 +1085,18 @@ Page({
   },
 
   onOpenDrivingLicensePanel(e) {
-    const { vehicle, docType } = e.currentTarget.dataset
+    const { vehicle, docType, docSide, documentMode } = e.currentTarget.dataset
     const activeDocType = docType || vehicleDocuments.DOCUMENT_TYPES.DRIVING_LICENSE
     const activeVehicle = this.data.vehicles[vehicle]
-    const drivingLicenseMode = activeVehicle
-      ? getVehicleDocumentPanelMode(activeVehicle, activeDocType)
-      : vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
+    const requestedMode = isVehicleDocumentMode(documentMode)
+      ? documentMode
+      : getVehicleDocumentPanelModeBySide(docSide)
+    const drivingLicenseMode = isVehicleDocumentMode(requestedMode)
+      ? requestedMode
+      : activeVehicle
+        ? getVehicleDocumentPanelMode(activeVehicle, activeDocType)
+        : vehicleDocuments.DOCUMENT_SELECTIONS.ELECTRONIC
 
-    if (!activeVehicle) {
-      this.openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode)
-      return
-    }
-
-    storage.setVehicleDocumentSelection(vehicle, activeDocType, drivingLicenseMode)
     this.openVehicleDocumentPanel(vehicle, activeDocType, drivingLicenseMode)
   },
 
@@ -1130,14 +1137,6 @@ Page({
 
     if (nextMode === this.data.drivingLicenseMode) {
       return
-    }
-
-    if (this.data.activeDrivingLicenseVehicleIndex !== null) {
-      storage.setVehicleDocumentSelection(
-        this.data.activeDrivingLicenseVehicleIndex,
-        this.data.activeDrivingLicenseDocType,
-        nextMode
-      )
     }
 
     const activeVehicle = this.data.vehicles[this.data.activeDrivingLicenseVehicleIndex]
@@ -1363,6 +1362,15 @@ Page({
 
             if (!savedDocument) {
               throw new Error('SAVE_VEHICLE_DOCUMENT_FAILED')
+            }
+
+            const savedDocumentMode = getVehicleDocumentPanelModeBySide(docSide)
+            if (isVehicleDocumentMode(savedDocumentMode)) {
+              storage.setVehicleDocumentSelection(
+                this.data.activeDrivingLicenseVehicleIndex,
+                docType,
+                savedDocumentMode
+              )
             }
 
             workflowPage.syncPageWorkflowState(this, workflow.STATES.PREVIEWING, {
