@@ -35,8 +35,8 @@ describe('P0 容量边界 e2e', () => {
     await closeMiniProgram(miniProgram)
   })
 
-  test('[P0-01] 单车满图进入 preview 后统计正确', async () => {
-    const scenario = createFullDamageScenario({ vehicleCount: 1, damageCountPerVehicle: 5 })
+  test('[P0-01] 单车 10 张车损满图进入 preview 后统计正确', async () => {
+    const scenario = createFullDamageScenario({ vehicleCount: 1, damageCountPerVehicle: 10 })
     await seedCache(miniProgram, scenario)
 
     const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
@@ -49,11 +49,11 @@ describe('P0 容量边界 e2e', () => {
     expect(data.vehicles).toHaveLength(1)
     expect(data.vehicles[0].licensePlate.status).toBe('completed')
     expect(data.vehicles[0].vinCode.status).toBe('completed')
-    expect(data.vehicles[0].damages).toHaveLength(5)
-    expect(data.totalPhotoCount).toBe(7)
-    expect(summary.totalPhotos).toBe(7)
-    expect(summary.photoCounts.damage).toBe(5)
-    expect(collectAllPhotoPaths(cache)).toHaveLength(7)
+    expect(data.vehicles[0].damages).toHaveLength(10)
+    expect(data.totalPhotoCount).toBe(12)
+    expect(summary.totalPhotos).toBe(12)
+    expect(summary.photoCounts.damage).toBe(10)
+    expect(collectAllPhotoPaths(cache)).toHaveLength(12)
     expect(() => assertNoDuplicatePhotoPaths(cache)).not.toThrow()
   })
 
@@ -113,9 +113,9 @@ describe('P0 容量边界 e2e', () => {
     expect(() => assertNoDuplicatePhotoPaths(afterAdd)).not.toThrow()
   })
 
-  test('[P0-08] aux photo rejects the sixth damage photo and advances after confirmation', async () => {
-    const scenario = createFullDamageScenario({ vehicleCount: 2, damageCountPerVehicle: [5, 0] })
-    const extraDamagePath = 'wxfile://tmp/p0-aux-overflow-damage-6.jpg'
+  test('[P0-08] aux photo rejects the eleventh damage photo and advances after confirmation', async () => {
+    const scenario = createFullDamageScenario({ vehicleCount: 2, damageCountPerVehicle: [10, 0] })
+    const extraDamagePath = 'wxfile://tmp/p0-aux-overflow-damage-11.jpg'
     scenario.auxPhoto = {
       enabled: true,
       ticket: 'mock-2'
@@ -138,11 +138,11 @@ describe('P0 容量边界 e2e', () => {
       currentStep: SHOOT_STEP.DAMAGE,
       showConfirmModal: true,
       pendingPhoto: createPhoto({
-        tempFilePath: 'wxfile://tmp/p0-aux-overflow-damage-6-original.jpg',
+        tempFilePath: 'wxfile://tmp/p0-aux-overflow-damage-11-original.jpg',
         compressedPath: extraDamagePath,
         captureTrigger: 'p0_aux_overflow'
       }),
-      damageCount: 5
+      damageCount: 10
     })
 
     await page.callMethod('onConfirmPhoto')
@@ -153,7 +153,7 @@ describe('P0 容量边界 e2e', () => {
     const beforeAdvancePaths = collectAllPhotoPaths(beforeAdvanceCache)
     const cameraDuringModal = await page.$$('camera')
 
-    expect(beforeAdvanceCache.vehicles[0].damages).toHaveLength(5)
+    expect(beforeAdvanceCache.vehicles[0].damages).toHaveLength(10)
     expect(beforeAdvanceCache.currentVehicleIndex).toBe(0)
     expect(beforeAdvanceCache.currentStep).toBe(SHOOT_STEP.DAMAGE)
     expect(beforeAdvancePaths).not.toContain(extraDamagePath)
@@ -169,7 +169,7 @@ describe('P0 容量边界 e2e', () => {
     const data = await waitForCondition(async () => {
       const current = await page.data()
       if (
-        current.currentStep === SHOOT_STEP.LICENSE_PLATE
+        current.currentStep === SHOOT_STEP.DAMAGE
         && current.showDamageCompleteModal === false
         && current.cameraMounted === true
       ) {
@@ -183,12 +183,12 @@ describe('P0 容量边界 e2e', () => {
     const paths = collectAllPhotoPaths(cache)
     const cameraAfterAdvance = await page.$$('camera')
 
-    expect(cache.vehicles[0].damages).toHaveLength(5)
+    expect(cache.vehicles[0].damages).toHaveLength(10)
     expect(cache.currentVehicleIndex).toBe(1)
-    expect(cache.currentStep).toBe(SHOOT_STEP.LICENSE_PLATE)
+    expect(cache.currentStep).toBe(SHOOT_STEP.DAMAGE)
     expect(cache.currentDamageCount).toBe(0)
     expect(paths).not.toContain(extraDamagePath)
-    expect(data.currentStep).toBe(SHOOT_STEP.LICENSE_PLATE)
+    expect(data.currentStep).toBe(SHOOT_STEP.DAMAGE)
     expect(data.damageCount).toBe(0)
     expect(data.showConfirmModal).toBe(false)
     expect(data.showDamageCompleteModal).toBe(false)
@@ -199,7 +199,7 @@ describe('P0 容量边界 e2e', () => {
     expect(() => assertNoDuplicatePhotoPaths(cache)).not.toThrow()
 
     const beforeSecondVehicleCompress = wxState.compressImageCalls
-    expect(await installCurrentPageCameraMock(miniProgram, 'wxfile://tmp/p0-second-vehicle-license-original.jpg')).toBe(true)
+    expect(await installCurrentPageCameraMock(miniProgram, 'wxfile://tmp/p0-second-vehicle-damage-original.jpg')).toBe(true)
 
     await page.callMethod('onCapture')
     wxState = await waitForCondition(async () => {

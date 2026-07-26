@@ -1,5 +1,13 @@
 # selfCam 测试运行与结果查看指引
 
+## 规则事实源与当前漂移提示
+
+- 测试设计、测试修正和验收口径以 `docs/product-rule-matrix.md` 为准；本文只说明如何运行与查看测试结果。
+- 历史版本章节中的“本轮执行”结果仅记录当时运行情况，不代表当前分支已经通过同一验证。
+- 本轮已按产品规则矩阵修正已知 e2e 旧规则：车损 10 张上限与第 11 张拒绝、证件入口先开自定义面板、模块三缺证件不再 toast；同时补充测试实现漂移门禁。
+- 本轮新增真实点击 smoke，覆盖模块三证件入口、模块二车损补拍、最终预览删空后补拍、10 张车损上限入口不可见、`E+F` 补副页关键路径；更广的多车与真机触摸区域仍待后续抽测。
+- `actionSheet`、`callCurrentPageMethod`、`setData`、quality guard 等保留英文，是因为它们是微信原生能力、测试工具方法、框架 API 或项目内门禁名称。
+
 ## v1.5.x 三阶段采集与拍摄指引测试目标
 
 - 覆盖模块一从现场照片进入，完成现场照片、标的车/三者车车牌号和 VIN 后进入模块一预览页。
@@ -31,6 +39,7 @@ npm test -- --runInBand __tests__/quality-guards.test.js
 - 流程矩阵一致性：读取 `docs/test-flow-route-matrix.md` 和 `__tests__/workflow-route-matrix.test.js`，要求已声明自动化覆盖的矩阵 ID 能在 Jest 文件中找到；明确 `需真机`、`抽测`、`暂未覆盖`、`不覆盖` 的行不强制。
 - 无 `mode` 老预览跳转：扫描 `packageD/pages/**/*.js`、`packageD/pages/**/*.wxml`、`packageD/utils/**/*.js`，覆盖字符串字面量、`PREVIEW_PAGE_URL` 和 `previewUrl` 变量跳转；`previewUrl` 仅在最近有效赋值来自 `getPreviewPageUrl(...)` 时放行，只允许 `moduleOne`、`moduleTwo`、`moduleThree`、`final` 四类新三阶段预览模式。
 - 过期文案：扫描当前三阶段主流程页面、`packageD/utils/ai-config.js`、`PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 和 `PRDS/查勘采集助手三阶段采集流程说明.md`，用正则匹配旧自动拍照提示、身份证作为当前采集项、带 `12123` 的证件叫法和过期车损数量变体；AI 专项文档、AI 状态枚举和 AI 调试/日志说明中的自动拍照状态文案属于允许范围。
+- 测试实现规则漂移：扫描 `e2e/**/*.js` 和 `__tests__/**/*.js`，拦截明确旧规则短语，例如车损“5 张满图”、第 6 张拒绝、证件入口立即断言原生 `actionSheet`、模块三缺证件旧 toast；历史文档说明不纳入此门禁，避免误伤复盘记录。
 - 包体素材：扫描 `packageD/assets`，图片阈值为 500KB，并禁止 `.zip`、`.tmp`、`.psd`、`.sketch`、原始大图和 `.tmp-*` 临时文件进入分包素材目录。
 - OpenSpec / Comet 临时产物：扫描 `openspec/changes` 下 active change 和 archive change，禁止 `.tmp-*`、`*.tmp`、zip 临时包、明显临时目录或编辑器备份文件；正常 `.comet.yaml`、`.openspec.yaml`、`.comet/*.jsonl` 和 skill snapshot 元数据不受影响。
 
@@ -48,6 +57,13 @@ npm test -- --runInBand __tests__/module-one-preview.test.js __tests__/camera-ai
 仍需微信开发者工具或真机验证的场景：相机权限、真实拍照文件写入、`wx.chooseMedia` 弹层、真机返回栈、真实相册权限、模型推理效果和连续拍摄性能。
 
 微信开发者工具验证时，建议用 `ticket=mock-2&reportNo=MOCK_REGIST_NO` 跑完整主流程：开始页进入模块一、模块一预览、模块二多车车损、模块三证件信息、最终预览、上传成功和完成页。
+
+### 后续测试补强顺序
+
+1. 继续扩展页面可操作性测试：本轮已补关键真实点击 smoke，下一步补模块一空槽、多车删除补拍和更多证件 `E/F/B` 组合。
+2. 继续扩展 automator smoke：本轮已覆盖 10 张上限入口不可见和 `E+F` 补副页，下一步覆盖多车满图、上传失败恢复和真机返回栈。
+3. 按矩阵继续补 Jest 规则空白，确保新增断言只固化当前产品规则。
+4. 再按需运行定向 e2e 或 `npm run test:e2e:p0`；不默认运行重型全量 e2e。
 
 ## v1.4.9 新增测试目标
 
@@ -322,6 +338,15 @@ npm run test:e2e:capacity
 ```powershell
 npm run test:e2e:chaos
 ```
+
+只跑真实点击 smoke：
+
+```powershell
+$env:E2E_TIMEOUT_MS='180000'
+npx jest --config e2e/jest.config.js --runInBand e2e/specs/real-click-smoke.spec.js --detectOpenHandles
+```
+
+真实点击 smoke 依赖微信开发者工具 automator 端口，必须串行运行；不要与其他 e2e 命令并行，否则会共享 `9420` 端口和小程序缓存，导致连接被关闭或状态互相污染。
 
 只跑本轮 P0 e2e：
 

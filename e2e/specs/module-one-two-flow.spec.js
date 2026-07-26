@@ -160,17 +160,33 @@ async function callCurrentPageMethod(miniProgram, methodName, ...args) {
   await wait(600)
 }
 
-async function selectVehicleDocument(miniProgram, vehicle, docType, tapIndex = 0) {
+async function selectVehicleDocument(miniProgram, vehicle, docType, mode = 'electronic') {
   await installWxMediaMocks(miniProgram, 'success', {
-    actionSheetTapIndex: tapIndex,
+    actionSheetTapIndex: 0,
     uniqueCompressedPath: true
   })
   await callCurrentPageMethod(miniProgram, 'onOpenDrivingLicensePanel', eventDataset({
     vehicle,
     docType
   }))
-  const mediaState = await getWxMediaState(miniProgram)
-  expect(mediaState.showActionSheetCalls).toBeGreaterThanOrEqual(1)
+  const page = await miniProgram.currentPage()
+  let data = await page.data()
+  let mediaState = await getWxMediaState(miniProgram)
+
+  expect(mediaState.showActionSheetCalls).toBe(0)
+  expect(data.showDrivingLicensePanel).toBe(true)
+  expect(data.activeDrivingLicenseVehicleIndex).toBe(vehicle)
+  expect(data.activeDrivingLicenseDocType).toBe(docType)
+  expect(data.activeDrivingLicenseSlots.length).toBeGreaterThan(0)
+
+  if (mode && data.drivingLicenseMode !== mode) {
+    await callCurrentPageMethod(miniProgram, 'onSwitchDrivingLicenseMode', eventDataset({ mode }))
+    data = await page.data()
+    mediaState = await getWxMediaState(miniProgram)
+    expect(mediaState.showActionSheetCalls).toBe(0)
+  }
+
+  expect(data.drivingLicenseMode).toBe(mode)
 }
 
 async function uploadActiveDocumentSlot(miniProgram, side, docType, path) {
@@ -179,12 +195,15 @@ async function uploadActiveDocumentSlot(miniProgram, side, docType, path) {
     mediaPaths: [path],
     uniqueCompressedPath: true
   })
+  const beforeMediaState = await getWxMediaState(miniProgram)
   await callCurrentPageMethod(miniProgram, 'onTapDrivingLicenseSlot', eventDataset({
     side,
     docType,
     uploaded: false,
     uploadable: true
   }))
+  const afterMediaState = await getWxMediaState(miniProgram)
+  expect(afterMediaState.showActionSheetCalls).toBeGreaterThan(beforeMediaState.showActionSheetCalls || 0)
 }
 
 async function getCurrentPageStack(miniProgram) {
@@ -450,14 +469,14 @@ describe('模块一、模块二流程自动化验证', () => {
     expect(data.vehicles).toHaveLength(1)
     expect(data.vehicles[0].vehicleDocumentPreview.displayItems.map((item) => item.label)).toEqual(['驾驶证', '行驶证'])
 
-    await selectVehicleDocument(miniProgram, 0, 'driver_license', 0)
+    await selectVehicleDocument(miniProgram, 0, 'driver_license', 'electronic')
     await uploadActiveDocumentSlot(miniProgram, 'electronic', 'driver_license', 'wxfile://tmp/e2e-driver-electronic.jpg')
     data = await page.data()
     expect(data.vehicles[0].vehicleDocumentPreview.displayItems
       .filter((item) => item.docType === 'driver_license')
       .map((item) => item.label)).toEqual(['驾驶证'])
 
-    await selectVehicleDocument(miniProgram, 0, 'driving_license', 1)
+    await selectVehicleDocument(miniProgram, 0, 'driving_license', 'physical')
     await uploadActiveDocumentSlot(miniProgram, 'front_page', 'driving_license', 'wxfile://tmp/e2e-driving-front.jpg')
     await uploadActiveDocumentSlot(miniProgram, 'back_page', 'driving_license', 'wxfile://tmp/e2e-driving-back.jpg')
     data = await page.data()
@@ -560,8 +579,13 @@ describe('模块一、模块二流程自动化验证', () => {
     await callCurrentPageMethod(miniProgram, 'onEnterFinalFromModuleThree')
     let data = await page.data()
     const mediaState = await getWxMediaState(miniProgram)
+    const legacyMissingDocumentToast = ['仍有车辆证件信息', '未采集完整'].join('')
     expect(data.showModuleOneHandoff).toBe(true)
-    expect(mediaState.toastTitles.some((title) => title.includes('仍有车辆证件信息未采集完整'))).toBe(true)
+    expect(data.moduleOneHandoffTitle).toBe('证件信息已保存')
+    expect(data.moduleOneHandoffProgress.map((item) => item.text)).toContain('待补充：证件信息')
+    expect(data.moduleHandoffConfirmText).toBe('进入最终总预览')
+    expect(data.moduleHandoffTarget).toBe('final')
+    expect(mediaState.toastTitles.some((title) => title.includes(legacyMissingDocumentToast))).toBe(false)
 
     await callCurrentPageMethod(miniProgram, 'onConfirmModuleOneHandoff')
     page = await waitForPreviewMode(miniProgram, 'final')
@@ -580,7 +604,7 @@ describe('模块一、模块二流程自动化验证', () => {
       damageCounts: [1]
     }), 'moduleThree')
 
-    await selectVehicleDocument(miniProgram, 0, 'driver_license', 0)
+    await selectVehicleDocument(miniProgram, 0, 'driver_license', 'electronic')
     await uploadActiveDocumentSlot(miniProgram, 'electronic', 'driver_license', 'wxfile://tmp/e2e-module-three-driver.jpg')
     page = await waitForPreviewMode(miniProgram, 'moduleThree')
     expect((await page.data()).isModuleThreePreview).toBe(true)

@@ -247,7 +247,7 @@ function isAllowedOverdueCopy(hit) {
 
   if (
     hit.ruleId === 'identity-card-current-item'
-    && /(不采集|不展示|不要求|不需要|无需).{0,12}身份证|身份证.{0,12}(不采集|不展示|不作为|不要求|不需要|无需)/.test(hit.context)
+    && /(不采集|不展示|不要求|不需要|无需).{0,12}身份证|身份证.{0,16}(不采集|不展示|不作为|不要求|不需要|无需|不在.{0,8}采集范围)/.test(hit.context)
   ) {
     return true
   }
@@ -259,6 +259,39 @@ function isAllowedOverdueCopy(hit) {
     && (!item.contextIncludes || hit.context.includes(item.contextIncludes))
   ))
 }
+
+const legacyMissingDocumentToastPattern = new RegExp([
+  '仍有车辆证件信息',
+  '未采集完整'
+].join(''))
+
+const testRuleDriftRules = [
+  {
+    id: 'damage-full-five',
+    pattern: /5\s*张满图/,
+    suggestion: '车损容量测试应以 10 张为满图，并验证第 11 张拒绝或不新增。'
+  },
+  {
+    id: 'damage-sixth-rejected-zh',
+    pattern: /第\s*6\s*张拒绝/,
+    suggestion: '车损容量测试应验证第 11 张拒绝或不新增，不再验证旧上限。'
+  },
+  {
+    id: 'damage-sixth-rejected-en',
+    pattern: new RegExp(['rejects the ', 'sixth damage photo'].join(''), 'i'),
+    suggestion: '车损容量测试标题和断言应改为第 11 张拒绝。'
+  },
+  {
+    id: 'document-entry-direct-actionsheet',
+    pattern: /showActionSheetCalls\)\.toBeGreaterThanOrEqual\(1\)/,
+    suggestion: '证件入口点击后应先断言自定义面板打开；只有点击未上传槽位后才断言原生 actionSheet。'
+  },
+  {
+    id: 'module-three-missing-document-toast',
+    pattern: legacyMissingDocumentToastPattern,
+    suggestion: '模块三进最终预览前不再 toast；请断言交接弹层“待补充：证件信息”和最终提交前风险确认。'
+  }
+]
 
 describe('轻量质量检测', () => {
   test('FLOW-MATRIX-GUARD 文档声称已覆盖的流程矩阵用例必须存在于 Jest 文件', () => {
@@ -421,6 +454,44 @@ describe('轻量质量检测', () => {
       throw new Error([
         '发现当前用户可见页面或主文档中的过期文案：',
         ...hits.map((hit) => `- ${hit.file}:${hit.line} 命中 "${hit.phrase}"；建议：${hit.suggestion}`)
+      ].join('\n'))
+    }
+  })
+
+  test('TEST-RULE-DRIFT-GUARD e2e 和 Jest 不得固化已知旧产品规则', () => {
+    const files = [
+      ...walkFiles('e2e', (file) => /\.js$/.test(file)),
+      ...walkFiles('__tests__', (file) => /\.js$/.test(file))
+    ]
+    const hits = []
+
+    files.forEach((filePath) => {
+      const file = normalizePath(filePath)
+      const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
+
+      lines.forEach((line, lineIndex) => {
+        testRuleDriftRules.forEach((rule) => {
+          const match = line.match(rule.pattern)
+
+          if (!match) {
+            return
+          }
+
+          hits.push({
+            file,
+            line: lineIndex + 1,
+            ruleId: rule.id,
+            phrase: match[0],
+            suggestion: rule.suggestion
+          })
+        })
+      })
+    })
+
+    if (hits.length > 0) {
+      throw new Error([
+        '发现测试实现中仍固化已知旧产品规则，请以 docs/product-rule-matrix.md 为准修正：',
+        ...hits.map((hit) => `- ${hit.file}:${hit.line} [${hit.ruleId}] 命中 "${hit.phrase}"；建议：${hit.suggestion}`)
       ].join('\n'))
     }
   })

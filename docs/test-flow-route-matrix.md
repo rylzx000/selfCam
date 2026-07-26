@@ -4,6 +4,14 @@
 
 本矩阵用于系统排查三模块拍摄流程中的同类跳转问题，重点覆盖补拍、重拍、删除后补拍、查看已拍、自然流程、最终预览重拍返回和兜底跳转。矩阵只描述流程路由，不覆盖 UI 样式、上传、图片压缩、AI 自动拍照质量门控或真机相机能力。
 
+## 规则事实源
+
+- 产品规则以 `docs/product-rule-matrix.md` 为准；本文只维护流程路由测试覆盖索引，不替代产品规则矩阵。
+- 如果本文、Jest、automator/e2e 或历史说明与产品规则矩阵冲突，应先标记为规则漂移，再按产品规则矩阵修正测试。
+- 模块二当前规则是每车最多 10 张车损照片；表格中“已有 5 张后拍第 6 张”仅表示普通中间状态，不表示 5 张上限。
+- 证件入口当前规则是点击入口直接打开自定义证件面板，只有点击面板内未上传槽位才弹“拍照/相册”原生 `actionSheet`；字段名和 `actionSheet` 保留英文是为了兼容代码与微信原生能力名称。
+- 模块三进入最终预览前不再展示缺证件 toast；证件缺失由交接弹层中的“待补充：证件信息”和最终提交前风险确认承载。
+
 ## 页面模式定义
 
 - `moduleOne`：模块一预览页，展示现场环境及车辆信息。
@@ -113,19 +121,19 @@
 | ACCESS-M1-002 | 模块一删除车牌号 | `mode=moduleOne` | 删除后点击车牌空槽位 | 进入相机 `licensePlate`，`previewReturnMode=moduleOne` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M1-002` |
 | ACCESS-M2-001 | 模块二删除最后一张车损 | `mode=moduleTwo` | 删除后点击车损空入口 | 进入相机 `damage`，`previewReturnMode=moduleTwo` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M2-001` |
 | ACCESS-M3-001 | 模块三删除驾驶证 | `mode=moduleThree` | 删除后查看证件区 | 驾驶证上传入口重新出现 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-001` |
-| ACCESS-M3-002 | 模块三驾驶证只剩实物副页后补录正页 | `mode=moduleThree`，驾驶证仅剩实物副页 | 点击驾驶证正页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-002` |
-| ACCESS-M3-003 | 模块三驾驶证只剩实物正页后补录副页 | `mode=moduleThree`，驾驶证仅剩实物正页 | 点击驾驶证副页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-003` |
+| ACCESS-M3-002 | 模块三驾驶证只剩实物副页后补录正页 | `mode=moduleThree`，驾驶证仅剩实物副页 | 点击驾驶证正页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 暂未覆盖，下一轮真实点击 smoke | 待补 |
+| ACCESS-M3-003 | 模块三驾驶证只剩实物正页后补录副页 | `mode=moduleThree`，驾驶证仅剩实物正页 | 点击驾驶证副页 `+` | 打开证件弹层并默认实物证件，停留模块三预览上下文，不跳老预览 | 暂未覆盖，下一轮真实点击 smoke | 待补 |
 | ACCESS-M3-004 | 模块三驾驶证电子证件完成态 | `mode=moduleThree`，驾驶证只剩电子证件 | 查看证件区 | 电子驾驶证视为已完成，不展示实物正页/副页 `+` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-004` |
-| ACCESS-M3-005 | 模块三驾驶证电子 + 实物正页后补录副页 | `mode=moduleThree`，驾驶证已有电子证件和实物正页 | 点击驾驶证副页 `+` | 提交态保持已完成，仍打开实物证件面板补副页，停留模块三预览上下文 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-M3-005` |
+| ACCESS-M3-005 | 模块三驾驶证电子 + 实物正页后补录副页 | `mode=moduleThree`，驾驶证已有电子证件和实物正页 | 点击驾驶证副页 `+` | 提交态保持已完成，仍打开实物证件面板补副页，停留模块三预览上下文 | e2e smoke 另行覆盖，非 Jest 矩阵 | `e2e/specs/real-click-smoke.spec.js` / 模块三 E+F 状态真实点击副页 + 可补齐 |
 | ACCESS-FINAL-001 | 最终预览删除唯一 45 度 | `mode=final` | 删除后查看现场环境区 | 现场环境区不消失，45 度空槽位可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-001` |
 | ACCESS-FINAL-002 | 最终预览删除 45 度但仍有补充照片 | `mode=final` | 删除后查看现场环境区 | 45 度空槽位仍可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-002` |
 | ACCESS-FINAL-003 | 最终预览删除现场补充照片 | `mode=final` | 删除后查看现场环境区 | 补充现场照片空入口仍可见 | 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-003` |
 | ACCESS-FINAL-004 | 最终预览删除车牌号 | `mode=final` | 删除后点击车牌空槽位 | 进入相机 `licensePlate`，`previewReturnMode=final` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-004` |
-| ACCESS-FINAL-005 | 最终预览删除最后一张车损 | `mode=final` | 删除后点击车损空入口 | 进入相机 `damage`，`previewReturnMode=final` | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-005` |
+| ACCESS-FINAL-005 | 最终预览删除最后一张车损 | `mode=final` | 删除后点击车损空入口 | 进入相机 `damage`，`previewReturnMode=final` | Jest 与真实点击 smoke 已覆盖 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-005`；`e2e/specs/real-click-smoke.spec.js` / 最终预览车损删空后真实点击补拍入口 |
 | ACCESS-FINAL-006 | 最终预览删除证件 | `mode=final` | 删除后查看证件区 | 对应证件上传入口重新出现 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-006` |
-| ACCESS-FINAL-007 | 最终预览行驶证只剩实物副页后补录正页 | `mode=final`，行驶证仅剩实物副页 | 点击行驶证正页 `+` | 打开证件弹层并默认实物证件，停留最终预览上下文，不跳老预览 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-007` |
+| ACCESS-FINAL-007 | 最终预览行驶证只剩实物副页后补录正页 | `mode=final`，行驶证仅剩实物副页 | 点击行驶证正页 `+` | 打开证件弹层并默认实物证件，停留最终预览上下文，不跳老预览 | 暂未覆盖，下一轮真实点击 smoke | 待补 |
 | ACCESS-FINAL-008 | 最终预览行驶证实物正副页完成态 | `mode=final`，行驶证实物正页 + 副页齐全 | 查看证件区 | 行驶证视为已完成，不展示电子行驶证 `+`，完成状态保持已完成 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-008` |
-| ACCESS-FINAL-009 | 最终预览行驶证电子 + 实物副页后补录正页 | `mode=final`，行驶证已有电子证件和实物副页 | 点击行驶证正页 `+` | 提交态保持已完成，仍打开实物证件面板补正页，停留最终预览上下文 | 已补充 | `__tests__/workflow-route-matrix.test.js` / `ACCESS-FINAL-009` |
+| ACCESS-FINAL-009 | 最终预览行驶证电子 + 实物副页后补录正页 | `mode=final`，行驶证已有电子证件和实物副页 | 点击行驶证正页 `+` | 提交态保持已完成，仍打开实物证件面板补正页，停留最终预览上下文 | 暂未覆盖，下一轮真实点击 smoke | 待补 |
 
 ## 复杂组合跳转矩阵
 
