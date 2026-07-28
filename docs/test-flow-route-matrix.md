@@ -29,8 +29,23 @@
 - 删除后补拍需按入口动作区分：正式模块一空槽回预览，模块二删除后点击 `+` 新增车损继续车损拍摄。
 - 只有首次自然拍摄流程才允许进入下一拍摄步骤。
 - 新三模块流程不应跳转 `/packageD/pages/preview/preview` 无 `mode`。
+- 同 `ticket` 二次进入必须验证“恢复后能否继续或退出”，不能只验证“恢复到了预览页”。
+- `currentStep=preview` 或泛化 `workflowState=PREVIEWING` 只能作为历史输入迁移，不得恢复到无 `mode` 普通预览；上传恢复统一进入 `mode=final`。
 - `capturePreviewSource` 用于标记拍摄页“查看已拍”形成的临时预览来源，`captureReturnStrategy` 用于标记本次进入相机后的返回策略；字段名保留英文是为了兼容代码字段和机器可读状态。
 - 预览页 `onLoad` / `onShow` / `loadData` / safe resume 不得过早清理临时预览来源，否则空槽或 `+` 点击无法区分临时预览、正式预览和最终预览。
+
+## 恢复闭环与可退出性矩阵
+
+| 用例ID | 场景 | 起点 | 操作 | 期望跳转 / 期望状态 | 自动化覆盖状态 | Jest / e2e 文件 |
+|---|---|---|---|---|---|---|
+| RESTORE-EXIT-INDEX-001 | 同 `ticket` 普通 preview 缓存恢复 | 首页 `ticket=mock-2`，本地 `currentStep=preview` + `PREVIEWING` | 点击开始采集 | 不应静默进入无 `mode` 普通预览；无法推导时恢复到 `mode=final` | 本轮补充并修复 | `__tests__/preview-exit-recovery.test.js` |
+| RESTORE-EXIT-INDEX-002 | 后端 blocked ticket + 本地仍有缓存 | 首页 `init` 返回 `COMPLETED / EXPIRED / REVOKED` | 点击开始采集 | 以后端 blocked 为准，不恢复本地缓存、不进入旧预览闭环 | 本轮补充 | `__tests__/preview-exit-recovery.test.js` |
+| RESTORE-EXIT-INDEX-003 | completed 上传会话二次进入 | 首页同 `ticket`，本地 `uploadSession=completed` | 点击开始采集 | 进入完成页，并提供完成退出 | 本轮补充 | `__tests__/preview-exit-recovery.test.js` |
+| PREVIEW-EXIT-MODE-001 | 四种显式预览模式主操作 | `mode=moduleOne/moduleTwo/moduleThree/final` | 加载预览页 | 分别展示进入车损、进入证件、进入最终总预览、提交 | 本轮补充 | `__tests__/preview-exit-recovery.test.js` |
+| PREVIEW-EXIT-NOMODE-001 | 无 `mode` 普通预览迁移 | `/packageD/pages/preview/preview` 无查询参数 + 历史 `currentStep=preview` | 加载预览页 | 迁移为明确 `final` 预览主操作，不允许四个模式标志均为 false | 本轮补充并修复 | `__tests__/preview-exit-recovery.test.js` |
+| PREVIEW-EXIT-LAYER-001 | 大图预览层关闭 | 任一显式模式预览页 | 打开已拍照片后点击关闭 | 回到列表预览，底部主操作不被遮挡 | 本轮补充 | `__tests__/preview-exit-recovery.test.js` |
+| PREVIEW-EXIT-UPLOAD-001 | 上传失败 / ready / complete failed 恢复 | 本地存在对应 `uploadSession` | 加载预览页 | 展示上传遮罩；失败态提供重试，ready 态自动进入完成提交，完成失败提供重试完成 | 本轮补充 | `__tests__/preview-exit-recovery.test.js` |
+| E2E-RESTORE-EXIT-001 | 真实点击二次进入同 `ticket` | `ticket=mock-2&reportNo=MOCK_REGIST_NO`，本地普通预览态缓存 | 不清缓存重新进首页并点击开始采集 | 不应进入无明确出口的普通照片预览页 | 本轮补充，需开发者工具环境 | `e2e/specs/real-click-smoke.spec.js` |
 
 ## 模块一测试矩阵
 

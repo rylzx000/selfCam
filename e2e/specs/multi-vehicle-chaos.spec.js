@@ -44,7 +44,7 @@ async function returnToPreview(miniProgram) {
   let current = await miniProgram.currentPage()
 
   if (!current.path || !current.path.includes('preview')) {
-    current = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    current = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
     await wait(800)
   }
 
@@ -59,7 +59,7 @@ async function openPreviewPage(miniProgram) {
   })
   await seedCache(miniProgram, scenario)
   await installWxMediaMocks(miniProgram, 'success')
-  const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+  const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
   await wait(800)
   return page
 }

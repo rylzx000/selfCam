@@ -14,6 +14,12 @@ const INDEX_PAGE_URL = '/packageD/pages/index/index'
 const CAMERA_PAGE_URL = '/packageD/pages/camera/camera'
 const PREVIEW_PAGE_URL = '/packageD/pages/preview/preview'
 const COMPLETE_PAGE_URL = '/packageD/pages/complete/complete'
+const PREVIEW_MODE_URLS = {
+  moduleOne: `${PREVIEW_PAGE_URL}?mode=moduleOne`,
+  moduleTwo: `${PREVIEW_PAGE_URL}?mode=moduleTwo`,
+  moduleThree: `${PREVIEW_PAGE_URL}?mode=moduleThree`,
+  final: `${PREVIEW_PAGE_URL}?mode=final`
+}
 const RESUMABLE_UPLOAD_PHASES = {
   uploading: true,
   failed: true,
@@ -362,7 +368,7 @@ Page({
     }
 
     if (uploadSession && RESUMABLE_UPLOAD_PHASES[uploadSession.phase]) {
-      return PREVIEW_PAGE_URL
+      return PREVIEW_MODE_URLS.final
     }
 
     const currentState = workflow.inferStateFromCache(cache)
@@ -379,27 +385,27 @@ Page({
     const currentStep = cache.currentStep
 
     if (currentStep === constants.SHOOT_STEP.MODULE_ONE_PREVIEW) {
-      return `${PREVIEW_PAGE_URL}?mode=moduleOne`
+      return PREVIEW_MODE_URLS.moduleOne
     }
 
     if (currentStep === constants.SHOOT_STEP.MODULE_THREE) {
-      return `${PREVIEW_PAGE_URL}?mode=moduleThree`
+      return PREVIEW_MODE_URLS.moduleThree
     }
 
     if (currentStep === constants.SHOOT_STEP.FINAL_PREVIEW) {
-      return `${PREVIEW_PAGE_URL}?mode=final`
+      return PREVIEW_MODE_URLS.final
     }
 
     if (currentStep === constants.SHOOT_STEP.PREVIEW) {
-      return PREVIEW_PAGE_URL
+      return PREVIEW_MODE_URLS.final
     }
 
     if (currentStep === constants.SHOOT_STEP.DAMAGE && currentState === workflow.STATES.PREVIEWING) {
-      return `${PREVIEW_PAGE_URL}?mode=moduleTwo`
+      return PREVIEW_MODE_URLS.moduleTwo
     }
 
     if (currentState === workflow.STATES.PREVIEWING) {
-      return PREVIEW_PAGE_URL
+      return PREVIEW_MODE_URLS.final
     }
 
     return ''

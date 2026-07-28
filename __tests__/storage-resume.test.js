@@ -105,7 +105,7 @@ describe('storage safe resume and fault injection', () => {
 
     expect(resolved.reasons).toContain('stale_retake_context')
     expect(resolved.cache.retakeMode.enabled).toBe(false)
-    expect(resolved.cache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(resolved.cache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(resolved.cache.workflowState.current).toBe('PREVIEWING')
   })
 
@@ -164,7 +164,7 @@ describe('storage safe resume and fault injection', () => {
 
     const cleared = storage.clearTransientContext(cache)
 
-    expect(cleared.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(cleared.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(cleared.workflowState.current).toBe('PREVIEWING')
     expect(cleared.fromPreview).toBe(false)
     expect(cleared.retakeMode.enabled).toBe(false)

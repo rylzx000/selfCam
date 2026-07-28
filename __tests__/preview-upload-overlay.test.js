@@ -249,6 +249,7 @@ describe('preview upload overlay flow', () => {
       total: 15,
       uploaded: 15
     }))
+    expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(page.data.uploadOverlayPrimaryVisible).toBe(false)
     expect(page.data.uploadOverlayPrimaryText).toBe('')
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith({

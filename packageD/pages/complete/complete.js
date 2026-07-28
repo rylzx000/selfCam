@@ -48,7 +48,7 @@ Page({
     }
 
     if (summary.flowContext.workflowState !== workflow.STATES.LOCAL_COMPLETED) {
-      wx.redirectTo({ url: '/packageD/pages/preview/preview' })
+      wx.redirectTo({ url: '/packageD/pages/preview/preview?mode=final' })
       return
     }
 

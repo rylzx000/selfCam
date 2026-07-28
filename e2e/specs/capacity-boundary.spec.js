@@ -39,7 +39,7 @@ describe('P0 容量边界 e2e', () => {
     const scenario = createFullDamageScenario({ vehicleCount: 1, damageCountPerVehicle: 10 })
     await seedCache(miniProgram, scenario)
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
     await wait(800)
 
     const cache = await readCache(miniProgram)
@@ -62,7 +62,7 @@ describe('P0 容量边界 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success', { uniqueCompressedPath: true })
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -84,7 +84,7 @@ describe('P0 容量边界 e2e', () => {
     await seedCache(miniProgram, scenario)
     await installWxMediaMocks(miniProgram, 'success', { uniqueCompressedPath: true })
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
     await wait(800)
 
     await page.callMethod('onDeleteDocument', {

@@ -440,6 +440,50 @@ describe('真实点击 smoke：关键页面入口和回流', () => {
     await expectNoRenderedAddDamageEntry(page)
   })
 
+  test('E2E-RESTORE-EXIT-001 恢复闭环二次进入：同 ticket 普通预览缓存不得回到无出口预览页', async () => {
+    const previewLoopCache = createPreviewCache({
+      currentStep: SHOOT_STEP.PREVIEW,
+      damageCounts: [1]
+    })
+    previewLoopCache.auxPhoto = {
+      enabled: true,
+      ticket: 'mock-2'
+    }
+    previewLoopCache.workflowState = {
+      current: 'PREVIEWING',
+      updatedAt: new Date().toISOString()
+    }
+
+    await runAutomatorCommand('写入普通预览态缓存', () => seedCache(miniProgram, previewLoopCache))
+    const indexPage = await runAutomatorCommand(
+      '重新进入同 ticket 首页',
+      () => miniProgram.reLaunch('/packageD/pages/index/index?ticket=mock-2&reportNo=MOCK_REGIST_NO')
+    )
+    await wait(500)
+
+    await tapRequired(indexPage, '.start-button', '首页开始采集按钮')
+
+    const current = await waitForCondition(async () => {
+      const page = await miniProgram.currentPage()
+      const path = page.path || ''
+      return /packageD\/pages\/(preview|camera|complete)\//.test(path) ? page : null
+    }, 10000, 200)
+    const path = current.path || ''
+    const data = await current.data().catch(() => ({}))
+    const isExplicitPreviewMode = !!(
+      data.isModuleOnePreview
+      || data.isModuleTwoPreview
+      || data.isModuleThreePreview
+      || data.isFinalPreview
+    )
+
+    expect(
+      !path.includes('packageD/pages/preview/preview')
+      || isExplicitPreviewMode
+      || data.showUploadOverlay
+    ).toBe(true)
+  })
+
   test('模块三 E+F 状态真实点击副页 + 可补齐，完成态保持已完成', async () => {
     await installWxMediaMocks(miniProgram, 'success', {
       actionSheetTapIndex: 1,

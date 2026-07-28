@@ -96,6 +96,7 @@ describe('preview final album save flow', () => {
 
       expect(page.data.showUploadOverlay).toBe(true)
       expect(page.data.uploadOverlayTitle).toBe('正在上传照片')
+      expect(cache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
       expect(cache.uploadSession).toEqual(expect.objectContaining({
         phase: 'uploading',
         total: expectedTotal
@@ -236,7 +237,7 @@ describe('preview final album save flow', () => {
     })
 
     const latestCache = storage.loadCache()
-    expect(latestCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(latestCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(latestCache.vehicles[0].damages).toHaveLength(constants.LIMITS.MAX_DAMAGES)
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(global.wx.showToast).toHaveBeenCalledWith(expect.objectContaining({

@@ -398,7 +398,7 @@ async function runAllTests() {
     // 模拟跳转到预览页
     try {
       console.log('\nTC-017: 跳转到预览页')
-      page = await miniProgram.redirectTo('/packageD/pages/preview/preview')
+      page = await miniProgram.redirectTo('/packageD/pages/preview/preview?mode=final')
       await page.waitFor(1500)
       await takeScreenshot(page, 'TC-017-preview-page')
       

@@ -140,7 +140,7 @@ async function testRapidNavigation() {
   // TC-002: 极速跳转（无等待）
   try {
     console.log('\nTC-STRESS-002: 极速跳转（无等待）')
-    const pages = ['/packageD/pages/index/index', '/packageD/pages/camera/camera', '/packageD/pages/preview/preview', '/packageD/pages/complete/complete']
+    const pages = ['/packageD/pages/index/index', '/packageD/pages/camera/camera', '/packageD/pages/preview/preview?mode=final', '/packageD/pages/complete/complete']
     
     for (let i = 0; i < 20; i++) {
       await miniProgram.reLaunch(pages[i % pages.length])
@@ -191,7 +191,7 @@ async function testAbnormalStates() {
     
     const pages = [
       '/packageD/pages/camera/camera',
-      '/packageD/pages/preview/preview',
+      '/packageD/pages/preview/preview?mode=final',
       '/packageD/pages/complete/complete',
       '/packageD/pages/document/document'
     ]
@@ -238,7 +238,7 @@ async function testAbnormalStates() {
     await miniProgram.callWxMethod('setStorageSync', STORAGE_KEY, JSON.stringify(largeData))
     await sleep(200)
     
-    await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=final')
     await sleep(500)
     
     recordResult('TC-STRESS-006: 超大数据正常处理', true)
@@ -437,7 +437,7 @@ async function testErrorRecovery() {
       await miniProgram.callWxMethod('clearStorageSync')
       await miniProgram.reLaunch('/packageD/pages/index/index')
       await sleep(300)
-      await miniProgram.reLaunch('/packageD/pages/preview/preview')
+      await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleOne')
       await sleep(300)
       console.log(`    第 ${round} 轮完成`)
     }

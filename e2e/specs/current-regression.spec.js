@@ -108,7 +108,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
     await installWxMediaMocks(miniProgram, mode)
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleThree')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -134,7 +134,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
     await installWxMediaMocks(miniProgram, 'success')
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleThree')
     await wait(800)
 
     await page.callMethod('onAddDocument')
@@ -227,7 +227,7 @@ describe('微信开发者工具自动化回归 - 当前关键链路', () => {
   test('破坏性：连续打开/关闭添加图片弹层 20 次，最终必须关闭', async () => {
     await seedCache(miniProgram, createCompletedVehicleCache())
 
-    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+    const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleThree')
     await wait(800)
 
     for (let i = 0; i < 20; i += 1) {

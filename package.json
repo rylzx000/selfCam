@@ -4,6 +4,7 @@
   "description": "车辆定损拍摄小程序",
   "scripts": {
     "test": "jest",
+    "build": "jest --runInBand",
     "test:e2e": "jest --config e2e/jest.config.js --runInBand",
     "test:e2e:capacity": "jest --config e2e/jest.config.js --runInBand --testPathPattern=capacity-boundary",
     "test:e2e:chaos": "jest --config e2e/jest.config.js --runInBand --testPathPattern=\"delete-retake-replenish|multi-vehicle-chaos|recovery-chaos\"",

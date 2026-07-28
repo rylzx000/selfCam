@@ -370,7 +370,7 @@ describe('index start permission flow', () => {
     }))
   })
 
-  test('resumes same ticket upload cache to preview page', async () => {
+  test('resumes same ticket upload cache to final preview page', async () => {
     storage.loadCacheForResume.mockReturnValue({
       auxPhoto: {
         enabled: true,
@@ -403,7 +403,7 @@ describe('index start permission flow', () => {
     expect(auxPhotoApi.init).toHaveBeenCalledWith('mock-2')
     expect(storage.saveCache).not.toHaveBeenCalled()
     expect(global.wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/packageD/pages/preview/preview'
+      url: '/packageD/pages/preview/preview?mode=final'
     }))
   })
 

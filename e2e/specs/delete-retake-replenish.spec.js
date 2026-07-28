@@ -36,7 +36,7 @@ function buildPhoto(pathKey) {
 async function openPreviewPage(miniProgram, scenario) {
   await seedCache(miniProgram, scenario)
   await installWxMediaMocks(miniProgram, 'success')
-  const page = await miniProgram.reLaunch('/packageD/pages/preview/preview')
+  const page = await miniProgram.reLaunch('/packageD/pages/preview/preview?mode=moduleTwo')
   await wait(800)
   return page
 }

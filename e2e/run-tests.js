@@ -245,7 +245,7 @@ async function runTests() {
     
     try {
       console.log('\nTC-017: 跳转到预览页')
-      page = await miniProgram.redirectTo('/packageD/pages/preview/preview')
+      page = await miniProgram.redirectTo('/packageD/pages/preview/preview?mode=final')
       await sleep(1500)
       if (page.path.includes('preview')) { recordResult('TC-017: 跳转到预览页成功', true) }
       else { throw new Error(`当前页面: ${page.path}`) }

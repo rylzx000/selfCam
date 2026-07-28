@@ -383,10 +383,20 @@ function isShootStep(step) {
 function isPreviewCheckpointStep(step) {
   return [
     constants.SHOOT_STEP.MODULE_ONE_PREVIEW,
+    constants.SHOOT_STEP.DAMAGE,
     constants.SHOOT_STEP.MODULE_THREE,
-    constants.SHOOT_STEP.FINAL_PREVIEW,
-    constants.SHOOT_STEP.PREVIEW
+    constants.SHOOT_STEP.FINAL_PREVIEW
   ].indexOf(step) >= 0
+}
+
+function inferPreviewCheckpointStep(cache) {
+  const currentStep = cache && cache.currentStep
+
+  if (isPreviewCheckpointStep(currentStep)) {
+    return currentStep
+  }
+
+  return constants.SHOOT_STEP.FINAL_PREVIEW
 }
 
 function hasVehicles(cache) {
@@ -468,10 +478,11 @@ function moveToIdleState(cache) {
 }
 
 function moveToPreviewState(cache, workflowState = 'PREVIEWING') {
+  const previewStep = inferPreviewCheckpointStep(cache)
   clearRetakeContextInPlace(cache)
   clearPreviewFlagsInPlace(cache)
   alignMidContext(cache)
-  cache.currentStep = constants.SHOOT_STEP.PREVIEW
+  cache.currentStep = previewStep
   setWorkflowState(cache, workflowState)
   return cache
 }
@@ -887,7 +898,7 @@ function moveToCompletedState(cache) {
   clearRetakeContextInPlace(cache)
   clearPreviewFlagsInPlace(cache)
   alignMidContext(cache)
-  cache.currentStep = constants.SHOOT_STEP.PREVIEW
+  cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
   setWorkflowState(cache, 'LOCAL_COMPLETED', cache.workflowState && cache.workflowState.updatedAt)
   return cache
 }
@@ -947,7 +958,7 @@ function resolveSafeResumeCache(cache) {
     clearRetakeContextInPlace(nextCache)
     clearPreviewFlagsInPlace(nextCache)
     alignMidContext(nextCache)
-    nextCache.currentStep = constants.SHOOT_STEP.PREVIEW
+    nextCache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
   } else if (hasCapturePreviewSource(nextCache) && isShootStep(nextCache.currentStep) && hasVehicles(nextCache)) {
     moveToCapturingState(nextCache, { preserveCapturePreviewSource: true })
     reasons.push('capture_preview_source_preserved')
@@ -957,7 +968,7 @@ function resolveSafeResumeCache(cache) {
     alignMidContext(nextCache)
     nextCache.currentStep = isPreviewCheckpointStep(nextCache.currentStep)
       ? nextCache.currentStep
-      : constants.SHOOT_STEP.PREVIEW
+      : constants.SHOOT_STEP.FINAL_PREVIEW
     setWorkflowState(nextCache, 'PREVIEWING', nextCache.workflowState && nextCache.workflowState.updatedAt)
   } else if (workflowState === 'DOCUMENTING' && hasDocuments(nextCache) && freshContext) {
     clearRetakeContextInPlace(nextCache)

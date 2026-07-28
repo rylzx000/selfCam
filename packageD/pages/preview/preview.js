@@ -46,8 +46,56 @@ const TICKET_BLOCKED_MESSAGES = {
   REVOKED: '辅助拍照链接已作废，请联系查勘员重新发送链接。'
 }
 
+const PREVIEW_MODES = ['moduleOne', 'moduleTwo', 'moduleThree', 'final']
+const PREVIEW_MODE_TITLES = {
+  moduleOne: '现场环境及车辆信息',
+  moduleTwo: '车损照片预览',
+  moduleThree: '证件信息',
+  final: '最终总预览'
+}
+const PREVIEW_MODE_SUBTITLES = {
+  moduleOne: '请确认现场环境照片和车辆识别信息',
+  moduleTwo: '请确认各车辆车损照片',
+  moduleThree: '按车辆补充驾驶证和行驶证，可缺失继续',
+  final: '提交前统一确认全部采集内容'
+}
 const PREVIEW_BASE_RPX_WIDTH = 750
 const PREVIEW_BASE_RPX_HEIGHT = 390
+
+function normalizePreviewMode(mode) {
+  return PREVIEW_MODES.indexOf(mode) >= 0 ? mode : ''
+}
+
+function isCachePreviewing(cache = {}) {
+  const state = cache.workflowState
+  const current = typeof state === 'string' ? state : state && state.current
+  return current === workflow.STATES.PREVIEWING || current === 'PREVIEWING'
+}
+
+function inferPreviewModeFromCache(cache = {}) {
+  const step = cache && cache.currentStep
+
+  if (step === constants.SHOOT_STEP.MODULE_ONE_PREVIEW) {
+    return 'moduleOne'
+  }
+
+  if (step === constants.SHOOT_STEP.DAMAGE && isCachePreviewing(cache)) {
+    return 'moduleTwo'
+  }
+
+  if (step === constants.SHOOT_STEP.MODULE_THREE) {
+    return 'moduleThree'
+  }
+
+  if (step === constants.SHOOT_STEP.FINAL_PREVIEW
+    || step === constants.SHOOT_STEP.PREVIEW
+    || (cache && cache.uploadSession)) {
+    return 'final'
+  }
+
+  return 'final'
+}
+
 function normalizeTicketStatusFromCache(cache) {
   const rawStatus = cache && cache.auxPhoto && cache.auxPhoto.ticketStatus
   if (typeof rawStatus === 'undefined' || rawStatus === null) {
@@ -606,37 +654,15 @@ Page({
 
   applyPreviewMode(options = {}) {
     const cache = storage.loadCache()
-    const isModuleOnePreview = options.mode === 'moduleOne'
-      || !!(cache && cache.currentStep === constants.SHOOT_STEP.MODULE_ONE_PREVIEW)
-    const isModuleTwoPreview = options.mode === 'moduleTwo'
-    const isModuleThreePreview = options.mode === 'moduleThree'
-      || !!(cache && cache.currentStep === constants.SHOOT_STEP.MODULE_THREE)
-    const isFinalPreview = options.mode === 'final'
-      || !!(cache && cache.currentStep === constants.SHOOT_STEP.FINAL_PREVIEW)
+    const effectiveMode = normalizePreviewMode(options.mode) || inferPreviewModeFromCache(cache)
 
     this.setData({
-      isModuleOnePreview,
-      isModuleTwoPreview,
-      isModuleThreePreview,
-      isFinalPreview,
-      pageTitle: isModuleOnePreview
-        ? '现场环境及车辆信息'
-        : isModuleTwoPreview
-          ? '车损照片预览'
-          : isModuleThreePreview
-            ? '证件信息'
-            : isFinalPreview
-              ? '最终总预览'
-              : '照片预览',
-      pageSubtitle: isModuleOnePreview
-        ? '请确认现场环境照片和车辆识别信息'
-        : isModuleTwoPreview
-          ? '请确认各车辆车损照片'
-          : isModuleThreePreview
-            ? '按车辆补充驾驶证和行驶证，可缺失继续'
-            : isFinalPreview
-              ? '提交前统一确认全部采集内容'
-              : '请确认照片清晰，并按车辆补充证件信息'
+      isModuleOnePreview: effectiveMode === 'moduleOne',
+      isModuleTwoPreview: effectiveMode === 'moduleTwo',
+      isModuleThreePreview: effectiveMode === 'moduleThree',
+      isFinalPreview: effectiveMode === 'final',
+      pageTitle: PREVIEW_MODE_TITLES[effectiveMode] || '最终总预览',
+      pageSubtitle: PREVIEW_MODE_SUBTITLES[effectiveMode] || '提交前统一确认全部采集内容'
     })
   },
 
@@ -2124,7 +2150,7 @@ Page({
     this.clearUploadMockTimer()
     const uploadSession = uploadState.createUploadSession(cache)
     cache.uploadSession = uploadSession
-    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
     storage.saveCache(cache)
 
     workflowPage.syncPageWorkflowState(this, workflow.STATES.UPLOADING, {
@@ -2173,7 +2199,7 @@ Page({
 
   saveUploadSession(cache, session, pageAction) {
     cache.uploadSession = session
-    cache.currentStep = constants.SHOOT_STEP.PREVIEW
+    cache.currentStep = constants.SHOOT_STEP.FINAL_PREVIEW
     storage.saveCache(cache)
     this.syncUploadWorkflowState(session, pageAction)
     this.setData(this.buildUploadOverlayData(session))

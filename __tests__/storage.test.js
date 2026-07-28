@@ -388,7 +388,7 @@ describe('storage cache governance', () => {
 
     expect(safeCache.retakeMode.enabled).toBe(false)
     expect(safeCache.fromPreview).toBe(false)
-    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.DAMAGE)
     expect(safeCache.workflowState.current).toBe('PREVIEWING')
   })
 
@@ -429,7 +429,7 @@ describe('storage cache governance', () => {
 
     const safeCache = storage.loadCacheForResume()
 
-    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(safeCache.workflowState.current).toBe('PREVIEWING')
     expect(safeCache.fromPreview).toBe(false)
   })
@@ -476,7 +476,7 @@ describe('storage cache governance', () => {
 
     const safeCache = storage.loadCacheForResume()
 
-    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(safeCache.currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(safeCache.workflowState.current).toBe('LOCAL_COMPLETED')
     expect(safeCache.uploadSession.phase).toBe('completed')
     expect(safeCache.uploadSession.complete.status).toBe('success')

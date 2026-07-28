@@ -556,7 +556,7 @@ function getPreviewPageUrl(cache = {}, flowContext = null) {
   const step = flowContext?.currentStep || cache.currentStep
   return step === constants.SHOOT_STEP.DAMAGE
     ? '/packageD/pages/preview/preview?mode=moduleTwo'
-    : '/packageD/pages/preview/preview'
+    : '/packageD/pages/preview/preview?mode=moduleOne'
 }
 
 function isPreviewWorkflowState(flowContext = {}) {
@@ -588,7 +588,7 @@ function getResumeRedirectUrl(cache = {}, flowContext = null) {
   }
 
   if (step === constants.SHOOT_STEP.PREVIEW) {
-    return '/packageD/pages/preview/preview?mode=moduleOne'
+    return '/packageD/pages/preview/preview?mode=final'
   }
 
   if (step === constants.SHOOT_STEP.DAMAGE && isPreviewWorkflowState(flowContext)) {

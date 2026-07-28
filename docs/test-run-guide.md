@@ -6,6 +6,7 @@
 - 历史版本章节中的“本轮执行”结果仅记录当时运行情况，不代表当前分支已经通过同一验证。
 - 本轮已按产品规则矩阵修正已知 e2e 旧规则：车损 10 张上限与第 11 张拒绝、证件入口先开自定义面板、模块三缺证件不再 toast；同时补充测试实现漂移门禁。
 - 本轮新增真实点击 smoke，覆盖模块三证件入口、模块二车损补拍、最终预览删空后补拍、10 张车损上限入口不可见、`E+F` 补副页关键路径；更广的多车与真机触摸区域仍待后续抽测。
+- 恢复闭环修复后，无 `mode` 普通预览只作为历史输入迁移；首页同 `ticket` 的旧 `currentStep=preview` 与上传中断恢复都应进入 `mode=final`，e2e/Jest 正向路径不得再固化裸 `/packageD/pages/preview/preview`。
 - `actionSheet`、`callCurrentPageMethod`、`setData`、quality guard 等保留英文，是因为它们是微信原生能力、测试工具方法、框架 API 或项目内门禁名称。
 
 ## v1.5.x 三阶段采集与拍摄指引测试目标
@@ -28,6 +29,8 @@ node --check packageD/pages/camera/camera.js
 npm test -- --runInBand __tests__/camera-ai-start.test.js
 ```
 
+Comet / OpenSpec 归档门禁会调用 `npm run build`。当前项目没有独立的小程序编译打包步骤，因此 `build` 脚本等价于串行运行全量 Jest；微信开发者工具预览、automator 和真机验证仍按下方 e2e / 手工章节执行。这里保留 `Comet`、`OpenSpec`、`build`、`Jest`、`automator` 等英文，是因为它们是工具名、命令名或生态约定。
+
 新增静态质量门禁可单独运行：
 
 ```powershell
@@ -37,7 +40,7 @@ npm test -- --runInBand __tests__/quality-guards.test.js
 该门禁覆盖以下只读检测：
 
 - 流程矩阵一致性：读取 `docs/test-flow-route-matrix.md` 和 `__tests__/workflow-route-matrix.test.js`，要求已声明自动化覆盖的矩阵 ID 能在 Jest 文件中找到；明确 `需真机`、`抽测`、`暂未覆盖`、`不覆盖` 的行不强制。
-- 无 `mode` 老预览跳转：扫描 `packageD/pages/**/*.js`、`packageD/pages/**/*.wxml`、`packageD/utils/**/*.js`，覆盖字符串字面量、`PREVIEW_PAGE_URL` 和 `previewUrl` 变量跳转；`previewUrl` 仅在最近有效赋值来自 `getPreviewPageUrl(...)` 时放行，只允许 `moduleOne`、`moduleTwo`、`moduleThree`、`final` 四类新三阶段预览模式。
+- 无 `mode` 老预览跳转：扫描 `packageD/**/*.js`、`packageD/**/*.wxml`、`__tests__/**/*.js` 和 `e2e/**/*.js`，覆盖字符串字面量、`PREVIEW_PAGE_URL` 和 `previewUrl` 变量跳转；`previewUrl` 仅在最近有效赋值来自 `getPreviewPageUrl(...)` 时放行，只允许 `moduleOne`、`moduleTwo`、`moduleThree`、`final` 四类新三阶段预览模式。测试中的负向断言和 `require` 路径允许存在；正向固化旧裸预览跳转必须修正或补白名单说明。
 - 过期文案：扫描当前三阶段主流程页面、`packageD/utils/ai-config.js`、`PRDS/PRD.md`、`PRDS/UI.md`、`PRDS/tech.md` 和 `PRDS/查勘采集助手三阶段采集流程说明.md`，用正则匹配旧自动拍照提示、身份证作为当前采集项、带 `12123` 的证件叫法和过期车损数量变体；AI 专项文档、AI 状态枚举和 AI 调试/日志说明中的自动拍照状态文案属于允许范围。
 - 测试实现规则漂移：扫描 `e2e/**/*.js` 和 `__tests__/**/*.js`，拦截明确旧规则短语，例如车损“5 张满图”、第 6 张拒绝、证件入口立即断言原生 `actionSheet`、模块三缺证件旧 toast；历史文档说明不纳入此门禁，避免误伤复盘记录。
 - 包体素材：扫描 `packageD/assets`，图片阈值为 500KB，并禁止 `.zip`、`.tmp`、`.psd`、`.sketch`、原始大图和 `.tmp-*` 临时文件进入分包素材目录。
@@ -49,10 +52,21 @@ npm test -- --runInBand __tests__/quality-guards.test.js
 node --check __tests__/camera-ai-start.test.js
 node --check __tests__/workflow-route-matrix.test.js
 node --check __tests__/preview-upload-overlay.test.js
+node --check __tests__/preview-exit-recovery.test.js
 npm test -- --runInBand __tests__/module-one-preview.test.js __tests__/camera-ai-start.test.js __tests__/workflow-route-matrix.test.js __tests__/preview-upload-overlay.test.js __tests__/upload-state.test.js
+npm test -- --runInBand __tests__/preview-exit-recovery.test.js
 ```
 
-这些用例重点覆盖模块一现场补充一次性弹层、模块二少于 3 张车损软确认防重复推进、最终预览全局乱序删除补拍、上传中断恢复和完成失败重试。
+这些用例重点覆盖模块一现场补充一次性弹层、模块二少于 3 张车损软确认防重复推进、最终预览全局乱序删除补拍、上传中断恢复统一进入 `mode=final`、完成失败重试，以及同 `ticket` 恢复闭环可退出性。
+
+恢复闭环 e2e smoke 可单独运行：
+
+```powershell
+$env:E2E_TIMEOUT_MS='180000'
+npx jest --config e2e/jest.config.js --runInBand e2e/specs/real-click-smoke.spec.js --detectOpenHandles
+```
+
+该 smoke 依赖微信开发者工具 automator 端口；若开发者工具未安装、端口未开启或连接卡住，应停止并记录无法运行原因，不要扩大到全量 e2e。
 
 仍需微信开发者工具或真机验证的场景：相机权限、真实拍照文件写入、`wx.chooseMedia` 弹层、真机返回栈、真实相册权限、模型推理效果和连续拍摄性能。
 

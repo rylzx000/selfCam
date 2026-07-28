@@ -1583,7 +1583,9 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
 
     const cache = storage.loadCache()
     expect(mode === 'final' ? page.data.isFinalPreview : page.data.isModuleThreePreview).toBe(true)
-    expect(cache.currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(cache.currentStep).toBe(mode === 'final'
+      ? constants.SHOOT_STEP.FINAL_PREVIEW
+      : constants.SHOOT_STEP.MODULE_THREE)
     expect(compress.compressImage).toHaveBeenCalledWith('/tmp/document.jpg', expect.any(Object))
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith(expect.objectContaining({
@@ -2550,7 +2552,7 @@ describe('流程路由矩阵 - 预览页入口与证件页', () => {
     await page.chooseDrivingLicenseImage('front_page', 'camera', 'driver_license')
 
     expect(page.data.isFinalPreview).toBe(true)
-    expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.PREVIEW)
+    expect(storage.loadCache().currentStep).toBe(constants.SHOOT_STEP.FINAL_PREVIEW)
     expect(global.wx.navigateTo).not.toHaveBeenCalled()
     expect(global.wx.redirectTo).not.toHaveBeenCalledWith(expect.objectContaining({
       url: PREVIEW_BASE_URL

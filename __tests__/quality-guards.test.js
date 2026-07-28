@@ -80,8 +80,28 @@ function getNearestMarkdownHeading(lines, lineIndex) {
 }
 
 function isAllowedPreviewModeUrl(value) {
+  if (/[?&]mode=\$\{[^}]+\}/.test(value)) {
+    return true
+  }
+
   const modeMatch = value.match(/[?&]mode=([^&'"`\s]+)/)
   return modeMatch && allowedPreviewModes.has(modeMatch[1])
+}
+
+function isTestOrE2EFile(file) {
+  return file.startsWith('__tests__/') || file.startsWith('e2e/')
+}
+
+function isRequireOrImportReference(snippet) {
+  return /\brequire\s*\(/.test(snippet) || /\bfrom\s+['"`]/.test(snippet)
+}
+
+function isNegativePreviewRouteAssertion(hit) {
+  return isTestOrE2EFile(hit.file) && (
+    /\.not\./.test(hit.context)
+    || /expectNoLegacyPreviewWithoutMode/.test(hit.context)
+    || /不得进入无 mode/.test(hit.context)
+  )
 }
 
 const previewWithoutModeAllowlist = [
@@ -89,29 +109,19 @@ const previewWithoutModeAllowlist = [
     file: 'packageD/pages/index/index.js',
     value: previewBaseUrl,
     contextIncludes: 'const PREVIEW_PAGE_URL',
-    reason: '首页恢复旧缓存或上传中断时复用基础预览地址，不是三阶段模块跳转入口。'
-  },
-  {
-    file: 'packageD/pages/camera/camera.js',
-    value: previewBaseUrl,
-    contextIncludes: 'return step === constants.SHOOT_STEP.DAMAGE',
-    reason: '相机页 `getPreviewPageUrl` 的旧流程兜底；显式三阶段模式已在上方分支返回带 mode 的地址。'
-  },
-  {
-    file: 'packageD/pages/camera/camera.js',
-    value: previewBaseUrl,
-    contextIncludes: 'safe_resume_redirect_preview',
-    reason: '相机页安全恢复旧 `PREVIEW` 状态的兼容兜底，不用于新三模块查看已拍或补拍返回。'
-  },
-  {
-    file: 'packageD/pages/complete/complete.js',
-    value: previewBaseUrl,
-    contextIncludes: 'workflowState !== workflow.STATES.LOCAL_COMPLETED',
-    reason: '完成页遇到非完成态缓存时回退到旧预览，属于完成页兼容恢复逻辑。'
+    reason: '基础地址常量仅用于拼接带 mode 的预览 URL，不得直接作为跳转目标。'
   }
 ]
 
 function isAllowedPreviewWithoutMode(hit) {
+  if (isTestOrE2EFile(hit.file) && /\b(?:PREVIEW_BASE_URL|previewBaseUrl)\s*=/.test(hit.snippet)) {
+    return true
+  }
+
+  if (isRequireOrImportReference(hit.snippet) || isNegativePreviewRouteAssertion(hit)) {
+    return true
+  }
+
   return previewWithoutModeAllowlist.some((item) => (
     item.file === hit.file
     && item.value === hit.value
@@ -119,20 +129,7 @@ function isAllowedPreviewWithoutMode(hit) {
   ))
 }
 
-const previewVariableUseAllowlist = [
-  {
-    file: 'packageD/pages/index/index.js',
-    pattern: /\breturn\s+PREVIEW_PAGE_URL\b/,
-    contextIncludes: 'RESUMABLE_UPLOAD_PHASES[uploadSession.phase]',
-    reason: '首页上传中断恢复入口沿用基础预览地址，不是新三模块流程入口。'
-  },
-  {
-    file: 'packageD/pages/index/index.js',
-    pattern: /\breturn\s+PREVIEW_PAGE_URL\b/,
-    contextIncludes: 'currentState === workflow.STATES.PREVIEWING',
-    reason: '首页恢复旧 PREVIEWING 缓存时沿用基础预览地址，不是新三模块流程入口。'
-  }
-]
+const previewVariableUseAllowlist = []
 
 function findNearestPreviewUrlAssignment(lines, lineIndex) {
   const start = Math.max(0, lineIndex - 80)
@@ -161,6 +158,10 @@ function findNearestPreviewUrlAssignment(lines, lineIndex) {
 }
 
 function isAllowedPreviewVariableUse(hit, lines, lineIndex) {
+  if (isNegativePreviewRouteAssertion(hit)) {
+    return true
+  }
+
   if (hit.codePattern === 'url: previewUrl') {
     const assignment = findNearestPreviewUrlAssignment(lines, lineIndex)
     hit.assignment = assignment
@@ -296,10 +297,15 @@ const testRuleDriftRules = [
 describe('轻量质量检测', () => {
   test('FLOW-MATRIX-GUARD 文档声称已覆盖的流程矩阵用例必须存在于 Jest 文件', () => {
     const matrixDoc = readText('docs/test-flow-route-matrix.md')
-    const workflowTest = readText('__tests__/workflow-route-matrix.test.js')
+    const implementationText = [
+      ...walkFiles('__tests__', (file) => /\.js$/.test(file)),
+      ...walkFiles('e2e', (file) => /\.js$/.test(file))
+    ]
+      .map((file) => fs.readFileSync(file, 'utf8'))
+      .join('\n')
     const coveredStatusPattern = /(已覆盖|已补充|本轮补充)/
-    const manualOnlyStatusPattern = /(需真机|抽测|暂未覆盖|不覆盖)/
-    const caseIdPattern = /\b[A-Z]+(?:-[A-Z0-9]+)*-\d{3}\b/g
+    const manualOnlyStatusPattern = /(需真机|需开发者工具|抽测|暂未覆盖|不覆盖)/
+    const caseIdPattern = /\b[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{3}\b/g
 
     const requiredIds = matrixDoc
       .split(/\r?\n/)
@@ -308,16 +314,17 @@ describe('轻量质量检测', () => {
       .flatMap((line) => line.match(caseIdPattern) || [])
       .filter((id, index, all) => all.indexOf(id) === index)
 
-    const missingIds = requiredIds.filter((id) => !workflowTest.includes(id))
+    const missingIds = requiredIds.filter((id) => !implementationText.includes(id))
 
     expect(missingIds).toEqual([])
   })
 
   test('PREVIEW-MODE-GUARD 新三模块流程不得新增无 mode 的老预览跳转', () => {
     const files = [
-      ...walkFiles('packageD/pages', (file) => /\.(js|wxml)$/.test(file)),
-      ...walkFiles('packageD/utils', (file) => /\.js$/.test(file))
-    ]
+      ...walkFiles('packageD', (file) => /\.(js|wxml)$/.test(file)),
+      ...walkFiles('__tests__', (file) => /\.js$/.test(file)),
+      ...walkFiles('e2e', (file) => /\.js$/.test(file))
+    ].filter((file) => normalizePath(file) !== '__tests__/quality-guards.test.js')
     const literalPattern = /(['"`])([^'"`]*\/packageD\/pages\/preview\/preview[^'"`]*)\1/g
     const variablePatterns = [
       {
